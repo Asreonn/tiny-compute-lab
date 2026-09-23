@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="-8 -8 144 144" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5d98298b9">
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d98298b9">
+              <rect rx="0" ry="0" x="0" y="0" width="128" height="128" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5d98298ba">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d98298ba">
+                  <rect rx="8" ry="8" x="1" y="1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="126" height="126">
+                  </rect>
+                </g>
+                <g id="strokes-599dedc4-9695-8061-8008-aef5d9877bd4-599dedc4-9695-8061-8008-aef5d98298ba" class="strokes">
+                  <g class="inner-stroke-shape" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
+                    <defs>
+                      <clipPath id="inner-stroke-render-188268-599dedc4-9695-8061-8008-aef5d98298ba-0">
+                        <use href="#stroke-shape-render-188268-599dedc4-9695-8061-8008-aef5d98298ba-0">
+                        </use>
+                      </clipPath>
+                      <rect rx="8" ry="8" x="1" y="1" width="126" height="126" style="fill:none;fill-opacity:none;stroke-width:3;stroke:#6a8c83;stroke-opacity:0.7" id="stroke-shape-render-188268-599dedc4-9695-8061-8008-aef5d98298ba-0">
+                      </rect>
+                    </defs>
+                    <use href="#stroke-shape-render-188268-599dedc4-9695-8061-8008-aef5d98298ba-0" clip-path="url('#inner-stroke-render-188268-599dedc4-9695-8061-8008-aef5d98298ba-0')">
+                    </use>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>

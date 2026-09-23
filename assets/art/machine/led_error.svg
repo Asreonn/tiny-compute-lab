@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-4 -4 20 20" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5de7f97e0">
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de7f97e0">
+              <rect rx="0" ry="0" x="0" y="0" width="12" height="12" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5de7f97e1" style="opacity:0.45">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de7f97e1">
+                  <ellipse cx="6" cy="6" rx="9" ry="9" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#ff4d5e;fill-opacity:1">
+                  </ellipse>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5de7f97e2">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de7f97e2">
+                  <ellipse cx="6" cy="6" rx="3" ry="3" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#ff4d5e;fill-opacity:1">
+                  </ellipse>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5de7f97e3">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de7f97e3">
+                  <ellipse cx="5" cy="5" rx="1" ry="1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#ffffff;fill-opacity:0.6">
+                  </ellipse>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>

@@ -1,0 +1,1162 @@
+{
+ "board/decal_fiducial.svg": {
+  "h": 32,
+  "pad": 2,
+  "w": 32
+ },
+ "board/decal_mounthole.svg": {
+  "h": 40,
+  "pad": 2,
+  "w": 40
+ },
+ "board/decal_silkmark.svg": {
+  "h": 48,
+  "pad": 2,
+  "w": 160
+ },
+ "board/decal_tracebundle.svg": {
+  "h": 96,
+  "pad": 2,
+  "w": 256
+ },
+ "board/decal_vias.svg": {
+  "h": 64,
+  "pad": 2,
+  "w": 64
+ },
+ "board/decal_zone.svg": {
+  "h": 192,
+  "pad": 2,
+  "w": 256
+ },
+ "icon/icon_bottleneck.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_check.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_chevron_down.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_chevron_left.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_chevron_right.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_components.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_cross.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_disconnect.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_duplicate.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_info.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_inspect.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_latency.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_lock.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_menu.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_minus.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_mission.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_packet.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_pause.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_play.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_plus.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_power.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_rate_in.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_rate_out.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_reset.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_star.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_star_empty.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_step.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_throughput.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/icon_warning.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/io_input.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/io_output.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_add.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_buffer.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_compare.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_counter.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_delay.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_gate.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_merge.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_multiply.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_processor.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/op_split.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/tool_delete.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/tool_rotate.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/tool_select.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "icon/tool_wire.svg": {
+  "h": 24,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/area_bank_0.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bank_1.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bank_2.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bank_3.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bank_4.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bank_blocked.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bin_error.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bin_idle.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_bin_ok.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_coil_active.svg": {
+  "h": 26,
+  "pad": 12,
+  "w": 40
+ },
+ "machine/area_coil_idle.svg": {
+  "h": 26,
+  "pad": 12,
+  "w": 40
+ },
+ "machine/area_comparator_false.svg": {
+  "h": 16,
+  "pad": 12,
+  "w": 16
+ },
+ "machine/area_comparator_idle.svg": {
+  "h": 16,
+  "pad": 12,
+  "w": 16
+ },
+ "machine/area_comparator_true.svg": {
+  "h": 16,
+  "pad": 12,
+  "w": 16
+ },
+ "machine/area_counter_idle.svg": {
+  "h": 20,
+  "pad": 12,
+  "w": 40
+ },
+ "machine/area_counter_tick.svg": {
+  "h": 20,
+  "pad": 12,
+  "w": 40
+ },
+ "machine/area_dial_active.svg": {
+  "h": 36,
+  "pad": 12,
+  "w": 36
+ },
+ "machine/area_dial_idle.svg": {
+  "h": 36,
+  "pad": 12,
+  "w": 36
+ },
+ "machine/area_die_done.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 44
+ },
+ "machine/area_die_idle.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 44
+ },
+ "machine/area_die_processing.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 44
+ },
+ "machine/area_feed_empty.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_feed_feeding.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_feed_idle.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 84
+ },
+ "machine/area_merge_idle.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_merge_lanea.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_merge_laneb.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_split_dup.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_split_idle.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_split_lanea.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_split_laneb.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_valve_closed.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_valve_open.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_valve_waiting.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/display_w28.svg": {
+  "h": 18,
+  "pad": 0,
+  "w": 28
+ },
+ "machine/display_w36.svg": {
+  "h": 18,
+  "pad": 0,
+  "w": 36
+ },
+ "machine/display_w44.svg": {
+  "h": 18,
+  "pad": 0,
+  "w": 44
+ },
+ "machine/led_blocked.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_error.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_idle.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_off.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_outputready.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_processing.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_receiving.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/pad_default_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_default_m.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_default_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/pad_hover_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_hover_m.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_hover_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/pad_placeinvalid_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_placeinvalid_m.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_placeinvalid_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/pad_placevalid_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_placevalid_m.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_placevalid_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/pad_selected_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_selected_m.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/pad_selected_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/shell_cartridge_m.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_chevron_s.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 64
+ },
+ "machine/shell_chip_l.svg": {
+  "h": 128,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_edgein_m.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_edgeout_m.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_mergewedge_l.svg": {
+  "h": 128,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_module_l.svg": {
+  "h": 128,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_module_m.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_module_s.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 64
+ },
+ "machine/shell_splitwedge_l.svg": {
+  "h": 128,
+  "pad": 10,
+  "w": 128
+ },
+ "machine/shell_valve_s.svg": {
+  "h": 64,
+  "pad": 10,
+  "w": 64
+ },
+ "machine/state_blocked_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_blocked_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_blocked_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_disabled_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_disabled_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_disabled_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_error_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_error_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_error_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_hover_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_hover_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_hover_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_outputready_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_outputready_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_outputready_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_processing_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_processing_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_processing_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_receiving_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_receiving_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_receiving_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/state_selected_l.svg": {
+  "h": 128,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_selected_m.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 128
+ },
+ "machine/state_selected_s.svg": {
+  "h": 64,
+  "pad": 8,
+  "w": 64
+ },
+ "machine/tab_compute.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_io.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_logic.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_math.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_routing.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_storage.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "packet/packet_boolean_close_entering.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_close_error.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_close_leaving.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_close_normal.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_close_processing.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_close_queued.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 44
+ },
+ "packet/packet_boolean_far_entering.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_far_error.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_far_leaving.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_far_normal.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_far_processing.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_far_queued.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_entering.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_error.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_leaving.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_normal.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_processing.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_boolean_normal_queued.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_close_entering.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_close_error.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_close_leaving.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_close_normal.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_close_processing.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_close_queued.svg": {
+  "h": 22,
+  "pad": 4,
+  "w": 38
+ },
+ "packet/packet_number_far_entering.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_far_error.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_far_leaving.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_far_normal.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_far_processing.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_far_queued.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 16
+ },
+ "packet/packet_number_normal_entering.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "packet/packet_number_normal_error.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "packet/packet_number_normal_leaving.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "packet/packet_number_normal_normal.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "packet/packet_number_normal_processing.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "packet/packet_number_normal_queued.svg": {
+  "h": 16,
+  "pad": 4,
+  "w": 22
+ },
+ "port/port_control_boolean_active.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_blocked.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_connected.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_disabled.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_error.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_hover.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_idle.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_targetinvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_control_boolean_targetvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_active.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_blocked.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_connected.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_disabled.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_error.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_hover.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_idle.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_targetinvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_boolean_targetvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_active.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_blocked.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_connected.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_disabled.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_error.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_hover.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_idle.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_targetinvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_input_number_targetvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_active.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_blocked.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_connected.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_disabled.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_error.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_hover.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_idle.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_targetinvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_boolean_targetvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_active.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_blocked.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_connected.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_disabled.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_error.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_hover.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_idle.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_targetinvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ },
+ "port/port_output_number_targetvalid.svg": {
+  "h": 24,
+  "pad": 4,
+  "w": 24
+ }
+}

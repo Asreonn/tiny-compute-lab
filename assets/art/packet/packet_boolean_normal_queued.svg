@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-4 -4 24 24" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5e3b1c04d">
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e3b1c04d">
+              <rect rx="0" ry="0" x="0" y="0" width="16" height="16" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5e3b1c04e">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e3b1c04e">
+                  <rect rx="0" ry="0" x="3" y="3" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 8.000000, -3.313708)" width="10" height="10" style="fill:#ffb020;fill-opacity:1">
+                  </rect>
+                </g>
+                <g id="strokes-599dedc4-9695-8061-8008-aef5e3b91531-599dedc4-9695-8061-8008-aef5e3b1c04e" class="strokes">
+                  <g class="inner-stroke-shape" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 8.000000, -3.313708)">
+                    <defs>
+                      <clipPath id="inner-stroke-render-190621-599dedc4-9695-8061-8008-aef5e3b1c04e-0">
+                        <use href="#stroke-shape-render-190621-599dedc4-9695-8061-8008-aef5e3b1c04e-0">
+                        </use>
+                      </clipPath>
+                      <rect rx="0" ry="0" x="3" y="3" width="10" height="10" style="fill:none;fill-opacity:none;stroke-width:3;stroke:#ffb020;stroke-opacity:1" id="stroke-shape-render-190621-599dedc4-9695-8061-8008-aef5e3b1c04e-0">
+                      </rect>
+                    </defs>
+                    <use href="#stroke-shape-render-190621-599dedc4-9695-8061-8008-aef5e3b1c04e-0" clip-path="url('#inner-stroke-render-190621-599dedc4-9695-8061-8008-aef5e3b1c04e-0')">
+                    </use>
+                  </g>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5e3b1c04f">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e3b1c04f">
+                  <rect rx="0" ry="0" x="6.5" y="6.5" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 8.000000, -3.313708)" width="3" height="3" style="fill:#0c1614;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>

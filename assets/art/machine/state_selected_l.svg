@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="-8 -8 144 144" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e014">
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e014">
+              <rect rx="0" ry="0" x="0" y="0" width="128" height="128" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e015">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e015">
+                  <rect rx="8" ry="8" x="1" y="1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="126" height="126">
+                  </rect>
+                </g>
+                <g id="strokes-599dedc4-9695-8061-8008-aef5d9ee63b8-599dedc4-9695-8061-8008-aef5d9e6e015" class="strokes">
+                  <g class="inner-stroke-shape" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
+                    <defs>
+                      <clipPath id="inner-stroke-render-188309-599dedc4-9695-8061-8008-aef5d9e6e015-0">
+                        <use href="#stroke-shape-render-188309-599dedc4-9695-8061-8008-aef5d9e6e015-0">
+                        </use>
+                      </clipPath>
+                      <rect rx="8" ry="8" x="1" y="1" width="126" height="126" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#eaf4ff;stroke-opacity:0.6;stroke-dasharray:11,11" id="stroke-shape-render-188309-599dedc4-9695-8061-8008-aef5d9e6e015-0">
+                      </rect>
+                    </defs>
+                    <use href="#stroke-shape-render-188309-599dedc4-9695-8061-8008-aef5d9e6e015-0" clip-path="url('#inner-stroke-render-188309-599dedc4-9695-8061-8008-aef5d9e6e015-0')">
+                    </use>
+                  </g>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e016">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e016">
+                  <rect rx="0" ry="0" x="-1" y="-1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="10" height="2" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e017">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e017">
+                  <rect rx="0" ry="0" x="-1" y="-1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="2" height="10" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e018">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e018">
+                  <rect rx="0" ry="0" x="119" y="-1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="10" height="2" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e019">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e019">
+                  <rect rx="0" ry="0" x="127" y="-1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="2" height="10" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e6e01a">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e6e01a">
+                  <rect rx="0" ry="0" x="-1" y="127" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="10" height="2" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e71130">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e71130">
+                  <rect rx="0" ry="0" x="-1" y="119" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="2" height="10" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e71131">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e71131">
+                  <rect rx="0" ry="0" x="119" y="127" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="10" height="2" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5d9e71132">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5d9e71132">
+                  <rect rx="0" ry="0" x="127" y="119" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="2" height="10" style="fill:#eaf4ff;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>

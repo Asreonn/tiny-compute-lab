@@ -1,0 +1,806 @@
+{
+ "$comment": "Generated from Penpot (05 Machines, V2 anatomy). Coordinates are in machine-local px at 1 tile = 64 px, unrotated. Godot composes MachineView from these + assets/art.",
+ "forms": {
+  "Module-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": [
+    52,
+    12
+   ],
+   "asset": "machine/shell_module_s.svg"
+  },
+  "Module-M": {
+   "size": "M",
+   "w": 128,
+   "h": 64,
+   "led": [
+    116,
+    12
+   ],
+   "asset": "machine/shell_module_m.svg"
+  },
+  "Module-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": [
+    116,
+    12
+   ],
+   "asset": "machine/shell_module_l.svg"
+  },
+  "Chevron-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": [
+    36,
+    13
+   ],
+   "asset": "machine/shell_chevron_s.svg"
+  },
+  "Valve-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": [
+    50,
+    22
+   ],
+   "asset": "machine/shell_valve_s.svg"
+  },
+  "EdgeIn-M": {
+   "size": "M",
+   "w": 128,
+   "h": 64,
+   "led": [
+    116,
+    12
+   ],
+   "asset": "machine/shell_edgein_m.svg"
+  },
+  "EdgeOut-M": {
+   "size": "M",
+   "w": 128,
+   "h": 64,
+   "led": [
+    102,
+    12
+   ],
+   "asset": "machine/shell_edgeout_m.svg"
+  },
+  "Cartridge-M": {
+   "size": "M",
+   "w": 128,
+   "h": 64,
+   "led": [
+    114,
+    14
+   ],
+   "asset": "machine/shell_cartridge_m.svg"
+  },
+  "Chip-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": [
+    98,
+    30
+   ],
+   "asset": "machine/shell_chip_l.svg"
+  },
+  "SplitWedge-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": [
+    114,
+    14
+   ],
+   "asset": "machine/shell_splitwedge_l.svg"
+  },
+  "MergeWedge-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": [
+    112,
+    14
+   ],
+   "asset": "machine/shell_mergewedge_l.svg"
+  }
+ },
+ "machines": {
+  "input": {
+   "form": "EdgeIn-M",
+   "family": "io",
+   "area": {
+    "kind": "Feed",
+    "idle": "Idle",
+    "pos": [
+     22,
+     18
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": {
+    "pos": [
+     86,
+     47
+    ]
+   },
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    24,
+    8
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "output": {
+   "form": "EdgeOut-M",
+   "family": "io",
+   "area": {
+    "kind": "Bin",
+    "idle": "Idle",
+    "pos": [
+     14,
+     18
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": {
+    "pos": [
+     16,
+     47
+    ]
+   },
+   "led": [
+    96,
+    6
+   ],
+   "tab": [
+    14,
+    8
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    }
+   ]
+  },
+  "add": {
+   "form": "Module-M",
+   "family": "math",
+   "area": {
+    "kind": "Dial",
+    "idle": "Idle",
+    "pos": [
+     12,
+     14
+    ]
+   },
+   "glyph": {
+    "icon": "op_add",
+    "pos": [
+     18,
+     20
+    ],
+    "size": 24
+   },
+   "display": {
+    "width": "W44",
+    "pos": [
+     58,
+     23
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    18,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "multiply": {
+   "form": "Module-M",
+   "family": "math",
+   "area": {
+    "kind": "Dial",
+    "idle": "Idle",
+    "pos": [
+     12,
+     14
+    ]
+   },
+   "glyph": {
+    "icon": "op_multiply",
+    "pos": [
+     18,
+     20
+    ],
+    "size": 24
+   },
+   "display": {
+    "width": "W44",
+    "pos": [
+     58,
+     23
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    18,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "processor": {
+   "form": "Chip-L",
+   "family": "compute",
+   "area": {
+    "kind": "Die",
+    "idle": "Idle",
+    "pos": [
+     42,
+     40
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": {
+    "pos": [
+     56,
+     90
+    ]
+   },
+   "led": [
+    92,
+    24
+   ],
+   "tab": [
+    34,
+    24
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "compare": {
+   "form": "Chevron-S",
+   "family": "logic",
+   "area": {
+    "kind": "Comparator",
+    "idle": "Idle",
+    "pos": [
+     36,
+     24
+    ]
+   },
+   "glyph": {
+    "icon": "op_compare",
+    "pos": [
+     11,
+     14
+    ],
+    "size": 20
+   },
+   "display": {
+    "width": "W36",
+    "pos": [
+     8,
+     38
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "led": [
+    30,
+    7
+   ],
+   "tab": [
+    10,
+    8
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "gate": {
+   "form": "Valve-S",
+   "family": "logic",
+   "area": {
+    "kind": "Valve",
+    "idle": "Closed",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": null,
+   "led": [
+    44,
+    16
+   ],
+   "tab": [
+    9,
+    17
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "splitter": {
+   "form": "SplitWedge-L",
+   "family": "routing",
+   "area": {
+    "kind": "Split",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": {
+    "pos": [
+     14,
+     46
+    ]
+   },
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "merger": {
+   "form": "MergeWedge-L",
+   "family": "routing",
+   "area": {
+    "kind": "Merge",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": null,
+   "led": [
+    106,
+    8
+   ],
+   "tab": [
+    16,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "buffer": {
+   "form": "Cartridge-M",
+   "family": "storage",
+   "area": {
+    "kind": "Bank",
+    "idle": "0",
+    "pos": [
+     14,
+     15
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "silk": {
+    "pos": [
+     102,
+     30
+    ]
+   },
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "delay": {
+   "form": "Module-S",
+   "family": "storage",
+   "area": {
+    "kind": "Coil",
+    "idle": "Idle",
+    "pos": [
+     12,
+     12
+    ]
+   },
+   "glyph": null,
+   "display": {
+    "width": "W28",
+    "pos": [
+     18,
+     40
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "led": [
+    46,
+    6
+   ],
+   "tab": [
+    16,
+    6
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "counter": {
+   "form": "Module-S",
+   "family": "storage",
+   "area": {
+    "kind": "Counter",
+    "idle": "Idle",
+    "pos": [
+     12,
+     16
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": {
+    "pos": [
+     12,
+     18
+    ]
+   },
+   "silk": null,
+   "led": [
+    46,
+    6
+   ],
+   "tab": [
+    16,
+    6
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  }
+ },
+ "areas": {
+  "Dial": {
+   "w": 36,
+   "h": 36,
+   "states": [
+    "Idle",
+    "Active"
+   ]
+  },
+  "Die": {
+   "w": 44,
+   "h": 44,
+   "states": [
+    "Idle",
+    "Processing",
+    "Done"
+   ]
+  },
+  "Bank": {
+   "w": 84,
+   "h": 28,
+   "states": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "Blocked"
+   ]
+  },
+  "Split": {
+   "w": 128,
+   "h": 128,
+   "states": [
+    "Idle",
+    "LaneA",
+    "LaneB",
+    "Dup"
+   ]
+  },
+  "Merge": {
+   "w": 128,
+   "h": 128,
+   "states": [
+    "Idle",
+    "LaneA",
+    "LaneB"
+   ]
+  },
+  "Valve": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Closed",
+    "Waiting",
+    "Open"
+   ]
+  },
+  "Comparator": {
+   "w": 16,
+   "h": 16,
+   "states": [
+    "Idle",
+    "True",
+    "False"
+   ]
+  },
+  "Coil": {
+   "w": 40,
+   "h": 26,
+   "states": [
+    "Idle",
+    "Active"
+   ]
+  },
+  "Counter": {
+   "w": 40,
+   "h": 20,
+   "states": [
+    "Idle",
+    "Tick"
+   ]
+  },
+  "Feed": {
+   "w": 84,
+   "h": 28,
+   "states": [
+    "Idle",
+    "Feeding",
+    "Empty"
+   ]
+  },
+  "Bin": {
+   "w": 84,
+   "h": 28,
+   "states": [
+    "Idle",
+    "Ok",
+    "Error"
+   ]
+  }
+ }
+}

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="-8 -8 144 144" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5da17d9da">
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5da17d9da">
+              <rect rx="0" ry="0" x="0" y="0" width="128" height="128" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5da17d9db" style="opacity:0.06">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5da17d9db">
+                  <rect rx="8" ry="8" x="2" y="2" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="124" height="124" style="fill:#3ee0cf;fill-opacity:1">
+                  </rect>
+                </g>
+              </g>
+              <g id="shape-599dedc4-9695-8061-8008-aef5da17d9dc">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5da17d9dc">
+                  <rect rx="8" ry="8" x="1" y="1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="126" height="126">
+                  </rect>
+                </g>
+                <g id="strokes-599dedc4-9695-8061-8008-aef5da1d4f08-599dedc4-9695-8061-8008-aef5da17d9dc" class="strokes">
+                  <g class="inner-stroke-shape" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
+                    <defs>
+                      <clipPath id="inner-stroke-render-188358-599dedc4-9695-8061-8008-aef5da17d9dc-0">
+                        <use href="#stroke-shape-render-188358-599dedc4-9695-8061-8008-aef5da17d9dc-0">
+                        </use>
+                      </clipPath>
+                      <rect rx="8" ry="8" x="1" y="1" width="126" height="126" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#3ee0cf;stroke-opacity:0.25" id="stroke-shape-render-188358-599dedc4-9695-8061-8008-aef5da17d9dc-0">
+                      </rect>
+                    </defs>
+                    <use href="#stroke-shape-render-188358-599dedc4-9695-8061-8008-aef5da17d9dc-0" clip-path="url('#inner-stroke-render-188358-599dedc4-9695-8061-8008-aef5da17d9dc-0')">
+                    </use>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
+  <g id="shape-599dedc4-9695-8061-8008-aef5e72f6552">
+    <defs>
+      <clipPath id="frame-clip-599dedc4-9695-8061-8008-aef5e72f6552-render-191238" class="frame-clip frame-clip-def">
+        <rect rx="0" ry="0" x="0" y="0" width="24" height="24" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
+        </rect>
+      </clipPath>
+    </defs>
+    <g class="frame-container-wrapper">
+      <g class="frame-container-blur">
+        <g class="frame-container-shadows">
+          <g clip-path="url(#frame-clip-599dedc4-9695-8061-8008-aef5e72f6552-render-191238)" fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6552">
+              <rect rx="0" ry="0" x="0" y="0" width="24" height="24" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
+              </rect>
+            </g>
+            <g class="frame-children">
+              <g id="shape-599dedc4-9695-8061-8008-aef5e72f6553" style="fill:#000000" width="24" height="24" rx="0" ry="0">
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6554" style="display:none">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6554">
+                    <rect rx="0" ry="0" x="0" y="0" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="24" height="24" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </rect>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e739f156-599dedc4-9695-8061-8008-aef5e72f6554" class="strokes">
+                    <g class="stroke-shape">
+                      <rect rx="0" ry="0" x="0" y="0" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="24" height="24" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1">
+                      </rect>
+                    </g>
+                  </g>
+                </g>
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6555">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6555">
+                    <path d="M2,12L7,12" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </path>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e739f157-599dedc4-9695-8061-8008-aef5e72f6555" class="strokes">
+                    <g class="stroke-shape">
+                      <path d="M2,12L7,12" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1;stroke-linecap:round">
+                      </path>
+                    </g>
+                  </g>
+                </g>
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6556">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6556">
+                    <rect rx="1" ry="1" x="7" y="8.5" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="3.5" height="7" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </rect>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e73a1dd4-599dedc4-9695-8061-8008-aef5e72f6556" class="strokes">
+                    <g class="stroke-shape">
+                      <rect rx="1" ry="1" x="7" y="8.5" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="3.5" height="7" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1">
+                      </rect>
+                    </g>
+                  </g>
+                </g>
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6557">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6557">
+                    <rect rx="1" ry="1" x="13.5" y="8.5" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="3.5" height="7" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </rect>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e73a1dd5-599dedc4-9695-8061-8008-aef5e72f6557" class="strokes">
+                    <g class="stroke-shape">
+                      <rect rx="1" ry="1" x="13.5" y="8.5" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="3.5" height="7" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1">
+                      </rect>
+                    </g>
+                  </g>
+                </g>
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6558">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6558">
+                    <path d="M17,12L22,12" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </path>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e73a1dd6-599dedc4-9695-8061-8008-aef5e72f6558" class="strokes">
+                    <g class="stroke-shape">
+                      <path d="M17,12L22,12" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1;stroke-linecap:round">
+                      </path>
+                    </g>
+                  </g>
+                </g>
+                <g id="shape-599dedc4-9695-8061-8008-aef5e72f6559">
+                  <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5e72f6559">
+                    <path d="M12,3L12,5.5M12,18.5L12,21" fill="none" stroke-linejoin="round" stroke-linecap="round" style="fill:none">
+                    </path>
+                  </g>
+                  <g fill="none" stroke-linejoin="round" stroke-linecap="round" id="strokes-599dedc4-9695-8061-8008-aef5e73a1dd7-599dedc4-9695-8061-8008-aef5e72f6559" class="strokes">
+                    <g class="stroke-shape">
+                      <path d="M12,3L12,5.5M12,18.5L12,21" style="fill:none;fill-opacity:none;stroke-width:2;stroke:#ffffff;stroke-opacity:1;stroke-linecap:round">
+                      </path>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  </svg>
