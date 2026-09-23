@@ -257,10 +257,10 @@ func _update_readout(sim: Simulation) -> void:
 	var t := ""
 	var col := Palette.DATA_NUMBER
 	match m.type:
-		"input":
+		"input", "usb_input":
 			var left := m.stream.size() - m.emitted
-			t = ("NEXT %s" % DataType.format_value(m.stream_type, m.stream[m.emitted])) if left > 0 else "DONE"
-			col = Palette.datatype(m.stream_type) if left > 0 else Palette.TEXT_MUTED
+			t = ("NEXT %s" % ViewMode.format(m.stream[m.emitted], ViewMode.Mode.BIN)) if left > 0 else "DONE"
+			col = Palette.datatype(m.width) if left > 0 else Palette.TEXT_MUTED
 		"output":
 			var n := m.received.size()
 			var total := 0
@@ -271,7 +271,10 @@ func _update_readout(sim: Simulation) -> void:
 				col = Palette.TEXT_MUTED
 			else:
 				var ok := sim.mission == null or sim.mission.status != MissionRun.Status.FAIL or sim.mission.failure.get("packet", -1) != m.received[n - 1].id
-				t = "%s %s %d/%d" % ["✓" if ok else "✗", m.received[n - 1].label(), n, total]
+				var view := ViewMode.Mode.BIN
+				if sim.mission != null and m.channel < sim.mission.def.outputs.size():
+					view = int(sim.mission.def.outputs[m.channel].get("view", ViewMode.Mode.BIN))
+				t = "%s %s %d/%d" % ["✓" if ok else "✗", m.received[n - 1].label(view), n, total]
 				col = Palette.STATE_VALID if ok else Palette.STATE_ERROR
 		"add":
 			t = ("+%d" if int(p["k"]) >= 0 else "%d") % int(p["k"])

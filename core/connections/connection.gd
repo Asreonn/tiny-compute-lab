@@ -3,13 +3,14 @@ extends RefCounted
 ## A physical data trace between an output port and an input port.
 ## Modelled as a conveyor of fixed slots — one slot per routed tile — so
 ## bandwidth is naturally 1 packet/tick and back-pressure is physical.
+## The wire carries one width; both endpoints must match it.
 
 var id: int
 var from_id: int
 var from_port: String
 var to_id: int
 var to_port: String
-var type: int = DataType.NUMBER
+var width: int = 1
 var cells: Array[Vector2i] = []  # routed tiles, source side first
 var slots: Array = []  # Packet or null per slot
 var blocked := false  # head packet could not be delivered this tick
@@ -17,14 +18,14 @@ var moved_this_tick := false
 var carried := 0
 
 
-func _init(p_id: int, p_from: int, p_from_port: String, p_to: int, p_to_port: String, p_cells: Array[Vector2i], p_type: int) -> void:
+func _init(p_id: int, p_from: int, p_from_port: String, p_to: int, p_to_port: String, p_cells: Array[Vector2i], p_width: int) -> void:
 	id = p_id
 	from_id = p_from
 	from_port = p_from_port
 	to_id = p_to
 	to_port = p_to_port
 	cells = p_cells
-	type = p_type
+	width = p_width
 	reset()
 
 
@@ -90,4 +91,4 @@ func to_dict() -> Dictionary:
 	var cs := []
 	for c in cells:
 		cs.append([c.x, c.y])
-	return {"from": from_id, "from_port": from_port, "to": to_id, "to_port": to_port, "cells": cs}
+	return {"from": from_id, "from_port": from_port, "to": to_id, "to_port": to_port, "width": width, "cells": cs}

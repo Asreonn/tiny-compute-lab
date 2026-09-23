@@ -68,13 +68,13 @@ static func size_key(type: String) -> String:
 	return str(Catalog.def(type)["size"]).to_lower()
 
 
-static func port_file(dir: String, datatype: int, state: String) -> String:
+static func port_file(dir: String, width: int, state: String) -> String:
 	var d := {"in": "input", "out": "output", "ctrl": "control"}[dir]
-	var t := "boolean" if datatype == DataType.BOOLEAN else "number"
+	var t := "boolean" if width == 1 else "number"
 	if d == "control":
 		t = "boolean"
 	return "port/port_%s_%s_%s.svg" % [d, t, state]
 
 
-static func packet_file(datatype: int, near: bool, state: String) -> String:
-	return "packet/packet_%s_%s_%s.svg" % ["boolean" if datatype == DataType.BOOLEAN else "number", "near" if near else "far", state]
+static func packet_file(width: int, near: bool, state: String) -> String:
+	return "packet/packet_%s_%s_%s.svg" % ["boolean" if width == 1 else "number", "near" if near else "far", state]

@@ -32,6 +32,7 @@ var tick := 0
 var _conn_at_port: Dictionary = {}
 
 var mission: MissionRun = null
+var default_width := 0  # mission configuration; never a global constant
 var events: Array = []  # [{kind, ...}] produced this tick for the view/debugger
 
 # metrics
@@ -114,10 +115,15 @@ func placement_error(type: String, cell: Vector2i, rot: int, ignore_id: int = -1
 	return ""
 
 
-func place(type: String, cell: Vector2i, rot: int = 0, params: Dictionary = {}) -> Machine:
+## width 0 means the simulation's mission default_width; a resolved width < 1 is an error.
+func place(type: String, cell: Vector2i, rot: int = 0, params: Dictionary = {}, width: int = 0) -> Machine:
+	var w := width if width != 0 else default_width
+	if w < Catalog.MIN_WIDTH:
+		push_error("Simulation.place: no width for %s (default_width is %d)" % [type, default_width])
+		return null
 	if placement_error(type, cell, rot) != "":
 		return null
-	var m := Machine.new(_next_machine_id, type, cell, rot, params)
+	var m := Machine.new(_next_machine_id, type, cell, w, rot, params)
 	_next_machine_id += 1
 	machines[m.id] = m
 	_reroute_blocked()
@@ -163,6 +169,32 @@ func set_param(id: int, key: String, value: Variant) -> void:
 		changed.emit()
 
 
+## Change an instance width. Refuses locked machines and out-of-range widths.
+## Disconnects every wire whose endpoints no longer match and returns their ids.
+func set_width(id: int, w: int) -> Array:
+	var removed: Array = []
+	if not machines.has(id):
+		return removed
+	var m: Machine = machines[id]
+	if m.locked:
+		return removed
+	if w < Catalog.MIN_WIDTH or w > Catalog.MAX_WIDTH:
+		return removed
+	m.width = w
+	for cid in sorted_connection_ids():
+		var c: Connection = connections[cid]
+		if c.from_id != id and c.to_id != id:
+			continue
+		var wa: int = machines[c.from_id].port_width(c.from_port)
+		var wb: int = machines[c.to_id].port_width(c.to_port)
+		if wa != wb:
+			removed.append(cid)
+	for cid in removed:
+		disconnect_wire(cid, false)
+	changed.emit()
+	return removed
+
+
 # ============================================================ wiring
 
 func connection_at_port(mid: int, port: String) -> Connection:
@@ -188,8 +220,8 @@ func connect_error(a: int, pa: String, b: int, pb: String) -> String:
 		return "Wires start at an output port"
 	if gb["dir"] == Catalog.DIR_OUT:
 		return "Target must be an input or control port"
-	if not DataType.compatible(ga["type"], gb["type"]):
-		return "%s cannot connect to %s" % [DataType.name_of(ga["type"]), DataType.name_of(gb["type"])]
+	if ga["width"] != gb["width"]:
+		return "%d-bit output cannot connect to a %d-bit input. Use a width converter." % [ga["width"], gb["width"]]
 	if connection_at_port(a, pa) != null:
 		return "Output already wired"
 	if connection_at_port(b, pb) != null:
@@ -216,7 +248,7 @@ func connect_ports(a: int, pa: String, b: int, pb: String) -> Connection:
 	var r := route_between(a, pa, b, pb)
 	if not r["ok"]:
 		return null
-	var c := Connection.new(_next_conn_id, a, pa, b, pb, r["cells"], machines[a].port_geom(pa)["type"])
+	var c := Connection.new(_next_conn_id, a, pa, b, pb, r["cells"], machines[a].port_width(pa))
 	_next_conn_id += 1
 	connections[c.id] = c
 	_conn_at_port["%d:%s" % [a, pa]] = c.id
@@ -501,7 +533,7 @@ func load_player_layout(d: Dictionary) -> void:
 				map[i] = locked_by_index[li]
 				li += 1
 		else:
-			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}))
+			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))
 			if m != null:
 				map[i] = m.id
 		i += 1

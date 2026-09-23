@@ -8,7 +8,7 @@ static func _io(sim: Simulation) -> Dictionary:
 	var outs := []
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type == "input":
+		if m.type in ["input", "usb_input"]:
 			ins.append(id)
 		elif m.type == "output":
 			outs.append(id)
@@ -31,6 +31,10 @@ static func build(sim: Simulation, mission_id: String) -> void:
 	var i: int = io["in"][0]
 	var o: int = io["out"][0]
 	match mission_id:
+		"a1_plus_two", "a2_wrap":
+			var a := _p(sim, "add", Vector2i(6, 3), {"k": 2})
+			_w(sim, i, "out", a, "in")
+			_w(sim, a, "out", o, "in")
 		"boot":
 			_w(sim, i, "out", o, "in")
 		"double":

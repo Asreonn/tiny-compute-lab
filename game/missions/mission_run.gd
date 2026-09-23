@@ -9,8 +9,9 @@ const SETTLE_TICKS := 20  # after the last expected output, wait for stray extra
 var def: MissionDef
 var status: int = Status.RUNNING
 var progress: Array = []  # per output channel: correct count
-var remaining: Array = []  # per output channel (unordered): values still expected
-var failure: Dictionary = {}  # {title, reason, expected, received, packet, path: PackedStringArray, machines: Array[int]}
+var remaining: Array = []  # per output channel (unordered): BitVectors still expected
+var expected_bits: Array = []  # per output channel: Array[BitVector]
+var failure: Dictionary = {}  # {title, reason, expected, received, expected_bits, received_bits, packet, path: PackedStringArray, machines: Array[int]}
 var complete_tick := -1
 var discarded := 0
 
@@ -27,20 +28,20 @@ func allows(type: String) -> bool:
 func build_board(sim: Simulation) -> void:
 	sim.clear()
 	sim.size = def.board_size
+	sim.default_width = def.default_width
 	sim.mission = self
 	for i in def.inputs.size():
 		var d: Dictionary = def.inputs[i]
-		var m := Machine.new(0, "input", d["cell"], int(d.get("rot", 0)))
+		var source := str(d.get("source", "input"))
+		var m := Machine.new(0, source, d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))
 		m.locked = true
-		m.port_types = {"out": int(d.get("type", DataType.NUMBER))}
 		sim.add_machine(m)
 		m.label = "Input" if def.inputs.size() == 1 else "Input %s" % char(65 + i)
 	for i in def.outputs.size():
 		var d: Dictionary = def.outputs[i]
-		var m := Machine.new(0, "output", d["cell"], int(d.get("rot", 0)))
+		var m := Machine.new(0, "output", d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))
 		m.locked = true
 		m.channel = i
-		m.port_types = {"in": int(d.get("type", DataType.NUMBER))}
 		sim.add_machine(m)
 		m.label = "Output" if def.outputs.size() == 1 else "Output %s" % char(65 + i)
 	reset(sim)
@@ -54,16 +55,23 @@ func reset(sim: Simulation) -> void:
 	discarded = 0
 	progress = []
 	remaining = []
+	expected_bits = []
 	for o in def.outputs:
+		var w := int(o.get("width", def.default_width))
+		var arr: Array = []
+		for v in o["expected"]:
+			arr.append(MissionDef.to_bits(v, w))
+		expected_bits.append(arr)
 		progress.append(0)
-		remaining.append(o["expected"].duplicate())
+		remaining.append(arr.duplicate())
 	var ii := 0
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type == "input" and m.locked and ii < def.inputs.size():
+		if m.type in ["input", "usb_input"] and m.locked and ii < def.inputs.size():
 			var d: Dictionary = def.inputs[ii]
-			m.stream = d["values"]
-			m.stream_type = int(d.get("type", DataType.NUMBER))
+			m.stream = []
+			for v in d["values"]:
+				m.stream.append(MissionDef.to_bits(v, m.width))
 			m.interval = int(d.get("interval", 3))
 			m.strict = bool(d.get("strict", false))
 			m.next_emit = int(d.get("start", 1))
@@ -93,27 +101,28 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 		return
 	var ch := m.channel
 	var out: Dictionary = def.outputs[ch]
-	var want: Array = out["expected"]
+	var want: Array = expected_bits[ch]
 	var ordered: bool = out.get("ordered", true)
+	var view := int(out.get("view", ViewMode.Mode.BIN))
 	var mname := m.label
 	if ordered:
 		var i: int = progress[ch]
 		if i >= want.size():
-			_fail(sim, "Unexpected extra output", "%s already received all %d expected values." % [mname, want.size()], "—", p)
+			_fail(sim, "Unexpected extra output", "%s already received all %d expected values." % [mname, want.size()], "—", p, view)
 			return
-		if not _same(want[i], p.value):
-			_fail(sim, "Wrong value", "Result #%d at %s is incorrect." % [i + 1, mname], DataType.format_value(p.type, want[i]), p)
+		if not want[i].equals(p.data):
+			_fail(sim, "Wrong value", "Result #%d at %s is incorrect." % [i + 1, mname], ViewMode.format(want[i], view), p, view, want[i])
 			return
 		progress[ch] = i + 1
 	else:
 		var idx := -1
 		for k in remaining[ch].size():
-			if _same(remaining[ch][k], p.value):
+			if remaining[ch][k].equals(p.data):
 				idx = k
 				break
 		if idx < 0:
-			var want_s := "one of " + ", ".join(remaining[ch].map(func(v): return DataType.format_value(p.type, v))) if not remaining[ch].is_empty() else "—"
-			_fail(sim, "Wrong value" if not remaining[ch].is_empty() else "Unexpected extra output", "%s received a value that is not expected." % mname, want_s, p)
+			var want_s := "one of " + ", ".join(remaining[ch].map(func(v): return ViewMode.format(v, view))) if not remaining[ch].is_empty() else "—"
+			_fail(sim, "Wrong value" if not remaining[ch].is_empty() else "Unexpected extra output", "%s received a value that is not expected." % mname, want_s, p, view)
 			return
 		remaining[ch].remove_at(idx)
 		progress[ch] += 1
@@ -124,7 +133,7 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 func on_overflow(sim: Simulation, m: Machine, p: Packet) -> void:
 	if status != Status.RUNNING:
 		return
-	_fail(sim, "Input overflow", "%s could not send packet #%d — the line downstream is full. Data arrives faster than your machine processes it." % [m.label, p.id], DataType.format_value(p.type, p.value), p, [m.id])
+	_fail(sim, "Input overflow", "%s could not send packet #%d — the line downstream is full. Data arrives faster than your machine processes it." % [m.label, p.id], ViewMode.format(p.data, ViewMode.Mode.BIN), p, ViewMode.Mode.BIN, null, [m.id])
 
 
 func after_tick(sim: Simulation) -> void:
@@ -137,7 +146,7 @@ func after_tick(sim: Simulation) -> void:
 	var inputs_done := true
 	for id in sim.machines:
 		var m: Machine = sim.machines[id]
-		if m.type == "input" and m.emitted < m.stream.size():
+		if m.type in ["input", "usb_input"] and m.emitted < m.stream.size():
 			inputs_done = false
 	if inputs_done and sim.packets_in_flight() == 0 and sim.tick > 1:
 		_fail_missing(sim, "All input was consumed, but some results never arrived.")
@@ -153,20 +162,17 @@ func _all_complete() -> bool:
 	return true
 
 
-static func _same(a, b) -> bool:
-	if typeof(a) == TYPE_BOOL or typeof(b) == TYPE_BOOL:
-		return bool(a) == bool(b)
-	return is_equal_approx(float(a), float(b))
-
-
-func _fail(sim: Simulation, title: String, reason: String, expected: String, p: Packet, machines: Array = []) -> void:
+func _fail(sim: Simulation, title: String, reason: String, expected: String, p: Packet, view := ViewMode.Mode.BIN, expected_bv: BitVector = null, machines: Array = []) -> void:
 	status = Status.FAIL
 	var ids := machines.duplicate()
 	if ids.is_empty():
 		ids = _ids_on_path(sim, p.path)
+	var exp_bits := "" if expected_bv == null else ViewMode.format(expected_bv, ViewMode.Mode.BIN)
 	failure = {
 		"title": title, "reason": reason, "expected": expected,
-		"received": p.label(), "packet": p.id, "path": p.path, "machines": ids, "tick": sim.tick,
+		"received": p.label(view), "expected_bits": exp_bits,
+		"received_bits": ViewMode.format(p.data, ViewMode.Mode.BIN),
+		"packet": p.id, "path": p.path, "machines": ids, "tick": sim.tick,
 	}
 
 
@@ -186,6 +192,7 @@ func _fail_missing(sim: Simulation, reason: String) -> void:
 	failure = {
 		"title": "Missing results", "reason": reason,
 		"expected": "%d values" % def.expected_total(), "received": "%d values" % got,
+		"expected_bits": "", "received_bits": "",
 		"packet": -1, "path": PackedStringArray(), "machines": ids, "tick": sim.tick,
 	}
 

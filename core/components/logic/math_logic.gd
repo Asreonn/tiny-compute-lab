@@ -1,0 +1,37 @@
+extends ComponentLogic
+## Math machines: add, multiply, processor, counter. All arithmetic is BitVector ops
+## at the instance width, so masking and overflow are width-driven.
+
+
+func start(m, sim) -> void:
+	if not m.outputs_empty():
+		return
+	match m.type:
+		"add", "multiply", "processor", "counter":
+			if m.inq["in"].is_empty():
+				return
+			var p: Packet = m.pop("in")
+			var x: BitVector = p.data
+			var v: BitVector = null
+			match m.type:
+				"add":
+					var r := x.add_carry(int(m.params["k"]))
+					m.last_carry = int(r["carry"])
+					m.carries += m.last_carry
+					v = r["value"]
+				"multiply":
+					v = x.mul(int(m.params["k"]))
+				"processor":
+					match str(m.params["op"]):
+						"x³":
+							v = x.mul(x).mul(x)
+						"|x|":
+							v = BitVector.of(absi(x.signed()), m.width)
+						"−x":
+							v = x.neg()
+						_:
+							v = x.mul(x)
+				"counter":
+					m.counter += 1
+					v = BitVector.of(m.counter, m.width)
+			m.begin_job({"out": p.derive(sim.new_packet_id(), v)}, p)

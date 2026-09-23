@@ -92,6 +92,51 @@ const MOTION_PANEL := 0.2
 const MOTION_COMPLETE := 0.45
 const MOTION_TICK := 0.1
 
+const MS_XS := 4
+const MS_S := 8
+const MS_M := 12
+const MS_L := 16
+const MS_PORT_CLEARANCE := 12
+const MS_DECO_CLEARANCE := 8
+const MS_FAMILY_TAB := Vector2(24, 3)
+const MS_LED := 12
+const MS_PORT_BOX := 24
+const MS_PORT_BODY := 14
+const SIG_EDGE := 10
+const SIG_TRENCH := 8
+const SIG_CORE := 2.5
+const SIG_CORE_LIT := 3
+const SIG_PULSE := 3.5
+const SIG_GLOW := 10
+const SIG_CHAMFER := 14
+const SIG_TEARDROP_START := 6
+const SIG_TEARDROP_END := 20
+const SIG_TEARDROP_HALF_WIDTH_START := 8
+const SIG_TEARDROP_HALF_WIDTH_END := 5
+const SIG_COMET_GLOW_OPACITY := 0.2
+const SIG_COMET_TAIL_OPACITY := 0.35
+const SIG_COMET_TAIL_FRACTION := 0.4
+const SIG_ACTIVE_CORE_OPACITY := 0.5
+const SIG_HOVER_CORE_OPACITY := 0.8
+const SIG_SELECT_HALO := 14
+const SIG_CHEVRON_SPACING := 48
+const SIG_BUS_EDGE := 16
+const SIG_BUS_TRENCH := 14
+const SIG_BUS_LANES := 4
+const SIG_BUS_LANE_WIDTH := 1.4
+const SIG_BUS_LANE_GAP := 2.6
+const SIG_BUS_CHAMFER := 18
+const SIG_BUS_TAG_MIN_LENGTH := 80
+const PKT_NUMBER_NORMAL := Vector2(24, 16)
+const PKT_BOOLEAN_NORMAL := Vector2(20, 20)
+const PKT_FAR := 7
+const PKT_HALO_TRAVEL := 0.14
+const PKT_HALO_LEAVING := 0.32
+const PKT_ENTERING_OPACITY := 0.6
+const PKT_QUEUE_OFFSET := 24
+const ZOOM_FAR_BELOW := 0.6
+const ZOOM_CLOSE_ABOVE := 1.35
+
 const FAMILY := {
 	"io": FAMILY_IO,
 	"math": FAMILY_MATH,
@@ -101,11 +146,11 @@ const FAMILY := {
 	"compute": FAMILY_COMPUTE,
 }
 
-static func datatype(t: int) -> Color:
-	return DATA_BOOLEAN if t == DataType.BOOLEAN else DATA_NUMBER
+static func datatype(width: int) -> Color:
+	return DATA_BOOLEAN if width == 1 else DATA_NUMBER
 
-static func datatype_dim(t: int) -> Color:
-	return DATA_BOOLEAN_DIM if t == DataType.BOOLEAN else DATA_NUMBER_DIM
+static func datatype_dim(width: int) -> Color:
+	return DATA_BOOLEAN_DIM if width == 1 else DATA_NUMBER_DIM
 
 static func family(f: String) -> Color:
 	return FAMILY.get(f, FAMILY_COMPUTE)

@@ -16,16 +16,28 @@ for k, v in t["stroke"].items(): L.append(f"const STROKE_{k.upper()} := {v}")
 for k, v in t["font"]["size"].items(): L.append(f"const FONT_{k.upper()} := {v}")
 for k, v in t["motion"].items():
     if isinstance(v, (int, float)): L.append(f"const MOTION_{k.upper().replace('-', '_')} := {v}")
+def _const(prefix, d):
+    for k, v in d.items():
+        if k.startswith("$"): continue
+        name = f"{prefix}_{k.upper().replace('-', '_')}"
+        if isinstance(v, dict): _const(name, v)
+        elif isinstance(v, list): L.append(f"const {name} := Vector2({v[0]}, {v[1]})")
+        elif isinstance(v, (int, float)): L.append(f"const {name} := {v}")
+L.append("")
+_const("MS", t["machine-space"])    # machine-space grid (XS 4 / S 8 / M 12 / L 16, clearances)
+_const("SIG", t["signal"])          # Signal System V1 wire/bus geometry
+_const("PKT", t["packet"])          # packet sizes, halos, queue offset
+_const("ZOOM", t["zoom"])
 L.append("")
 L.append("const FAMILY := {")
 for k in t["color"]["family"]: L.append(f'\t"{k}": FAMILY_{k.upper()},')
 L.append("}")
 L.append("")
-L.append("static func datatype(t: int) -> Color:")
-L.append("\treturn DATA_BOOLEAN if t == DataType.BOOLEAN else DATA_NUMBER")
+L.append("static func datatype(width: int) -> Color:")
+L.append("\treturn DATA_BOOLEAN if width == 1 else DATA_NUMBER")
 L.append("")
-L.append("static func datatype_dim(t: int) -> Color:")
-L.append("\treturn DATA_BOOLEAN_DIM if t == DataType.BOOLEAN else DATA_NUMBER_DIM")
+L.append("static func datatype_dim(width: int) -> Color:")
+L.append("\treturn DATA_BOOLEAN_DIM if width == 1 else DATA_NUMBER_DIM")
 L.append("")
 L.append("static func family(f: String) -> Color:")
 L.append("\treturn FAMILY.get(f, FAMILY_COMPUTE)")

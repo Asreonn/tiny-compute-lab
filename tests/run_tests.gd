@@ -14,10 +14,13 @@ func _init() -> void:
 	test_traffic_without_buffer_overflows()
 	test_single_processor_cannot_keep_up()
 	test_gate_without_control_stalls_with_reason()
-	test_type_mismatch_rejected()
+	test_width_mismatch_rejected()
+	test_set_width_disconnects()
 	test_router_straight_and_blocked()
 	test_rotation_moves_ports()
 	test_layout_roundtrip()
+	test_wrap_carries()
+	test_a1_wrong_constant_fails()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -46,7 +49,7 @@ func run_mission(id: String, build := true, max_ticks := 2000) -> Dictionary:
 
 
 func test_all_missions_pass() -> void:
-	for m in Missions.all():
+	for m in Missions.all() + Missions.legacy():
 		var r := run_mission(m.id)
 		var run: MissionRun = r["run"]
 		var sim: Simulation = r["sim"]
@@ -57,7 +60,7 @@ func test_all_missions_pass() -> void:
 
 
 func test_determinism() -> void:
-	for id in ["pipeline", "filter", "parallel", "optimize"]:
+	for id in ["a1_plus_two", "a2_wrap", "pipeline", "filter", "parallel", "optimize"]:
 		var a := run_mission(id)
 		var b := run_mission(id)
 		check(a["log"] == b["log"] and a["sim"].tick == b["sim"].tick, "mission %s must be deterministic" % id)
@@ -124,24 +127,45 @@ func test_gate_without_control_stalls_with_reason() -> void:
 	check(str(run.failure.get("reason", "")).contains("control signal"), "reason should mention the control signal, got %s" % run.failure.get("reason"))
 
 
-func test_type_mismatch_rejected() -> void:
+func test_width_mismatch_rejected() -> void:
 	var sim := Simulation.new()
 	sim.size = Vector2i(16, 10)
-	var c := sim.place("compare", Vector2i(2, 2))
-	var a := sim.place("add", Vector2i(6, 2))
-	var err := sim.connect_error(c.id, "out", a.id, "in")
-	check(err.contains("BOOLEAN") and err.contains("NUMBER"), "BOOLEAN→NUMBER must be rejected, got '%s'" % err)
-	check(sim.connect_ports(c.id, "out", a.id, "in") == null, "mismatched wire must not be created")
+	var u := sim.place("usb_input", Vector2i(1, 2), 0, {}, 3)
+	var a := sim.place("add", Vector2i(6, 2), 0, {}, 5)
+	var err := sim.connect_error(u.id, "out", a.id, "in")
+	check(err == "3-bit output cannot connect to a 5-bit input. Use a width converter.", "3→5 must be rejected with the exact message, got '%s'" % err)
+	check(sim.connect_ports(u.id, "out", a.id, "in") == null, "mismatched wire must not be created")
+	var c := sim.place("compare", Vector2i(1, 6), 0, {}, 3)
+	var b := sim.place("add", Vector2i(6, 6), 0, {}, 3)
+	var err2 := sim.connect_error(c.id, "out", b.id, "in")
+	check(err2 == "1-bit output cannot connect to a 3-bit input. Use a width converter.", "1→3 must be rejected, got '%s'" % err2)
+
+
+func test_set_width_disconnects() -> void:
+	var sim := Simulation.new()
+	sim.size = Vector2i(16, 10)
+	var u := sim.place("usb_input", Vector2i(1, 4), 0, {}, 3)
+	var a := sim.place("add", Vector2i(9, 4), 0, {}, 3)
+	var c := sim.connect_ports(u.id, "out", a.id, "in")
+	check(c != null, "matching-width wire should connect")
+	var removed := sim.set_width(a.id, 5)
+	check(removed.size() == 1 and removed[0] == c.id, "set_width should report the removed wire, got %s" % [removed])
+	check(sim.connections.is_empty(), "mismatched wire should be disconnected")
+	check(a.port_width("in") == 5 and a.port_width("out") == 5, "instance width resolves on 'W' ports")
+	check(sim.set_width(a.id, 0).is_empty() and a.width == 5, "out-of-range width is refused")
+	var locked := sim.place("output", Vector2i(13, 4), 0, {}, 3)
+	locked.locked = true
+	check(sim.set_width(locked.id, 4).is_empty() and locked.width == 3, "locked machine width is refused")
 
 
 func test_router_straight_and_blocked() -> void:
 	var sim := Simulation.new()
 	sim.size = Vector2i(16, 10)
-	var a := sim.place("add", Vector2i(1, 4))
-	var b := sim.place("add", Vector2i(10, 4))
+	var a := sim.place("add", Vector2i(1, 4), 0, {}, 3)
+	var b := sim.place("add", Vector2i(10, 4), 0, {}, 3)
 	var r := sim.route_between(a.id, "out", b.id, "in")
 	check(r["ok"] and r["cells"].size() == 7, "straight route should be 7 tiles, got %s" % [r["cells"]])
-	sim.place("buffer", Vector2i(5, 4))
+	sim.place("buffer", Vector2i(5, 4), 0, {}, 3)
 	var r2 := sim.route_between(a.id, "out", b.id, "in")
 	check(r2["ok"] and r2["cells"].size() > 7, "route should detour around an obstacle")
 	var turns := 0
@@ -155,7 +179,7 @@ func test_router_straight_and_blocked() -> void:
 func test_rotation_moves_ports() -> void:
 	var sim := Simulation.new()
 	sim.size = Vector2i(16, 10)
-	var m := sim.place("multiply", Vector2i(4, 4))
+	var m := sim.place("multiply", Vector2i(4, 4), 0, {}, 3)
 	check(m.port_geom("out")["side"] == Catalog.Side.E, "unrotated output faces east")
 	sim.rotate(m.id)
 	var g := m.port_geom("out")
@@ -164,15 +188,48 @@ func test_rotation_moves_ports() -> void:
 
 
 func test_layout_roundtrip() -> void:
-	var r := run_mission("filter")
+	var r := run_mission("a1_plus_two")
 	var sim: Simulation = r["sim"]
 	var d := sim.layout_to_dict()
 	var sim2 := Simulation.new()
-	var run2 := MissionRun.new(Missions.by_id("filter"))
+	var run2 := MissionRun.new(Missions.by_id("a1_plus_two"))
 	run2.build_board(sim2)
 	sim2.load_player_layout(d)
 	check(sim2.machines.size() == sim.machines.size() and sim2.connections.size() == sim.connections.size(), "layout round-trip keeps machines and wires")
+	var widths_match := true
+	for id in sim2.machines:
+		if not sim2.machines[id].locked:
+			widths_match = widths_match and sim2.machines[id].width == 3
+	check(widths_match, "layout round-trip preserves width")
 	sim2.reset_run()
 	while run2.status == MissionRun.Status.RUNNING and sim2.tick < 2000:
 		sim2.step()
 	check(run2.status == MissionRun.Status.PASS, "reloaded layout still passes")
+
+
+func test_wrap_carries() -> void:
+	var r := run_mission("a2_wrap")
+	var sim: Simulation = r["sim"]
+	var add: Machine = null
+	for id in sim.machines:
+		if sim.machines[id].type == "add":
+			add = sim.machines[id]
+	check(add != null, "a2 should have an Add")
+	check(add != null and add.carries == 2, "a2 Add carries should be 2, got %s" % [add.carries if add != null else -1])
+
+
+func test_a1_wrong_constant_fails() -> void:
+	var sim := Simulation.new()
+	var run := MissionRun.new(Missions.by_id("a1_plus_two"))
+	run.build_board(sim)
+	Solutions.build(sim, "a1_plus_two")
+	for id in sim.machines:
+		if sim.machines[id].type == "add":
+			sim.set_param(id, "k", 1)
+	sim.reset_run()
+	while run.status == MissionRun.Status.RUNNING and sim.tick < 500:
+		sim.step()
+	check(run.status == MissionRun.Status.FAIL, "a1 wrong constant should FAIL")
+	check(run.failure.get("title") == "Wrong value", "a1 failure should be 'Wrong value', got %s" % run.failure.get("title"))
+	check(run.failure.get("expected") == "100" and run.failure.get("received") == "011", "a1 expected 100 / received 011, got %s / %s" % [run.failure.get("expected"), run.failure.get("received")])
+	check(run.failure.get("expected_bits") == "100" and run.failure.get("received_bits") == "011", "a1 BIN failure keys, got %s / %s" % [run.failure.get("expected_bits"), run.failure.get("received_bits")])
