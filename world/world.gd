@@ -7,7 +7,7 @@ extends Node2D
 @onready var board_view: BoardView = $BoardView
 @onready var wire_layer: Node2D = $WireLayer
 @onready var machine_layer: Node2D = $MachineLayer
-@onready var packet_layer: Node2D = $PacketLayer
+@onready var packet_layer: PacketLayer = $PacketLayer
 @onready var overlay_layer: Node2D = $OverlayLayer
 @onready var camera_rig: CameraRig = $CameraRig
 
@@ -35,6 +35,7 @@ func _rebuild(_def: Variant = null) -> void:
 	for id in sim.sorted_connection_ids():
 		var cv := ConnectionView.new()
 		cv.setup(sim.connections[id])
+		cv.packet_positions = packet_layer.comet_arcs.bind(id)
 		wire_layer.add_child(cv)
 	board_view.redraw()
 	var rect := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)

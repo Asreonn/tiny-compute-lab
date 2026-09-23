@@ -151,5 +151,8 @@ static func port_file(dir: String, width: int, state: String) -> String:
 	return "port/port_%s_%s_%s.svg" % [d, t, state]
 
 
-static func packet_file(width: int, near: bool, state: String) -> String:
-	return "packet/packet_%s_%s_%s.svg" % ["boolean" if width == 1 else "number", "near" if near else "far", state]
+## Packet sprite file: tier is the camera zoom tier ("far" | "normal" | "close"),
+## state is the runtime packet state ("normal", "leaving", "entering", "queued", "processing", "error").
+static func packet_file(width: int, tier: String, state: String) -> String:
+	var t := tier if tier in ["far", "normal", "close"] else ("close" if tier == "near" else "normal")
+	return "packet/packet_%s_%s_%s.svg" % ["boolean" if width == 1 else "number", t, state]

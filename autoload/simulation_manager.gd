@@ -9,6 +9,7 @@ signal ticked(tick: int)
 signal run_state_changed(running: bool)
 signal run_finished(status: int)
 signal speed_changed(speed: int)
+signal view_mode_changed(mode: int)
 
 const MAX_STEPS_PER_FRAME := 8
 const SPEEDS := [1, 2, 4]
@@ -19,6 +20,9 @@ var mission: MissionDef
 var running := false
 var speed := 1  # allowed 1, 2, 4
 var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation only
+## Display state only: the ViewMode.Mode the HUD offers for packet/machine values.
+## -1 = mission default (the mission's first view mode); reset on every mission load.
+var view_mode := -1
 var _acc := 0.0
 
 
@@ -39,6 +43,7 @@ func load_mission(id: String) -> void:
 	running = false
 	_acc = 0.0
 	alpha = 0.0
+	set_view_mode(def.view_modes[0] if not def.view_modes.is_empty() else -1)
 	mission_loaded.emit(mission)
 
 
@@ -93,6 +98,14 @@ func set_speed(s: int) -> void:
 	if s in SPEEDS and s != speed:
 		speed = s
 		speed_changed.emit(s)
+
+
+## Switch the display view mode (never the data). Emits view_mode_changed when it changes.
+func set_view_mode(mode: int) -> void:
+	if mode == view_mode:
+		return
+	view_mode = mode
+	view_mode_changed.emit(mode)
 
 
 ## Tools call this before any Simulation mutation: editing while running is allowed, but the
