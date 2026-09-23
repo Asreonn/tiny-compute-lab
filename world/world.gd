@@ -11,8 +11,16 @@ extends Node2D
 @onready var overlay_layer: Node2D = $OverlayLayer
 @onready var camera_rig: CameraRig = $CameraRig
 
+## The tool layer (Slice A5a): added as the last child so it receives unhandled input
+## before the CameraRig (RMB never pans while a tool drag is active).
+var tools: ToolController
+
 
 func _ready() -> void:
+	tools = ToolController.new()
+	tools.name = "Tools"
+	add_child(tools)
+	tools.add_to_group("tools")
 	SimulationManager.mission_loaded.connect(_rebuild)
 	SimulationManager.layout_changed.connect(_rebuild)
 	_rebuild()

@@ -163,6 +163,22 @@ func rotate(id: int) -> bool:
 	return true
 
 
+## Move a machine to a new cell. Refuses locked machines and invalid placement (the
+## existing tiles are ignored via placement_error's ignore_id), reroutes every wire that
+## touches the machine, and emits changed. Returns false without touching the board when
+## the move is refused.
+func move(id: int, cell: Vector2i) -> bool:
+	if not machines.has(id) or machines[id].locked:
+		return false
+	var m: Machine = machines[id]
+	if placement_error(m.type, cell, m.rot, id) != "":
+		return false
+	m.cell = cell
+	_reroute_machine(id)
+	changed.emit()
+	return true
+
+
 func set_param(id: int, key: String, value: Variant) -> void:
 	if machines.has(id):
 		machines[id].params[key] = value

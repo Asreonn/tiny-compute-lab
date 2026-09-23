@@ -123,6 +123,78 @@ func comet_arcs(conn_id: int) -> Array:
 	return out
 
 
+## World positions of every packet the layer currently draws, packet id -> Vector2.
+## This is the same position math as _draw (tick-locked interpolation), exposed for the
+## tools' hit testing (packet = within 10 px of its drawn position).
+func drawn_packet_positions() -> Dictionary:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return {}
+	_ensure_intervals()
+	var a := _ease(SimulationManager.alpha)
+	var delivering := {}
+	for e in sim.events:
+		var kind := str(e.get("kind", ""))
+		if kind == "deliver":
+			delivering[int(e.get("packet", -1))] = e
+	var out := {}
+	# 1. on-wire packets
+	for cid in sim.sorted_connection_ids():
+		var c: Connection = sim.connections[cid]
+		if not _paths.has(cid):
+			_paths[cid] = _build_path(c)
+		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
+		var len := maxf(SignalGeom.poly_len(path), 1e-9)
+		if path.size() < 2 or len <= 0.0:
+			continue
+		for i in c.slots.size():
+			var p: Packet = c.slots[i]
+			if p == null:
+				continue
+			var arc: float = _slot_arc(path, c.cells, i)
+			if _positions.has(p.id):
+				arc = lerpf(_positions[p.id]["prev"], _positions[p.id]["cur"], a)
+			out[p.id] = SignalGeom.sample(path, clampf(arc / len, 0.0, 1.0))[0]
+	# 2. entering (this tick's delivered packets gliding into the socket)
+	for pid in delivering:
+		var e: Dictionary = delivering[pid]
+		var mid := int(e.get("machine", -1))
+		var port := str(e.get("port", ""))
+		if not sim.machines.has(mid):
+			continue
+		var m: Machine = sim.machines[mid]
+		var p: Packet = _in_queue(m, pid)
+		if p == null:
+			continue
+		var from := _wire_head_pos(sim, m, port)
+		out[pid] = from.lerp(MachineView.port_world(m, port), a)
+	# 3. machine queues (stacked inputs; blocked outputs held on the wire)
+	for mid in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[mid]
+		for port in m.inq:
+			var queue: Array = m.inq[port]
+			if queue.is_empty():
+				continue
+			var anchor := MachineView.port_world(m, port)
+			var inward := -Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
+			var j := 0
+			for p in queue:
+				if delivering.has(p.id):
+					continue
+				out[p.id] = anchor + inward * (float(j) * QUEUE_STACK)
+				j += 1
+		if m.state != Machine.State.BLOCKED:
+			continue
+		for port in m.outq:
+			var p: Packet = m.outq[port]
+			if p == null:
+				continue
+			var anchor := MachineView.port_world(m, port)
+			var outward := Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
+			out[p.id] = anchor + outward * float(Palette.PKT_QUEUE_OFFSET)
+	return out
+
+
 # ------------------------------------------------------------------ per frame draw
 
 func _draw() -> void:

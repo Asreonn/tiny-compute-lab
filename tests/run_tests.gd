@@ -19,6 +19,8 @@ func _init() -> void:
 	test_set_width_disconnects()
 	test_router_straight_and_blocked()
 	test_rotation_moves_ports()
+	test_move_reroutes_wires()
+	test_move_refuses_invalid()
 	test_layout_roundtrip()
 	test_wrap_carries()
 	test_a1_wrong_constant_fails()
@@ -190,6 +192,46 @@ func test_rotation_moves_ports() -> void:
 	var g := m.port_geom("out")
 	check(g["side"] == Catalog.Side.S and g["cell"] == Vector2i(4, 5), "rotated output faces south at (4,5), got %s" % g)
 	check(Catalog.size_of("multiply", 1) == Vector2i(1, 2), "rotated M footprint is 1×2")
+
+
+func test_move_reroutes_wires() -> void:
+	var sim := Simulation.new()
+	sim.size = Vector2i(16, 10)
+	var u := sim.place("usb_input", Vector2i(1, 4), 0, {}, 3)
+	var a := sim.place("add", Vector2i(6, 4), 0, {}, 3)
+	var c := sim.connect_ports(u.id, "out", a.id, "in")
+	check(c != null, "wire should connect before the move")
+	var old_cells: Array = c.cells.duplicate()
+	check(sim.move(a.id, Vector2i(8, 4)), "move to a free cell should succeed")
+	check(a.cell == Vector2i(8, 4), "machine cell should update after move, got %s" % a.cell)
+	check(sim.connections.has(c.id), "wire should survive the move")
+	check(c.cells != old_cells, "wire should be rerouted after the move")
+	check(Vector2i(c.cells[c.cells.size() - 1]) == a.port_geom("in")["outside"], "rerouted wire should end at the in port's outside tile, got %s" % c.cells[c.cells.size() - 1])
+	var locked := sim.place("output", Vector2i(13, 4), 0, {}, 3)
+	locked.locked = true
+	check(not sim.move(locked.id, Vector2i(12, 4)), "locked machines refuse move")
+	check(locked.cell == Vector2i(13, 4), "locked machine cell is unchanged")
+
+
+func test_move_refuses_invalid() -> void:
+	var sim := Simulation.new()
+	sim.size = Vector2i(16, 10)
+	var a := sim.place("add", Vector2i(2, 2), 0, {}, 3)
+	var b := sim.place("multiply", Vector2i(8, 2), 0, {}, 3)
+	check(not sim.move(a.id, Vector2i(8, 2)), "moving onto an occupied footprint must be refused")
+	check(a.cell == Vector2i(2, 2), "refused move must not change the cell")
+	check(not sim.move(b.id, Vector2i(0, -1)), "move outside the board must be refused")
+	check(b.cell == Vector2i(8, 2), "out-of-board move must not change the cell")
+	check(not sim.move(99, Vector2i(1, 1)), "unknown id must be refused")
+	# A move to a valid cell whose wire can no longer be routed drops the wire.
+	var u := sim.place("usb_input", Vector2i(1, 6), 0, {}, 3)
+	var a2 := sim.place("add", Vector2i(6, 6), 0, {}, 3)
+	var c := sim.connect_ports(u.id, "out", a2.id, "in")
+	check(c != null, "wire should connect before the drop test")
+	sim.place("compare", Vector2i(4, 8), 0, {}, 3)
+	sim.place("compare", Vector2i(5, 8), 0, {}, 3)
+	check(sim.move(a2.id, Vector2i(6, 8)), "move to a valid but boxed-in cell still succeeds")
+	check(not sim.connections.has(c.id), "wire with no possible route is dropped")
 
 
 func test_layout_roundtrip() -> void:

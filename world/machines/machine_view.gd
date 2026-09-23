@@ -15,12 +15,20 @@ const SILK_ALPHA := 0.55  # material silk text opacity
 
 const TAG_ASSETS := ["1", "2", "3", "4", "8", "16"]  # widthtag assets that exist
 const TAG_FALLBACK := "16"  # chip used for widths without an asset (single-digit widths use 14 px, others 18 px)
+const GHOST_ALPHA := 0.6  # opacity of drag/build ghost views
 
 const MACHINE_STATE_LED := ["idle", "receiving", "processing", "outputready", "blocked", "error", "off"]
 
 var machine: Machine
 var hovered := false
 var selected := false
+## Failure-path highlight: set by the tools when the run FAILs; forces the error state
+## overlay so the player sees exactly which machines are implicated.
+var highlighted := false
+## Ghost (move/build preview): the InstallPad is suppressed (the tools draw the
+## placevalid/placeinvalid pad under it) and the view renders at ghost_alpha.
+var ghost := false
+var ghost_alpha := 1.0
 ## HUD-set view mode; -1 means "mission default" (output channel view / BIN).
 var view_mode: int = -1
 
@@ -42,12 +50,15 @@ var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
 
 
-func setup(m: Machine) -> MachineView:
+func setup(m: Machine, as_ghost := false) -> MachineView:
 	machine = m
 	name = "Machine_%d" % m.id
 	_size_key = str(m.def()["size"]).to_lower()
+	ghost = as_ghost
+	ghost_alpha = GHOST_ALPHA if as_ghost else 1.0
 	_build()
 	position = Vector2(m.cell) * T
+	modulate.a = ghost_alpha
 	return self
 
 
@@ -63,8 +74,9 @@ func _build() -> void:
 	body.rotation = rot * PI / 2.0
 	add_child(body)
 
-	# 1 InstallPad · 2 Shell
-	body.add_child(Art.sprite(Art.pad_file("default", _size_key), Vector2.ZERO))
+	# 1 InstallPad · 2 Shell (ghosts skip the pad; the tools draw the placement pad under them)
+	if not ghost:
+		body.add_child(Art.sprite(Art.pad_file("default", _size_key), Vector2.ZERO))
 	body.add_child(Art.sprite(str(fm.get("asset", "machine/shell_%s.svg" % _size_key)), Vector2.ZERO))
 	# 3 FamilyTab
 	var tab: Variant = ly.get("tab", [0, 0])
@@ -318,7 +330,7 @@ func refresh(delta: float) -> void:
 		"processing": 1.0 if m.state == Machine.State.PROCESSING else 0.0,
 		"outputready": 1.0 if m.state == Machine.State.OUTPUT_READY else 0.0,
 		"blocked": 1.0 if m.state == Machine.State.BLOCKED else 0.0,
-		"error": 1.0 if m.state == Machine.State.ERROR else 0.0,
+		"error": 1.0 if (m.state == Machine.State.ERROR or highlighted) else 0.0,
 		"hover": 1.0 if hovered and not selected else 0.0,
 		"selected": 1.0 if selected else 0.0,
 	}
