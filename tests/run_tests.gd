@@ -21,6 +21,10 @@ func _init() -> void:
 	test_layout_roundtrip()
 	test_wrap_carries()
 	test_a1_wrong_constant_fails()
+	test_save_layout_reloads_and_passes()
+	test_save_record_result_keeps_best()
+	test_save_unlock_chain()
+	SaveStore.clear()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -233,3 +237,47 @@ func test_a1_wrong_constant_fails() -> void:
 	check(run.failure.get("title") == "Wrong value", "a1 failure should be 'Wrong value', got %s" % run.failure.get("title"))
 	check(run.failure.get("expected") == "100" and run.failure.get("received") == "011", "a1 expected 100 / received 011, got %s / %s" % [run.failure.get("expected"), run.failure.get("received")])
 	check(run.failure.get("expected_bits") == "100" and run.failure.get("received_bits") == "011", "a1 BIN failure keys, got %s / %s" % [run.failure.get("expected_bits"), run.failure.get("received_bits")])
+
+
+# ------------------------------------------------------------------ SaveStore
+# The autoload Node is NOT tested headless; only the pure static SaveStore is.
+
+func test_save_layout_reloads_and_passes() -> void:
+	SaveStore.set_path("user://test_save.json")
+	SaveStore.clear()
+	var r := run_mission("a1_plus_two")
+	var sim: Simulation = r["sim"]
+	SaveStore.save_layout("a1_plus_two", sim.layout_to_dict())
+	var loaded := SaveStore.load_layout("a1_plus_two")
+	check(not loaded.is_empty(), "saved layout should reload from disk")
+	var sim2 := Simulation.new()
+	var run2 := MissionRun.new(Missions.by_id("a1_plus_two"))
+	run2.build_board(sim2)
+	sim2.load_player_layout(loaded)
+	check(sim2.machines.size() == sim.machines.size() and sim2.connections.size() == sim.connections.size(), "save round-trip keeps machines and wires")
+	sim2.reset_run()
+	while run2.status == MissionRun.Status.RUNNING and sim2.tick < 2000:
+		sim2.step()
+	check(run2.status == MissionRun.Status.PASS, "layout reloaded from SaveStore still passes a1_plus_two")
+
+
+func test_save_record_result_keeps_best() -> void:
+	SaveStore.set_path("user://test_save.json")
+	SaveStore.clear()
+	check(SaveStore.stars("a1_plus_two") == 0, "missing result should read 0 stars")
+	SaveStore.record_result("a1_plus_two", 1, 6.0)
+	SaveStore.record_result("a1_plus_two", 3, 4.0)
+	SaveStore.record_result("a1_plus_two", 2, 9.5)
+	check(SaveStore.stars("a1_plus_two") == 3, "record_result keeps the best stars, got %d" % SaveStore.stars("a1_plus_two"))
+	SaveStore.record_result("a1_plus_two", 0, 1.0)
+	check(SaveStore.stars("a1_plus_two") == 3, "a worse run must not lower the recorded stars")
+
+
+func test_save_unlock_chain() -> void:
+	SaveStore.set_path("user://test_save.json")
+	SaveStore.clear()
+	check(SaveStore.unlocked("a1_plus_two"), "first campaign mission is always unlocked")
+	check(not SaveStore.unlocked("a2_wrap"), "next campaign mission should start locked")
+	SaveStore.record_result("a1_plus_two", 1, 5.0)
+	check(SaveStore.unlocked("a2_wrap"), "previous mission with >=1 star unlocks the next")
+	check(SaveStore.unlocked("boot"), "legacy missions stay available")
