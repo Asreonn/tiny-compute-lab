@@ -95,7 +95,12 @@
 
 | Item | State |
 |---|---|
-| Legacy core sim (10 missions, 33 tests) | done, pre-BitVector |
-| Penpot Style Lock V1 + exports (264 assets) | done, canonical |
-| DS Godot support (mapper indexes .gd/.tscn/.tres, Makefile `test`, AGENTS.md) | done |
-| A1 core types | next |
+| A1 core types: BitVector, ViewMode, Charset | done |
+| A2 sim on BitVector with explicit widths; slice A missions a1_plus_two, a2_wrap; legacy missions as regression | done |
+| A3 SimulationManager autoload + SaveStore | done |
+| A4 board, MachineView (Penpot exports), Signal V1 wires, packets with view-mode labels, camera | done |
+| A5 tools (place/wire/move/delete/rotate) + canonical HUD V2 | done |
+| Tests | 191 headless checks + `tools/tools_smoke.gd` (SMOKE PASS) |
+| Previews | `design/previews/godot/` |
+| Open for slice A | manual playtest with real mouse input; mission select (Menu/MISSIONS); tooltip visual check; a2_wrap carry LED on the Add |
+| Next | slice B (5-bit characters, TCL-5 CHAR view, Modulo, Terminal Output) |
