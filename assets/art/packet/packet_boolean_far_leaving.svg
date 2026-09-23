@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-4 -4 24 24" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-af03a6e4941d">
+  <g id="shape-599dedc4-9695-8061-8008-af104a3e098d">
     <g class="frame-container-wrapper" opacity="1">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
           <g fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a6e4941d">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af104a3e098d">
               <rect rx="0" ry="0" x="0" y="0" width="16" height="16" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-af03a6e4941e" style="opacity:0.3">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a6e4941e">
+              <g id="shape-599dedc4-9695-8061-8008-af104a3e098e" style="opacity:0.42000000000000004">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af104a3e098e">
                   <ellipse cx="8" cy="8" rx="6" ry="6" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#f46bd6;fill-opacity:1">
                   </ellipse>
                 </g>
               </g>
-              <g id="shape-599dedc4-9695-8061-8008-af03a6e4941f">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a6e4941f">
-                  <rect rx="0" ry="0" x="5.5" y="5.500000000000227" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 8.000000, -3.313709)" width="4.999999999999773" height="4.999999999999773" style="fill:#f46bd6;fill-opacity:1">
+              <g id="shape-599dedc4-9695-8061-8008-af104a3e098f">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af104a3e098f">
+                  <rect rx="0" ry="0" x="5.25" y="5.25" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 8.000000, -3.313708)" width="5.5" height="5.5" style="fill:#f46bd6;fill-opacity:1">
                   </rect>
                 </g>
               </g>

@@ -299,6 +299,31 @@
   "pad": 12,
   "w": 84
  },
+ "machine/area_bits_active.svg": {
+  "h": 14,
+  "pad": 12,
+  "w": 54
+ },
+ "machine/area_bits_idle.svg": {
+  "h": 14,
+  "pad": 12,
+  "w": 54
+ },
+ "machine/area_cells_idle.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_cells_read.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_cells_write.svg": {
+  "h": 44,
+  "pad": 12,
+  "w": 64
+ },
  "machine/area_coil_active.svg": {
   "h": 20,
   "pad": 12,
@@ -389,6 +414,16 @@
   "pad": 12,
   "w": 128
  },
+ "machine/area_opwindow_active.svg": {
+  "h": 24,
+  "pad": 12,
+  "w": 30
+ },
+ "machine/area_opwindow_idle.svg": {
+  "h": 24,
+  "pad": 12,
+  "w": 30
+ },
  "machine/area_split_dup.svg": {
   "h": 128,
   "pad": 12,
@@ -408,6 +443,21 @@
   "h": 128,
   "pad": 12,
   "w": 128
+ },
+ "machine/area_taper_active.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 56
+ },
+ "machine/area_taper_narrow.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 56
+ },
+ "machine/area_taper_widen.svg": {
+  "h": 28,
+  "pad": 12,
+  "w": 56
  },
  "machine/area_valve_closed.svg": {
   "h": 64,
@@ -729,6 +779,16 @@
   "pad": 0,
   "w": 24
  },
+ "machine/tab_control.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_conversion.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
  "machine/tab_io.svg": {
   "h": 3,
   "pad": 0,
@@ -744,12 +804,22 @@
   "pad": 0,
   "w": 24
  },
+ "machine/tab_memory.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
  "machine/tab_routing.svg": {
   "h": 3,
   "pad": 0,
   "w": 24
  },
  "machine/tab_storage.svg": {
+  "h": 3,
+  "pad": 0,
+  "w": 24
+ },
+ "machine/tab_view.svg": {
   "h": 3,
   "pad": 0,
   "w": 24
@@ -932,6 +1002,36 @@
  "packet/packet_number_normal_queued.svg": {
   "h": 16,
   "pad": 4,
+  "w": 24
+ },
+ "port/busport_in_active.svg": {
+  "h": 24,
+  "pad": 10,
+  "w": 24
+ },
+ "port/busport_in_connected.svg": {
+  "h": 24,
+  "pad": 10,
+  "w": 24
+ },
+ "port/busport_in_idle.svg": {
+  "h": 24,
+  "pad": 10,
+  "w": 24
+ },
+ "port/busport_out_active.svg": {
+  "h": 24,
+  "pad": 10,
+  "w": 24
+ },
+ "port/busport_out_connected.svg": {
+  "h": 24,
+  "pad": 10,
+  "w": 24
+ },
+ "port/busport_out_idle.svg": {
+  "h": 24,
+  "pad": 10,
   "w": 24
  },
  "port/port_control_boolean_active.svg": {
@@ -1158,5 +1258,65 @@
   "h": 24,
   "pad": 10,
   "w": 24
+ },
+ "signal/readout_bin.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/readout_chr.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/readout_dec.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/readout_hex.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/readout_sdec.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/readout_type.svg": {
+  "h": 22,
+  "pad": 2,
+  "w": 88
+ },
+ "signal/widthtag_1.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 14
+ },
+ "signal/widthtag_16.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 18
+ },
+ "signal/widthtag_2.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 14
+ },
+ "signal/widthtag_3.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 14
+ },
+ "signal/widthtag_4.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 14
+ },
+ "signal/widthtag_8.svg": {
+  "h": 11,
+  "pad": 2,
+  "w": 14
  }
 }

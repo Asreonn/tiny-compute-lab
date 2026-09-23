@@ -1,50 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-12 -12 64 64" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-af039fcc606c">
+  <g id="shape-599dedc4-9695-8061-8008-af10414803e3">
     <g class="frame-container-wrapper">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
           <g fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-af039fcc606c">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af10414803e3">
               <rect rx="0" ry="0" x="0" y="0" width="40" height="40" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-af039fcc606d">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af039fcc606d">
+              <g id="shape-599dedc4-9695-8061-8008-af10414803e4">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af10414803e4">
                   <ellipse cx="20" cy="20" rx="20" ry="20" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#172622;fill-opacity:1">
                   </ellipse>
                 </g>
-                <g id="strokes-599dedc4-9695-8061-8008-af039fd4bbd5-599dedc4-9695-8061-8008-af039fcc606d" class="strokes">
+                <g id="strokes-599dedc4-9695-8061-8008-af10414a8b88-599dedc4-9695-8061-8008-af10414803e4" class="strokes">
                   <g class="inner-stroke-shape" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
                     <defs>
-                      <clipPath id="inner-stroke-render-326531-599dedc4-9695-8061-8008-af039fcc606d-0">
-                        <use href="#stroke-shape-render-326531-599dedc4-9695-8061-8008-af039fcc606d-0">
+                      <clipPath id="inner-stroke-render-471179-599dedc4-9695-8061-8008-af10414803e4-0">
+                        <use href="#stroke-shape-render-471179-599dedc4-9695-8061-8008-af10414803e4-0">
                         </use>
                       </clipPath>
-                      <ellipse cx="20" cy="20" rx="20" ry="20" style="fill:none;fill-opacity:none;stroke-width:3;stroke:#4a6961;stroke-opacity:1" id="stroke-shape-render-326531-599dedc4-9695-8061-8008-af039fcc606d-0">
+                      <ellipse cx="20" cy="20" rx="20" ry="20" style="fill:none;fill-opacity:none;stroke-width:3;stroke:#4a6961;stroke-opacity:1" id="stroke-shape-render-471179-599dedc4-9695-8061-8008-af10414803e4-0">
                       </ellipse>
                     </defs>
-                    <use href="#stroke-shape-render-326531-599dedc4-9695-8061-8008-af039fcc606d-0" clip-path="url('#inner-stroke-render-326531-599dedc4-9695-8061-8008-af039fcc606d-0')">
+                    <use href="#stroke-shape-render-471179-599dedc4-9695-8061-8008-af10414803e4-0" clip-path="url('#inner-stroke-render-471179-599dedc4-9695-8061-8008-af10414803e4-0')">
                     </use>
                   </g>
                 </g>
               </g>
-              <g id="shape-599dedc4-9695-8061-8008-af039fcca3bb">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af039fcca3bb">
+              <g id="shape-599dedc4-9695-8061-8008-af10414803e5">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af10414803e5">
                   <ellipse cx="20" cy="20" rx="15" ry="15" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#0c1614;fill-opacity:1">
                   </ellipse>
                 </g>
-                <g id="strokes-599dedc4-9695-8061-8008-af039fd52e0f-599dedc4-9695-8061-8008-af039fcca3bb" class="strokes">
+                <g id="strokes-599dedc4-9695-8061-8008-af10414a8b89-599dedc4-9695-8061-8008-af10414803e5" class="strokes">
                   <g class="inner-stroke-shape" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
                     <defs>
-                      <clipPath id="inner-stroke-render-326532-599dedc4-9695-8061-8008-af039fcca3bb-0">
-                        <use href="#stroke-shape-render-326532-599dedc4-9695-8061-8008-af039fcca3bb-0">
+                      <clipPath id="inner-stroke-render-471180-599dedc4-9695-8061-8008-af10414803e5-0">
+                        <use href="#stroke-shape-render-471180-599dedc4-9695-8061-8008-af10414803e5-0">
                         </use>
                       </clipPath>
-                      <ellipse cx="20" cy="20" rx="15" ry="15" style="fill:none;fill-opacity:none;stroke-width:4;stroke:#2c433d;stroke-opacity:1" id="stroke-shape-render-326532-599dedc4-9695-8061-8008-af039fcca3bb-0">
+                      <ellipse cx="20" cy="20" rx="15" ry="15" style="fill:none;fill-opacity:none;stroke-width:4;stroke:#2c433d;stroke-opacity:1" id="stroke-shape-render-471180-599dedc4-9695-8061-8008-af10414803e5-0">
                       </ellipse>
                     </defs>
-                    <use href="#stroke-shape-render-326532-599dedc4-9695-8061-8008-af039fcca3bb-0" clip-path="url('#inner-stroke-render-326532-599dedc4-9695-8061-8008-af039fcca3bb-0')">
+                    <use href="#stroke-shape-render-471180-599dedc4-9695-8061-8008-af10414803e5-0" clip-path="url('#inner-stroke-render-471180-599dedc4-9695-8061-8008-af10414803e5-0')">
                     </use>
                   </g>
                 </g>

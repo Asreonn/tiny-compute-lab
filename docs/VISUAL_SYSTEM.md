@@ -1,10 +1,14 @@
-# Tiny Compute Lab — Visual System (V2, with V2.1 readability refinement)
+# Tiny Compute Lab — Visual System (canonical: V2.1 machines + Signal System V1)
+
+> **This current visual language is the canonical Tiny Compute Lab style. All future component and UI
+> work must conform to it.** Rules, what is fixed and what may vary: `docs/STYLE_GUIDE.md` ·
+> Penpot `12 Style Lock V1` · roadmap: `docs/COMPONENT_ROADMAP.md` / Penpot `14 Roadmap Kit`.
 
 > **Physical compute modules installed into a miniature computer factory.**
 > Not "UI boxes connected with lines".
 
 Source of truth: the Penpot file (local Penpot, `localhost:9001`). Start at page
-**`10 Design System V2`**. Token values: `design/tokens.json` (mirrored into Penpot set
+**`12 Style Lock V1`** (production reference). Wire/packet/bus rules: **`13 Signal System`**. Token values: `design/tokens.json` (mirrored into Penpot set
 `tcl/core` and generated into Godot as `core/visual/palette.gd` by `tools/gen_palette.py`).
 
 Reference renders are in `design/previews/` (`ds_v2_*.png`, `showcase_gameplay_v2.png`).
@@ -81,6 +85,9 @@ Same ecosystem, different silhouettes (colour only on the tab):
 **IO** (Input, Output) · **Math/Compute** (Add, Multiply, Processor) · **Logic** (Compare, Gate) ·
 **Routing** (Splitter, Merger) · **Flow/Storage** (Buffer, Delay, Counter).
 
+Roadmap sub-families use the **parent hue as a segmented tab**: **View** ⊂ IO · **Conversion** ⊂ Routing ·
+**Memory** ⊂ Storage · **Control** ⊂ Compute (full list: `docs/COMPONENT_ROADMAP.md`).
+
 ## 7. ActivityArea (PrimaryActivityArea)
 
 | Kind | Machine | States | What changes |
@@ -116,25 +123,64 @@ Active, Blocked, Error, Disabled). `TargetValid` is the spec's **Available**.
 
 Grayscale-safe: shape + wire pattern survive without colour (proof on page `02` and page `10`).
 
-## 10. Packets
+## 10. Packets (Signal System V1)
 
 `Packet` = **Datatype × Zoom (Close, Normal, Far) × State (Normal, Entering, Processing, Leaving, Queued, Error)**.
-Packets are *data chips*, not labels. Values are never baked into art — Godot renders them.
+Packets are lightweight *data chips*, never larger than a port. Values are never baked into art; Godot renders them.
 
-- **Close**: capsule with value text (`42`, `TRUE`).
-- **Normal** (default gameplay zoom): capsule with core dot; BOOLEAN = diamond, **filled = TRUE, hollow = FALSE**.
-- **Far**: 7 px marker.
-- Entering = 60 % opacity while shrinking into a port; Leaving = soft glow; Queued = amber (dashed at close zoom).
+| State | Meaning | Treatment |
+|---|---|---|
+| Normal | travelling on a wire | faint datatype halo (14 %), 1.8 px outline, core bar (NUMBER) / lit core (BOOLEAN) |
+| Entering | docking into an IN socket | 60 % opacity, no halo; Godot shrinks it into the port over 120 ms |
+| Processing | held inside a machine | muted outline, no halo |
+| Leaving | just emitted from an OUT socket | bright halo (32 %) |
+| Queued | waiting at a blocked output | amber outline + dashed amber queue ring |
+| Error | on the failure path | red |
 
-## 11. Connections
+- **Normal zoom**: NUMBER capsule 24×16 with gold caps + core bar; BOOLEAN diamond 20×20, **TRUE = lit core, FALSE = hollow core** (runtime).
+- **Close**: capsule / pointed capsule with the value (`42`, `TRUE`). **Far**: 7 px dot / diamond.
 
-`Wire` = **Shape (Straight, Corner, Junction, Stub) × Datatype × State**. Routing is orthogonal on tile
-centres with **45° PCB chamfers** at corners (render-only; the simulation stays tile-based).
-Look: embedded routing **channel** — trench (`material.vent`) with pad-edge border + copper/datatype core.
+## 11. Connections (Signal System V1)
 
-States: **Idle** (quiet, dim core) · **Hover** (edge lifts) · **Selected** (ice edge lines) ·
-**ActiveTransfer** (core at 45 %, bright pulse only around the moving packet) · **Blocked** (amber core + edges) ·
-**Error** (red) · **ConnectionPreview** (dashed blue, no trench) · **ValidTarget** (solid green) · **InvalidTarget** (dashed red).
+`Wire` = **Shape (Straight, Corner, Junction, Stub) × Datatype × State**. In game, wires are procedural:
+Penpot and Godot use the same renderer rules, `L.drawWire` in Penpot and `WireView` in Godot. Routing is
+orthogonal on tile centres with **45° chamfers** (14 px; clamped to half the segment on short jogs).
+
+Anatomy, bottom → top: `select-halo` (14 px, selected only) · **teardrop** (PCB landing that widens the
+trace into the port's contact pad; start 6 px, end 20 px from the anchor; half-width 8 → 5) ·
+`trench-edge` 10 px `board.pad-edge` · `trench` 8 px `material.vent` · `core` 2.5 px ·
+`comet` (glow 10 px @20 %, tail 3 px @35 %, head 3.5 px) · `flow-chevrons` (selected only).
+
+| State | Edge | Core | Extra |
+|---|---|---|---|
+| Idle | pad-edge | datatype-dim 2.5 | quiet; direction from port chevrons + teardrops |
+| Hover | `state.hover` 75 % | datatype 80 % | |
+| Selected | pad-edge + ice halo | datatype 3 | ice flow chevrons every 48 px |
+| ActiveTransfer | pad-edge | datatype 50 % | **comet** at each packet: bright head at the packet, fading tail, follows the path |
+| Blocked | amber 70 % | amber 3 | queued packet at the OUT port |
+| Error | red 80 % | red 3 | |
+| ConnectionPreview | — (no trench) | dashed `state.build` | drag-head dot |
+| ValidTarget | — | solid green 3 | green target ring at the end |
+| InvalidTarget | — | dashed red | red × at the end |
+
+BOOLEAN / control wires use a **dashed** magenta core in every state (grayscale-safe).
+
+## 11b. Width classes and buses
+
+| Class | Wire | Port | Tag |
+|---|---|---|---|
+| Signal (BOOLEAN) | dashed magenta core | diamond | — |
+| Value (NUMBER) | solid cyan core | circle | — |
+| Bus (N bits) | 16 px ribbon, 14 px trench, 4 lanes at 1.4 px (> 4 bits still 4 lanes) | `BusPort` slot with lane contacts | `WidthTag` on buses > 80 px and next to width-changing ports |
+
+Bus splitting/combining uses the wedge forms (Bus Splitter / Bus Combiner). Width conversion uses the
+`Taper` region.
+
+## 11c. Interpretation (view modes)
+
+`Readout` (Mode: BIN, DEC, SDEC, HEX, CHR, TYPE): same bits, different view. Mode chip on the left,
+value right-aligned. Examples: `0000 1011` · `11` · `−5` · `0x0B` · `'K'` · `NUM·8`. `Bits` region:
+8 cells, lit = 1. Changing the mode is a display setting (Inspector → View as), never a new chassis.
 
 ## 12. Runtime states (machines)
 
@@ -243,7 +289,11 @@ halos/shadows); place a sprite at `origin - pad`. SVGs contain **no dynamic text
 | StateLayer | `machine/state_{state}_{size}.svg` | `Body/StateLayer/<state>` alpha-tweened |
 | Port | `port/port_{dir}_{type}_{state}.svg` | `PortView` (texture swap + pulse) |
 | Packet | `packet/packet_{type}_{close,normal,far}_{state}.svg` + Label (close) | `PacketView` (LOD by camera zoom) |
-| Wire | *(procedural)* | `WireView` draws trench/core/pulse with `draw_polyline`, chamfer 14 px, using the same tokens |
+| Wire | *(procedural)* | `WireView`: teardrops + trench + core + comet + chevrons with `draw_polyline` / `draw_colored_polygon`, chamfer 14 px (§11) |
+| Bus | *(procedural)* | `BusView`: 16 px ribbon, 4 lanes, WidthTag sprite at the midpoint |
+| BusPort | `port/busport_{in,out}_{state}.svg` | `PortView` (bus) |
+| WidthTag | `signal/widthtag_{n}.svg` | sprite |
+| Readout | `signal/readout_{mode}.svg` + Label | `Content/Readout` + `Content/Value` |
 | BoardDecal | `board/decal_{kind}.svg` | `BoardView` scatter |
 | Icons | `icon/*.svg` (white; tint with `modulate`) | HUD + FunctionGlyph |
 

@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-4 -4 24 24" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-af03a674677b">
+  <g id="shape-599dedc4-9695-8061-8008-af104981ba2c">
     <g class="frame-container-wrapper" opacity="1">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
           <g fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a674677b">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af104981ba2c">
               <rect rx="0" ry="0" x="0" y="0" width="16" height="16" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-af03a674677c" style="opacity:0.3">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a674677c">
+              <g id="shape-599dedc4-9695-8061-8008-af104981ba2d" style="opacity:0.42000000000000004">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af104981ba2d">
                   <ellipse cx="8" cy="8" rx="6" ry="6" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#3ee0cf;fill-opacity:1">
                   </ellipse>
                 </g>
               </g>
-              <g id="shape-599dedc4-9695-8061-8008-af03a674677d">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a674677d">
+              <g id="shape-599dedc4-9695-8061-8008-af104981ba2e">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af104981ba2e">
                   <ellipse cx="8" cy="8" rx="3.5" ry="3.5" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#3ee0cf;fill-opacity:1">
                   </ellipse>
                 </g>

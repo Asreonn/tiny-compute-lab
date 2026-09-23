@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="152" height="88" viewBox="-12 -12 152 88" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-af039e7b09af">
+  <g id="shape-599dedc4-9695-8061-8008-af103fee2db6">
     <g class="frame-container-wrapper">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
           <g fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-af039e7b09af">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af103fee2db6">
               <rect rx="0" ry="0" x="0" y="0" width="128" height="64" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-af039e7b09b0" style="opacity:0.2">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-af039e7b09b0">
+              <g id="shape-599dedc4-9695-8061-8008-af103fee2db7" style="opacity:0.2">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af103fee2db7">
                   <rect rx="2" ry="2" x="119" y="20" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="9" height="24" style="fill:#57e389;fill-opacity:1">
                   </rect>
                 </g>

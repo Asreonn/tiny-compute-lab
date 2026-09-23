@@ -1,5 +1,5 @@
 {
- "$comment": "Generated from Penpot (05 Machines, V2.1 readability refinement). Machine-local px at 1 tile = 64 px, unrotated. led: null = no LED (S-size machines). Layout follows tokens.json machine-space (XS 4 / S 8 / M 12 / L 16).",
+ "$comment": "Generated from Penpot (05 Machines, V2.1 readability refinement). Machine-local px at 1 tile = 64 px, unrotated. led: null = no LED (S-size machines). Layout follows tokens.json machine-space (XS 4 / S 8 / M 12 / L 16). Roadmap kit (Penpot page 14) under 'roadmap'; Bus ports use port/busport_*.svg + signal/widthtag_*.svg.",
  "forms": {
   "Module-S": {
    "size": "S",
@@ -811,6 +811,1968 @@
     "Idle",
     "Ok",
     "Error"
+   ]
+  }
+ },
+ "roadmap": {
+  "NumberViewer": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "view",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "DEC",
+    "pos": [
+     20,
+     21
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    20,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "HexViewer": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "view",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "HEX",
+    "pos": [
+     20,
+     21
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    20,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "CharViewer": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "view",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "CHR",
+    "pos": [
+     20,
+     21
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    20,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "TypeViewer": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "view",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "TYPE",
+    "pos": [
+     20,
+     21
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    20,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "BitViewer": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "view",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Active",
+     "pos": [
+      37,
+      25
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    37,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Increment": {
+   "status": "kit",
+   "form": "Module-S",
+   "family": "math",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      17,
+      20
+     ]
+    }
+   ],
+   "operator": "+1",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "Decrement": {
+   "status": "kit",
+   "form": "Module-S",
+   "family": "math",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      17,
+      20
+     ]
+    }
+   ],
+   "operator": "−1",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "Subtract": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "math",
+   "areas": [
+    {
+     "kind": "Dial",
+     "idle": "Idle",
+     "pos": [
+      18,
+      12
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": "−",
+   "display": {
+    "width": "W36",
+    "pos": [
+     70,
+     23
+    ]
+   },
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    70,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Modulo": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "math",
+   "areas": [
+    {
+     "kind": "Dial",
+     "idle": "Idle",
+     "pos": [
+      18,
+      12
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": "%",
+   "display": {
+    "width": "W36",
+    "pos": [
+     70,
+     23
+    ]
+   },
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    70,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "AND": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      80,
+      60
+     ]
+    }
+   ],
+   "operator": "&",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "OR": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      80,
+      60
+     ]
+    }
+   ],
+   "operator": "|",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "XOR": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      80,
+      60
+     ]
+    }
+   ],
+   "operator": "^",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "NOT": {
+   "status": "kit",
+   "form": "Module-S",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      17,
+      20
+     ]
+    }
+   ],
+   "operator": "!",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "ShiftLeft": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      18,
+      20
+     ]
+    },
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      58,
+      25
+     ]
+    }
+   ],
+   "operator": "«",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    58,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "ShiftRight": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "logic",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      18,
+      20
+     ]
+    },
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      58,
+      25
+     ]
+    }
+   ],
+   "operator": "»",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    58,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Mux": {
+   "status": "kit",
+   "form": "MergeWedge-L",
+   "family": "routing",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    106,
+    8
+   ],
+   "tab": [
+    56,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Demux": {
+   "status": "kit",
+   "form": "SplitWedge-L",
+   "family": "routing",
+   "areas": [
+    {
+     "kind": "Split",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    56,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "ConditionalRouter": {
+   "status": "kit",
+   "form": "SplitWedge-L",
+   "family": "routing",
+   "areas": [
+    {
+     "kind": "Split",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      84,
+      50
+     ]
+    }
+   ],
+   "operator": ">",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "TypeSwitch": {
+   "status": "kit",
+   "form": "SplitWedge-L",
+   "family": "routing",
+   "areas": [
+    {
+     "kind": "Split",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      84,
+      50
+     ]
+    }
+   ],
+   "operator": "T?",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "ZeroExtend": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Taper",
+     "idle": "Widen",
+     "pos": [
+      36,
+      22
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "ZX",
+    "pos": [
+     98,
+     47
+    ]
+   },
+   "width_tags": [
+    {
+     "width": "3",
+     "pos": [
+      16,
+      8
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      90,
+      8
+     ]
+    }
+   ],
+   "led": null,
+   "tab": [
+    36,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "SignExtend": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Taper",
+     "idle": "Widen",
+     "pos": [
+      36,
+      22
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "SX",
+    "pos": [
+     98,
+     47
+    ]
+   },
+   "width_tags": [
+    {
+     "width": "4",
+     "pos": [
+      16,
+      8
+     ]
+    },
+    {
+     "width": "8",
+     "pos": [
+      90,
+      8
+     ]
+    }
+   ],
+   "led": null,
+   "tab": [
+    36,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Truncate": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Taper",
+     "idle": "Narrow",
+     "pos": [
+      36,
+      22
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "TR",
+    "pos": [
+     98,
+     47
+    ]
+   },
+   "width_tags": [
+    {
+     "width": "8",
+     "pos": [
+      16,
+      8
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      90,
+      8
+     ]
+    }
+   ],
+   "led": null,
+   "tab": [
+    36,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Adapter4to8": {
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Taper",
+     "idle": "Widen",
+     "pos": [
+      36,
+      22
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "AD",
+    "pos": [
+     98,
+     47
+    ]
+   },
+   "width_tags": [
+    {
+     "width": "4",
+     "pos": [
+      16,
+      8
+     ]
+    },
+    {
+     "width": "8",
+     "pos": [
+      90,
+      8
+     ]
+    }
+   ],
+   "led": null,
+   "tab": [
+    36,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "BusSplitter": {
+   "status": "kit",
+   "form": "SplitWedge-L",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Split",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [
+    {
+     "width": "8",
+     "pos": [
+      12,
+      45
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      100,
+      45
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      100,
+      108
+     ]
+    }
+   ],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "BusCombiner": {
+   "status": "kit",
+   "form": "MergeWedge-L",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [
+    {
+     "width": "4",
+     "pos": [
+      12,
+      45
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      12,
+      108
+     ]
+    },
+    {
+     "width": "8",
+     "pos": [
+      100,
+      45
+     ]
+    }
+   ],
+   "led": [
+    106,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "Register": {
+   "status": "kit",
+   "form": "Cartridge-M",
+   "family": "memory",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "DEC",
+    "pos": [
+     16,
+     20
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    56,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "RegisterBank": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "memory",
+   "areas": [
+    {
+     "kind": "Cells",
+     "idle": "Idle",
+     "pos": [
+      32,
+      40
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "REG ×4",
+    "pos": [
+     32,
+     92
+    ]
+   },
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    56,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "RAM": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "memory",
+   "areas": [
+    {
+     "kind": "Cells",
+     "idle": "Write",
+     "pos": [
+      32,
+      40
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "RAM 16",
+    "pos": [
+     32,
+     92
+    ]
+   },
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    56,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "ROM": {
+   "status": "kit",
+   "form": "Module-L",
+   "family": "memory",
+   "areas": [
+    {
+     "kind": "Cells",
+     "idle": "Read",
+     "pos": [
+      32,
+      40
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "ROM 16",
+    "pos": [
+     32,
+     92
+    ]
+   },
+   "width_tags": [],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "ALU": {
+   "status": "kit",
+   "form": "Chip-L",
+   "family": "compute",
+   "areas": [
+    {
+     "kind": "OpWindow",
+     "idle": "Idle",
+     "pos": [
+      49,
+      52
+     ]
+    }
+   ],
+   "operator": "ALU",
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    92,
+    24
+   ],
+   "tab": [
+    34,
+    26
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      96,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "InstructionDecoder": {
+   "status": "kit",
+   "form": "Chip-L",
+   "family": "control",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Active",
+     "pos": [
+      37,
+      50
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "DECODE",
+    "pos": [
+     50,
+     72
+    ]
+   },
+   "width_tags": [],
+   "led": [
+    92,
+    24
+   ],
+   "tab": [
+    34,
+    26
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      128,
+      96
+     ]
+    }
+   ]
+  },
+  "ProgramCounter": {
+   "status": "kit",
+   "form": "Module-S",
+   "family": "control",
+   "areas": [
+    {
+     "kind": "Counter",
+     "idle": "Idle",
+     "pos": [
+      14,
+      14
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": "07",
+   "silk": null,
+   "width_tags": [],
+   "led": null,
+   "tab": [
+    14,
+    6
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "USBInput": {
+   "status": "kit",
+   "form": "EdgeIn-M",
+   "family": "io",
+   "areas": [
+    {
+     "kind": "Feed",
+     "idle": "Idle",
+     "pos": [
+      22,
+      18
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "USB",
+    "pos": [
+     24,
+     47
+    ]
+   },
+   "width_tags": [
+    {
+     "width": "8",
+     "pos": [
+      98,
+      46
+     ]
+    }
+   ],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    24,
+    8
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
+  "TerminalOutput": {
+   "status": "kit",
+   "form": "EdgeOut-M",
+   "family": "io",
+   "areas": [],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": {
+    "mode": "CHR",
+    "pos": [
+     16,
+     21
+    ]
+   },
+   "digits": null,
+   "silk": null,
+   "width_tags": [],
+   "led": [
+    96,
+    6
+   ],
+   "tab": [
+    16,
+    8
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    }
    ]
   }
  }
