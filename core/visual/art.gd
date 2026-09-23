@@ -30,7 +30,10 @@ static func layout(type: String) -> Dictionary:
 		return m[type]
 	if type == "usb_input":
 		return l.get("roadmap", {}).get("USBInput", {})
-	return {}
+	# Roadmap kit machines: snake_case type -> PascalCase kit key (modulo -> Modulo,
+	# terminal_output -> TerminalOutput).
+	var key := "".join(Array(type.split("_")).map(func(w): return w.capitalize()))
+	return l.get("roadmap", {}).get(key, {})
 
 
 ## Chassis form entry (shell asset + footprint) from layouts.forms.

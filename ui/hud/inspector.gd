@@ -65,7 +65,7 @@ func _rebuild() -> void:
 	var def := m.def()
 	# header
 	var tile := HudKit.box(_body, Vector2(16, 16), Vector2(40, 40), Palette.MATERIAL_PLATE, Palette.MATERIAL_FRAME, 1, 6)
-	HudKit.icon(tile, str(def["icon"]), Vector2(8, 8), 24, Palette.TEXT_PRIMARY)
+	HudKit.machine_icon(tile, m.type, Vector2(8, 8), 24, Palette.TEXT_PRIMARY)
 	HudKit.label(_body, str(def["name"]), Vector2(68, 14), 15, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 200)
 	_state_pill = HudKit.box(_body, Vector2(68, 38), Vector2(96, 20), Palette.SURFACE_SUNKEN, Palette.DATA_NUMBER, 1, 10)
 	_state_dot = HudKit.dot(_state_pill, Vector2(11, 10), 6, Palette.DATA_NUMBER)
@@ -141,11 +141,11 @@ func _param_row(m: Machine, key: String, pdef: Dictionary, y: float) -> float:
 	# int stepper: [−] value [+], value shown in the current view mode at the machine width
 	var lo := int(pdef.get("min", 0))
 	var hi := int(pdef.get("max", 255))
-	if m.type == "add" or m.type == "compare":
+	if m.type in ["add", "compare", "modulo"]:
 		lo = maxi(lo, 0)
 		hi = mini(hi, (1 << m.width) - 1)
 	var v := clampi(int(m.params[key]), lo, hi)
-	var shown := HudKit.fmt(BitVector.of(v, m.width)) if lo >= 0 else str(v)
+	var shown := HudKit.fmt_const(BitVector.of(v, m.width)) if lo >= 0 else str(v)
 	HudKit.icon(ctl, "icon_minus", Vector2(8, 8), 16, Palette.TEXT_SECONDARY)
 	HudKit.label(ctl, shown, Vector2(32, 8), 12, HudKit.W_XBOLD, Palette.DATA_NUMBER, 76, HORIZONTAL_ALIGNMENT_CENTER)
 	HudKit.icon(ctl, "icon_plus", Vector2(116, 8), 16, Palette.TEXT_SECONDARY)

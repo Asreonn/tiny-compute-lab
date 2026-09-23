@@ -92,15 +92,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_on_mouse_motion(get_global_mouse_position())
 	elif event is InputEventMouseButton:
-		_on_mouse_button(event as InputEventMouseButton)
+		_on_mouse_button(event as InputEventMouseButton, get_global_mouse_position())
 	elif event is InputEventKey:
 		_on_key(event as InputEventKey)
 
 
-func _on_mouse_button(mb: InputEventMouseButton) -> void:
+## world: the cursor in world coordinates (a parameter so tests can drive the real path).
+func _on_mouse_button(mb: InputEventMouseButton, world: Vector2) -> void:
 	if mb.pressed:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			_lmb_press(get_global_mouse_position())
+			_lmb_press(world)
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			# RMB cancels placement / any active drag; never pans while one is active.
 			if _dragging() or (tool == "place" and place_type != ""):
@@ -109,7 +110,7 @@ func _on_mouse_button(mb: InputEventMouseButton) -> void:
 	else:
 		if mb.button_index == MOUSE_BUTTON_LEFT and _lmb_down:
 			_lmb_down = false
-			_lmb_release(get_global_mouse_position())
+			_lmb_release(world)
 
 
 func _dragging() -> bool:
@@ -171,7 +172,16 @@ func _on_key(k: InputEventKey) -> void:
 func _lmb_press(world: Vector2) -> void:
 	_press_world = world
 	var sim := SimulationManager.sim
-	if _dragging() or sim == null:
+	if sim == null:
+		return
+	# Every LMB press arms the release (not only in select mode: the wire tool needs it too).
+	_lmb_down = true
+	if not _wire_drag.is_empty():
+		# Click-click wiring: the source was picked with a click, this click picks the target.
+		_finish_wire_drag(world)
+		_lmb_down = false
+		return
+	if _dragging():
 		return
 	_press_hit = _hit_at(world)
 	match tool:
@@ -203,6 +213,11 @@ func _lmb_press(world: Vector2) -> void:
 
 func _lmb_release(world: Vector2) -> void:
 	if not _wire_drag.is_empty():
+		if world.distance_to(_press_world) < DRAG_START_PX and _hit_port(world).get("id", -1) == _wire_drag.get("from_id", -2):
+			# A click (no drag) on the source port: keep the wire attached to the cursor and
+			# finish it with the next click (click-click wiring).
+			_press_hit = {}
+			return
 		_finish_wire_drag(world)
 	elif not _move_drag.is_empty():
 		_finish_move_drag()

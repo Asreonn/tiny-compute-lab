@@ -83,7 +83,7 @@ func _item(type: String, pos: Vector2, d: MissionDef) -> void:
 	_item_boxes[type] = b
 	b.set_meta("base", [fill, stroke])
 	var tile := HudKit.box(b, Vector2(8, 10), Vector2(28, 28), Palette.MATERIAL_PLATE, Palette.MATERIAL_FRAME, 1, 4)
-	HudKit.icon(tile, str(def["icon"]), Vector2(4, 4), 20, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED)
+	HudKit.machine_icon(tile, type, Vector2(4, 4), 20, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED)
 	HudKit.label(b, str(def["name"]), Vector2(44, 8), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED, 110)
 	var sub := "%d tick · %d power" % [int(def["ticks"]), int(def["power"])] if allowed else "Locked"
 	HudKit.label(b, sub, Vector2(44, 26), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 120)

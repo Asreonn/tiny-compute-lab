@@ -227,8 +227,19 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 			"width": 54.0, "size": 10.0, "align": HORIZONTAL_ALIGNMENT_RIGHT,
 			"color": col, "text": "",
 		})
-	# Silk text
+	# Dial operator text (roadmap kit, e.g. Modulo "%"): Penpot draws it 18/800 centred in the
+	# 40 px dial at (area.x, area.y + 9).
+	if ly.get("dial_text", null) is String and not area.is_empty():
+		var dp2: Array = area.get("pos", [0, 0])
+		_text_specs.append({
+			"key": "dial", "pos": _upright(Vector2(dp2[0], dp2[1] + 9), off, rot),
+			"width": 40.0, "size": 18.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
+			"color": Palette.TEXT_PRIMARY, "text": str(ly["dial_text"]),
+		})
+	# Silk text (the Terminal has no silk entry in its kit layout: it shares the Output's slot)
 	var sylk: Dictionary = _entry(ly, "silk")
+	if sylk.is_empty() and machine.type == "terminal_output":
+		sylk = {"pos": [18, 47]}
 	if not sylk.is_empty():
 		var sp: Array = sylk.get("pos", [0, 0])
 		_text_specs.append({
@@ -356,33 +367,46 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 	vals["display"] = _display_value(vm)
 	var ro: Dictionary = _entry(Art.layout(m.type), "readout")
 	if not ro.is_empty():
-		vals["ro_mode"] = ViewMode.chip(_mode_from_name(str(ro.get("mode", "DEC"))))
+		vals["ro_mode"] = ViewMode.chip(vm if m.type == "terminal_output" else _mode_from_name(str(ro.get("mode", "DEC"))))
 		vals["ro_value"] = _readout_value(vm)
 	vals["silk"] = _silk_text(sim)
 	vals["bin"] = _bin_value(sim)
 	for i in _tag_values.size():
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
+		if t["key"] == "dial":
+			continue  # static operator text
 		var txt: String = vals.get(t["key"], "")
 		t["text"] = txt
 		if t["key"] == "bin":
 			t["color"] = _bin_color
+		elif t["key"] == "ro_value" and m.type == "terminal_output":
+			t["color"] = _bin_color if _bin_color == Palette.STATE_ERROR else (Palette.FAMILY_IO if vm == ViewMode.Mode.CHAR else Palette.DATA_NUMBER)
 
 
 func resolve_view_mode() -> int:
 	if view_mode >= ViewMode.Mode.BIN:
 		return view_mode
+	if SimulationManager.view_mode >= ViewMode.Mode.BIN:
+		return SimulationManager.view_mode
 	var md := SimulationManager.mission
 	for o in md.outputs if md != null else []:
 		return int(o.get("view", ViewMode.Mode.BIN))
 	return ViewMode.Mode.BIN
 
 
+## Constants are amounts, not characters: under CHR they are shown as DEC.
+static func const_mode(vm: int) -> int:
+	return ViewMode.Mode.UDEC if vm == ViewMode.Mode.CHAR else vm
+
+
 func _display_value(vm: int) -> String:
 	var m := machine
 	match m.type:
 		"add":
-			return "+" + ViewMode.format(BitVector.of(int(m.params.get("k", 0)), m.width), vm)
+			return "+" + ViewMode.format(BitVector.of(int(m.params.get("k", 0)), m.width), const_mode(vm))
+		"modulo":
+			return "%" + ViewMode.format(BitVector.of(int(m.params.get("k", 0)), m.width), const_mode(vm))
 		"multiply":
 			var k := int(m.params.get("k", 0))
 			var sgn := "−" if k < 0 else ""
@@ -393,7 +417,8 @@ func _display_value(vm: int) -> String:
 
 
 func _readout_value(vm: int) -> String:
-	# No MVP machine carries a readout yet; reuse the value the machine displays.
+	if machine.type == "terminal_output":
+		return _bin_value(null) if not machine.received.is_empty() else "—"
 	var v := _display_value(vm)
 	return v if v != "" else "0"
 
@@ -406,7 +431,7 @@ func _silk_text(_sim: Simulation) -> String:
 			var base := "USB" if m.type == "usb_input" else ""
 			var cnt := " ×%d" % left if left > 0 else ""
 			return base + cnt
-		"output":
+		"output", "terminal_output":
 			var total := 0
 			var got := 0
 			var run := SimulationManager.run
@@ -424,7 +449,7 @@ func _silk_text(_sim: Simulation) -> String:
 
 
 func _bin_value(_sim: Simulation) -> String:
-	if machine.type != "output" or machine.received.is_empty():
+	if not machine.type in ["output", "terminal_output"] or machine.received.is_empty():
 		return ""
 	var last: Packet = machine.received[machine.received.size() - 1]
 	var wrong := false

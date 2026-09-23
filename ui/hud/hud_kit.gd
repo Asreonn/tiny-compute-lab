@@ -136,3 +136,18 @@ static func view_mode() -> int:
 
 static func fmt(bv: BitVector) -> String:
 	return ViewMode.format(bv, view_mode()) if bv != null else "—"
+
+
+## Constants (shift amounts, moduli) are amounts, not characters: CHR shows them as DEC.
+static func fmt_const(bv: BitVector) -> String:
+	var mode := view_mode()
+	return ViewMode.format(bv, ViewMode.Mode.UDEC if mode == ViewMode.Mode.CHAR else mode)
+
+
+## Machine icon for palette tiles / inspector headers: the op_* icon, or the def's glyph_text
+## (e.g. Modulo "%") when no icon asset exists.
+static func machine_icon(parent: Control, type: String, pos: Vector2, size: float, color: Color) -> Control:
+	var def := Catalog.def(type)
+	if str(def.get("icon", "")) != "":
+		return icon(parent, str(def["icon"]), pos, size, color)
+	return label(parent, str(def.get("glyph_text", "?")), pos + Vector2(0, size * 0.1), int(size * 0.8), W_XBOLD, color, size, HORIZONTAL_ALIGNMENT_CENTER)

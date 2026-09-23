@@ -53,8 +53,7 @@ func _place() -> void:
 	_expect(_tools.tool == "place", "begin_place switches to place")
 	var p := Vector2(6 * 64 + 32, 3 * 64 + 32)
 	_tools._on_mouse_motion(p)
-	_tools._lmb_press(p)
-	_tools._lmb_release(p)
+	_click(p)
 	_expect(_find("add") >= 0, "an Add was placed")
 	_step = 2
 
@@ -64,9 +63,13 @@ func _wire_all() -> void:
 	var usb := _find("usb_input")
 	var add := _find("add")
 	var out := _find("output")
+	# Wire tool, through the real mouse-button path: one drag, one click-click.
 	_tools.set_tool("wire")
 	_drag(_mv.port_world(sim.machines[usb], "out"), _mv.port_world(sim.machines[add], "in"))
-	_drag(_mv.port_world(sim.machines[add], "out"), _mv.port_world(sim.machines[out], "in"))
+	_expect(sim.connections.size() == 1, "wire tool drag makes a wire (got %d)" % sim.connections.size())
+	_click(_mv.port_world(sim.machines[add], "out"))
+	_tools._on_mouse_motion(_mv.port_world(sim.machines[out], "in"))
+	_click(_mv.port_world(sim.machines[out], "in"))
 	_expect(sim.connections.size() == 2, "two wires exist (got %d)" % sim.connections.size())
 	_step = 3
 
@@ -88,12 +91,24 @@ func _run() -> void:
 		_fail = "run did not pass: %s" % str(_mgr.run.failure)
 
 
+func _button(pressed: bool, at: Vector2) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = pressed
+	_tools._on_mouse_button(ev, at)
+
+
 func _drag(a: Vector2, b: Vector2) -> void:
 	_tools._on_mouse_motion(a)
-	_tools._lmb_press(a)
+	_button(true, a)
 	_tools._on_mouse_motion((a + b) / 2.0)
 	_tools._on_mouse_motion(b)
-	_tools._lmb_release(b)
+	_button(false, b)
+
+
+func _click(at: Vector2) -> void:
+	_button(true, at)
+	_button(false, at)
 
 
 func _find(type: String) -> int:

@@ -39,7 +39,7 @@ func _on_hover(info: Dictionary) -> void:
 			title = str(m.def()["name"])
 			sub = "%d tick · %d power" % [m.processing_ticks(), m.power()]
 			if m.params.has("k"):
-				big = "+" + HudKit.fmt(BitVector.of(int(m.params["k"]), m.width))
+				big = ("%" if m.type == "modulo" else "+") + HudKit.fmt_const(BitVector.of(int(m.params["k"]), m.width))
 			elif m.locked:
 				big = "%d-bit · mission I/O" % m.width
 		"port":
