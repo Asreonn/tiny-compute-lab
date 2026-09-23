@@ -54,7 +54,7 @@ judged in motion. Static render: `design/previews/ds_v2_motion.png`.
 | 1 | packet enters (Entering) | packet shrinks into the input port (120 ms) |
 | 2 | bay fills (Bank 3) | `area_bank_{queued_count}` texture; new chip fades in 100 ms |
 | 3 | near full (Bank 4) | full bank reads as pressure without inspector |
-| 4 | blocked: Bank Blocked + hazard tag + output port Blocked | when output cannot emit: StateLayer Blocked alpha → 1 (150 ms), stays while blocked |
+| 4 | blocked: Bank Blocked + external pause badge + output port Blocked | when output cannot emit: StateLayer Blocked alpha → 1 (150 ms), stays while blocked |
 | 5 | released: slot clears | bay chip fades out 100 ms as packet leaves |
 
 ### Splitter
@@ -66,7 +66,7 @@ judged in motion. Static render: `design/previews/ds_v2_motion.png`.
 3 output route activates as the packet leaves.
 
 ### Compare
-1 number arrives → 2 result lamp lights (`area_comparator_true|false`) as the job completes →
+1 number arrives → 2 operator window lights (`area_comparator_true|false`: magenta edge + tint = TRUE, dim edge = FALSE) as the job completes →
 3 BOOLEAN packet exits (diamond token; filled = TRUE, hollow = FALSE).
 
 ### Gate
@@ -85,7 +85,7 @@ port and shrinks in (Entering, 120 ms).
 |---|---|---|
 | any → Hover | 140 ms | InstallPad Hover + StateLayer Hover alpha 0→1 |
 | Hover → idle | 140 ms | alpha 1→0 |
-| any → Selected | 150 ms | brackets + dashed outline alpha 0→1 (persistent) |
+| any → Selected | 150 ms | external brackets + solid frame + base highlight alpha 0→1 (persistent, layered over runtime states) |
 | Idle → Receiving | 160 ms pulse | contact overlay flash, port Active |
 | → Processing | ticks × tick | ActivityArea progress; StateLayer Processing underglow alpha 0.6 |
 | → OutputReady | 150 ms | output contacts on, LED green |

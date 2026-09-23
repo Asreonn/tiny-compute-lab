@@ -1,4 +1,4 @@
-# Tiny Compute Lab — Visual System (V2)
+# Tiny Compute Lab — Visual System (V2, with V2.1 readability refinement)
 
 > **Physical compute modules installed into a miniature computer factory.**
 > Not "UI boxes connected with lines".
@@ -25,7 +25,7 @@ Reference renders are in `design/previews/` (`ds_v2_*.png`, `showcase_gameplay_v
 ## 2. Visual hierarchy (what the eye should hit first)
 
 1. **Board activity** — packets moving, active wire segments, processing dies.
-2. **Machines** — silhouettes, ports, state (LED, hazard tag, error badge).
+2. **Machines** — silhouettes, ports, state (LED, external blocked/error badge).
 3. **Player wires** — quiet embedded channels.
 4. **Board substrate** — very low contrast zones/traces/silkscreen.
 5. **HUD** — thin top bar, floating panels; never brighter than the board.
@@ -50,7 +50,7 @@ Machine
 ├─ FamilyTab       (Family)                        24×3 tab — the ONLY family colour on a machine
 ├─ ActivityArea    (Kind × State)                  PrimaryActivityArea: where computation is visible
 ├─ FunctionGlyph   (icon op_*)                     only where the area needs a symbol (Add, Multiply, Compare)
-├─ MiniDisplay     (W28|W36|W44) + value text      only for the one essential value (+5, ×2, > 10, 3t)
+├─ MiniDisplay     (W28|W36|W44) + value text      only for the one essential value (+5, ×2, 3t); Compare uses a large operator + threshold text instead
 ├─ Silkscreen text (optional, close zoom)          e.g. ×12 remaining, 3/16, x², ALT
 ├─ StatusLED       (State)                         sits in the chassis bezel
 ├─ Ports           (Direction × Datatype × State)  on tile-edge anchors
@@ -85,13 +85,13 @@ Same ecosystem, different silhouettes (colour only on the tab):
 
 | Kind | Machine | States | What changes |
 |---|---|---|---|
-| Dial | Add, Multiply | Idle, Active | tick ring lights around the op glyph |
-| Die | Processor | Idle, Processing, Done | cores light progressively (sweep = ticks × tick); Done = green |
-| Bank | Buffer | 0, 1, 2, 3, 4, Blocked | bays fill with data chips; Blocked = amber bays |
-| Split | Splitter | Idle, LaneA, LaneB, Dup | chosen lane core + lane lamp light |
-| Merge | Merger | Idle, LaneA, LaneB | resolved lane + output lane light |
-| Valve | Gate | Closed, Waiting, Open | blade lifts into the tower when EN is TRUE |
-| Comparator | Compare | Idle, True, False | BOOLEAN result lamp: filled = TRUE, hollow = FALSE |
+| Dial | Add, Multiply | Idle, Active | 40 px operation disc under a 24 px op glyph; ring + disc edge light cyan (V2.1: tick ring removed) |
+| Die | Processor | Idle, Processing, Done | 48 px die, 4 × 16 px cores light progressively (sweep = ticks × tick); Done = green |
+| Bank | Buffer | 0, 1, 2, 3, 4, Blocked | bays fill **from the OUT side** with vertical data cells; full = storage-orange bay edges; Blocked = amber |
+| Split | Splitter | Idle, LaneA, LaneB, Dup | chosen lane core lights (9 px channel, 3.5 px core); V2.1: lane lamps removed |
+| Merge | Merger | Idle, LaneA, LaneB | resolved lane + output lane light (same channel weights as Split) |
+| Valve | Gate | Closed, Waiting, Open | blade drops across the data path (Closed) / lifts into the tower housing with a magenta key (Open); path core lights only when open |
+| Comparator | Compare | Idle, True, False | 30×24 operator window (the big `>` / `<` / `=` sits in it); True = magenta edge + tint, False = dim magenta edge |
 | Coil | Delay | Idle, Active | serpentine delay line lights |
 | Counter | Counter | Idle, Tick | digit window flashes, tally advances |
 | Feed | Input | Idle, Feeding, Empty | queued chips + chevrons pulse toward the output |
@@ -103,7 +103,7 @@ Same ecosystem, different silhouettes (colour only on the tab):
 **Datatype** (Number, Boolean) × **State** (Idle, Hover, TargetValid, TargetInvalid, Connected,
 Active, Blocked, Error, Disabled). `TargetValid` is the spec's **Available**.
 
-- Input = **socket** (ring + dark hole). Output = **plug** (filled + pin). Control = **keyed diamond** (key tab) on the north edge — a control port can never be mistaken for a data port.
+- Input = **socket** (hollow ring + dark hole). Output = **plug** (filled + pin). V2.1: body 14 px (was 12), 2.5 px ring, 18 px contact pad, and a **flow chevron on the wire side** (IN points into the socket, OUT points away, CONTROL points down) — direction reads while paused, without arrows on wires. Control = **keyed diamond** (key tab) on the north edge — a control port can never be mistaken for a data port.
 - Shape encodes datatype: **circle = NUMBER, diamond = BOOLEAN** (future: capsule VECTOR, 2×2 MATRIX, square+bar TEXT, frame IMAGE, hexagon INSTRUCTION — page `02`).
 - Idle ports use the *dim* datatype colour; Active lights the contact pad too.
 
@@ -141,13 +141,13 @@ States: **Idle** (quiet, dim core) · **Hover** (edge lifts) · **Selected** (ic
 | State | Where it shows | Treatment |
 |---|---|---|
 | Idle | — | nothing moves; LED dim |
-| Hover | InstallPad Hover + StateLayer Hover | soft outline; temporary |
-| Selected | InstallPad Selected + StateLayer Selected | ice corner brackets + dashed outline; persistent |
+| Hover | InstallPad Hover + StateLayer Hover | 2 px `state.hover` outline + 12 % pad tint; temporary |
+| Selected | InstallPad Selected + StateLayer Selected | **outside** the footprint: 14×3 px ice corner brackets (5 px out), solid 1.5 px frame, 10 % base highlight; persistent and layered over any runtime state |
 | Receiving | input side contacts + input port Active + LED | cyan contacts flash |
 | Processing | **ActivityArea** (die/dial/coil/…) + LED; StateLayer only a faint underglow | internal activity |
 | OutputReady | output side contacts + output port Active + LED green | |
-| Blocked | amber hazard tag at the output + dashed amber outline + output port Blocked + LED amber | "I have data but cannot send it" — never a red wash |
-| Error | red outline + ! badge + LED red | only for real errors (mission failure path) |
+| Blocked | amber 18 px pause badge **outside** the top-right corner + solid amber outline + output port Blocked + LED amber | "I have data but cannot send it" — never a red wash |
+| Error | red outline + ! badge (same external corner slot as Blocked) + LED red | only for real errors (mission failure path) |
 | Disabled | veil 60 % | |
 
 ## 13. Zoom-level rules
@@ -164,6 +164,42 @@ States: **Idle** (quiet, dim core) · **Hover** (edge lifts) · **Selected** (ic
 - **Selection** = deep info in the `Inspector` (Configuration, State, Performance expanded; Statistics collapsed).
 - **Warning** (amber): pressure, bottleneck, blocked, throughput below target.
 - **Error** (red): only mission failures and invalid actions.
+
+## 14b. V2.1 readability refinement (Penpot page `11 V2 Refinement`)
+
+A refinement of V2, not a new art direction: the V2 chassis, palette, PCB look and component
+structure are unchanged (~85 % of the appearance). Only readability, spacing and state clarity moved.
+A rejected "V3 game-asset" experiment (mechanical silhouettes per machine) was dropped before it
+reached Penpot — it broke family cohesion.
+
+**Evidence frames** on page `11`: `V2 READABILITY REFINEMENT` (left = frozen V2, right = live
+refined components, 1:1), `ORIGINAL V2 GAMEPLAY TEST` (frozen) and `REFINED V2 GAMEPLAY TEST`
+(live) — identical layout, wires, packet positions and zoom.
+
+**Machine spacing grid** (`tokens.json → machine-space`): XS 4 (chassis inset, related gap) ·
+S 8 (min clearance between unrelated elements, decoration clearance) · M 12 (content margin, port
+clearance half-width) · L 16 (gap between functional sections). Rules:
+- Content never enters the port clearance zone (anchor ± 12 px on the port row).
+- One primary function region per machine gets the strongest contrast; everything else is secondary.
+- Decoration (screws, pin-1, silkscreen) only in corner zones with ≥ S clearance — if it does not fit it is removed.
+- Family tab and LED sit at fixed slots (tab top-left / above the display column, LED top-right in the bezel).
+
+**What changed**
+| Area | V2 | V2.1 |
+|---|---|---|
+| Ports | 12 px body, in/out look alike | 14 px body, hollow IN / solid OUT, wire-side flow chevron |
+| Add / Multiply | 36 px dial with tick ring, glyph 20 px | 40 px operation disc, 24 px glyph, display column aligned with the family tab; vents removed |
+| Compare | `>|` icon + `> 10` display + result lamp next to the out port | one large operator in a 30×24 window, threshold below; result = window colour + BOOLEAN out port |
+| Gate | thin stem, small blade, empty body | blade housing above the path, blade clearly crosses the data path when closed; tab bottom-left, no LED |
+| Splitter / Merger | 7 px channels, lane lamps near the LED | 9 px channels, 3.5 px lit core, larger switch, lamps removed; `ALT` moved clear of lane B |
+| Buffer | small pill chips, bays touching the tab | vertical cells fill from OUT side, full/blocked bay edges, 6 px clearance to tab, `×4` clear of bays |
+| Processor | 44 px die, 12 px cores | 48 px die, 16 px cores, idle cores outlined, `x²` clear of the die |
+| Input / Output | screws touching `×12` / `3/16` | screws removed on edge-connector forms; silkscreen left-aligned with the tray |
+| S-size machines | LED squeezed in | no LED (StateLayer + function region carry state) |
+| Hover / Selected | 1 px / dashed | see §12 (external brackets, base highlight) |
+| Blocked / Error | tag inside the chassis over the LED | external corner badge, solid outline |
+| Wires | 2 px core | 3 px core (ValidTarget 3.5) |
+| Packets (Normal) | 16×16 | NUMBER 24×16 capsule, BOOLEAN 20×20 diamond — still lighter than machines |
 
 ## 15. HUD primitives (page `06`, V2 sections)
 

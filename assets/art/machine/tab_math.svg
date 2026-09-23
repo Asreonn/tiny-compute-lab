@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="3" viewBox="0 0 24 3" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-aef5de96b87e">
+  <g id="shape-599dedc4-9695-8061-8008-af03a3582c72">
     <defs>
-      <clipPath id="frame-clip-599dedc4-9695-8061-8008-aef5de96b87e-render-189702" class="frame-clip frame-clip-def">
+      <clipPath id="frame-clip-599dedc4-9695-8061-8008-af03a3582c72-render-327455" class="frame-clip frame-clip-def">
         <rect rx="0" ry="0" x="0" y="0" width="24" height="3" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)">
         </rect>
       </clipPath>
@@ -9,14 +9,14 @@
     <g class="frame-container-wrapper">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
-          <g clip-path="url(#frame-clip-599dedc4-9695-8061-8008-aef5de96b87e-render-189702)" fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de96b87e">
+          <g clip-path="url(#frame-clip-599dedc4-9695-8061-8008-af03a3582c72-render-327455)" fill="none">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a3582c72">
               <rect rx="0" ry="0" x="0" y="0" width="24" height="3" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-aef5de96b87f">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de96b87f">
+              <g id="shape-599dedc4-9695-8061-8008-af03a3582c73">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a3582c73">
                   <rect rx="1" ry="1" x="0" y="0" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="24" height="3" style="fill:#5aa2ff;fill-opacity:1">
                   </rect>
                 </g>

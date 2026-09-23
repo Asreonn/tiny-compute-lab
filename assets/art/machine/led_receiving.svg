@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-4 -4 20 20" style="-webkit-print-color-adjust:exact" fill="none" version="1.1">
-  <g id="shape-599dedc4-9695-8061-8008-aef5de0b08fd">
+  <g id="shape-599dedc4-9695-8061-8008-af03a29ba66f">
     <g class="frame-container-wrapper">
       <g class="frame-container-blur">
         <g class="frame-container-shadows">
           <g fill="none">
-            <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de0b08fd">
+            <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a29ba66f">
               <rect rx="0" ry="0" x="0" y="0" width="12" height="12" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="frame-background">
               </rect>
             </g>
             <g class="frame-children">
-              <g id="shape-599dedc4-9695-8061-8008-aef5de0b08fe" style="opacity:0.35">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de0b08fe">
+              <g id="shape-599dedc4-9695-8061-8008-af03a29ba670" style="opacity:0.35">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a29ba670">
                   <ellipse cx="6" cy="6" rx="9" ry="9" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#3ee0cf;fill-opacity:1">
                   </ellipse>
                 </g>
               </g>
-              <g id="shape-599dedc4-9695-8061-8008-aef5de0b08ff">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de0b08ff">
+              <g id="shape-599dedc4-9695-8061-8008-af03a29ba671">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a29ba671">
                   <ellipse cx="6" cy="6" rx="3" ry="3" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#3ee0cf;fill-opacity:1">
                   </ellipse>
                 </g>
               </g>
-              <g id="shape-599dedc4-9695-8061-8008-aef5de0b0900">
-                <g class="fills" id="fills-599dedc4-9695-8061-8008-aef5de0b0900">
+              <g id="shape-599dedc4-9695-8061-8008-af03a29ba672">
+                <g class="fills" id="fills-599dedc4-9695-8061-8008-af03a29ba672">
                   <ellipse cx="5" cy="5" rx="1" ry="1" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" style="fill:#ffffff;fill-opacity:0.6">
                   </ellipse>
                 </g>
