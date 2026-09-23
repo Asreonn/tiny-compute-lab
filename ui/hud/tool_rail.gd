@@ -19,14 +19,14 @@ func _ready() -> void:
 		var p := Vector2(4, 6 + i * 56)
 		_boxes[t[0]] = HudKit.box(self, p, Vector2(48, 48), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 6)
 		_icons[t[0]] = HudKit.icon(self, t[1], p + Vector2(12, 12), 24, Palette.TEXT_SECONDARY)
-		var name: String = t[0]
-		HudKit.hit(self, p, Vector2(48, 48), func(): if tools: tools.set_tool(name), t[2])
+		var tool_name: String = t[0]
+		HudKit.hit(self, p, Vector2(48, 48), func(): if tools: tools.set_tool(tool_name), t[2])
 
 
 func _process(_delta: float) -> void:
 	if tools == null:
 		return
-	for name in _boxes:
-		var on: bool = tools.tool == name
-		HudKit.restyle(_boxes[name], Palette.DATA_NUMBER_DIM if on else Color(0, 0, 0, 0), Palette.DATA_NUMBER if on else Color(0, 0, 0, 0), 1 if on else 0, 6)
-		_icons[name].modulate = Palette.DATA_NUMBER if on else Palette.TEXT_SECONDARY
+	for tool_name in _boxes:
+		var on: bool = tools.tool == tool_name
+		HudKit.restyle(_boxes[tool_name], Palette.DATA_NUMBER_DIM if on else Color(0, 0, 0, 0), Palette.DATA_NUMBER if on else Color(0, 0, 0, 0), 1 if on else 0, 6)
+		_icons[tool_name].modulate = Palette.DATA_NUMBER if on else Palette.TEXT_SECONDARY

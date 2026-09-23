@@ -18,9 +18,9 @@ const T := Palette.TILE
 const QUEUE_STACK := 6.0  # px between packets stacked inside an input queue
 const ENTER_MIN_SCALE := 0.6  # entering packets shrink 1 -> 0.6 into the socket
 const LONG_LABEL := 5  # labels longer than this flip into a small tag above the packet
-const LABEL_SIZE := 9.0  # close-tier packet value font size
+const LABEL_SIZE := 9  # close-tier packet value font size
 const TAG_ABOVE := 14.0  # tag offset above the packet centre
-const TAG_RADIUS := 3.0  # tag corner radius
+const TAG_RADIUS := 3  # tag corner radius
 const TAG_PAD := 3.0  # horizontal padding inside the tag
 const TAG_ROW_PAD := 1.0  # vertical padding inside the tag
 
@@ -110,8 +110,8 @@ func comet_arcs(conn_id: int) -> Array:
 	if sim == null or not _paths.has(conn_id):
 		return []
 	var path: PackedVector2Array = _paths[conn_id]
-	var len := SignalGeom.poly_len(path)
-	if len <= 0.0:
+	var plen := SignalGeom.poly_len(path)
+	if plen <= 0.0:
 		return []
 	var a := _ease(SimulationManager.alpha)
 	var out: Array = []
@@ -119,7 +119,7 @@ func comet_arcs(conn_id: int) -> Array:
 		var rec: Dictionary = _positions[pid]
 		if int(rec["conn"]) != conn_id:
 			continue
-		out.append(clampf(lerpf(rec["prev"], rec["cur"], a), 0.0, len))
+		out.append(clampf(lerpf(rec["prev"], rec["cur"], a), 0.0, plen))
 	return out
 
 
@@ -144,8 +144,8 @@ func drawn_packet_positions() -> Dictionary:
 		if not _paths.has(cid):
 			_paths[cid] = _build_path(c)
 		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
-		var len := maxf(SignalGeom.poly_len(path), 1e-9)
-		if path.size() < 2 or len <= 0.0:
+		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
+		if path.size() < 2 or plen <= 0.0:
 			continue
 		for i in c.slots.size():
 			var p: Packet = c.slots[i]
@@ -154,7 +154,7 @@ func drawn_packet_positions() -> Dictionary:
 			var arc: float = _slot_arc(path, c.cells, i)
 			if _positions.has(p.id):
 				arc = lerpf(_positions[p.id]["prev"], _positions[p.id]["cur"], a)
-			out[p.id] = SignalGeom.sample(path, clampf(arc / len, 0.0, 1.0))[0]
+			out[p.id] = SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
 	# 2. entering (this tick's delivered packets gliding into the socket)
 	for pid in delivering:
 		var e: Dictionary = delivering[pid]
@@ -217,8 +217,8 @@ func _draw() -> void:
 		if not _paths.has(cid):
 			_paths[cid] = _build_path(c)
 		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
-		var len := maxf(SignalGeom.poly_len(path), 1e-9)
-		if path.size() < 2 or len <= 0.0:
+		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
+		if path.size() < 2 or plen <= 0.0:
 			continue
 		for i in c.slots.size():
 			var p: Packet = c.slots[i]
@@ -227,7 +227,7 @@ func _draw() -> void:
 			var arc: float = _slot_arc(path, c.cells, i)
 			if _positions.has(p.id):
 				arc = lerpf(_positions[p.id]["prev"], _positions[p.id]["cur"], a)
-			var pos: Vector2 = SignalGeom.sample(path, clampf(arc / len, 0.0, 1.0))[0]
+			var pos: Vector2 = SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
 			_draw_packet(p, pos, "leaving" if emitted.has(p.id) else "normal", 1.0, Color.WHITE)
 	# 2. entering: this tick's delivered packets glide from the wire head slot to the input
 	#    anchor, shrinking into the socket at PKT_ENTERING_OPACITY (tick-locked)
@@ -327,11 +327,11 @@ func _wire_head_pos(sim: Simulation, m: Machine, port: String) -> Vector2:
 	if not _paths.has(cv.id):
 		_paths[cv.id] = _build_path(cv)
 	var path: PackedVector2Array = _paths.get(cv.id, PackedVector2Array())
-	var len := maxf(SignalGeom.poly_len(path), 1e-9)
-	if path.size() < 2 or len <= 0.0:
+	var plen := maxf(SignalGeom.poly_len(path), 1e-9)
+	if path.size() < 2 or plen <= 0.0:
 		return MachineView.port_world(m, port)
 	var arc := _slot_arc(path, cv.cells, cv.slots.size() - 1)
-	return SignalGeom.sample(path, clampf(arc / len, 0.0, 1.0))[0]
+	return SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
 
 
 ## Find a packet that lives inside a machine queue (used for entering packets).
@@ -369,13 +369,13 @@ func _build_path(c: Connection) -> PackedVector2Array:
 ## Arc length (px along the path) of slot i: the centre of the routed tile, or the wire's
 ## delivery end for a zero-tile stretch.
 func _slot_arc(path: PackedVector2Array, cells: Array, i: int) -> float:
-	var len := SignalGeom.poly_len(path)
-	if len <= 0.0:
+	var plen := SignalGeom.poly_len(path)
+	if plen <= 0.0:
 		return 0.0
 	if i >= 0 and i < cells.size():
 		var centre := Vector2(cells[i]) * T + Vector2.ONE * (T * 0.5)
-		return clampf(SignalGeom.project(path, centre) * len, 0.0, len)
-	return len
+		return clampf(SignalGeom.project(path, centre) * plen, 0.0, plen)
+	return plen
 
 
 ## Cubic-out easing applied to SimulationManager.alpha (docs/MOTION_SYSTEM.md §1: one easing).

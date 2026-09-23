@@ -64,10 +64,10 @@ func _ready() -> void:
 
 # ============================================================ public API
 
-func set_tool(name: String) -> void:
+func set_tool(tool_name: String) -> void:
 	if tool == "place":
 		_clear_place()
-	tool = name
+	tool = tool_name
 	tool_changed.emit(tool)
 
 
@@ -473,6 +473,7 @@ func _clear_ghost() -> void:
 func _snap_cell(world: Vector2, type: String, rot: int) -> Vector2i:
 	var s := Catalog.size_of(type, rot)
 	var c := Vector2i(floori(world.x / T), floori(world.y / T))
+	@warning_ignore("integer_division")
 	c -= Vector2i((s.x - 1) / 2, (s.y - 1) / 2)
 	return c
 

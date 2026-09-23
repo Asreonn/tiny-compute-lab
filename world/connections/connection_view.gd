@@ -10,6 +10,7 @@ extends Node2D
 ##   · Core (Line2D) · Lane0..3 (Line2D, buses) · Overlays (dash/comets/chevrons/tag).
 
 const T := Palette.TILE
+const TAG_FONT := 7  # WidthTag digits (Penpot 7.5; Godot font sizes are integers)
 const COMET_TAIL_PX := 40.0  # packet comet tail length, clamped at the wire start
 const DASH_LEN := 6.0        # boolean core dash length (px of arc)
 const DASH_GAP := 4.0        # boolean core dash gap
@@ -244,12 +245,12 @@ func _apply_layers() -> void:
 ## bright head (sub 0.4..1, 3.5 px opaque) that all follow the chamfered path with the
 ## head exactly at the packet position s (L.drawWire "comet-*" layers).
 func _draw_comet(canvas: CanvasItem, s: float) -> void:
-	var len := SignalGeom.poly_len(_path)
-	if len <= 0.0:
+	var plen := SignalGeom.poly_len(_path)
+	if plen <= 0.0:
 		return
 	var w0 := maxf(s - COMET_TAIL_PX, 0.0)
-	var f0 := clampf(w0 / len, 0.0, 1.0)
-	var f1 := clampf(s / len, 0.0, 1.0)
+	var f0 := clampf(w0 / plen, 0.0, 1.0)
+	var f1 := clampf(s / plen, 0.0, 1.0)
 	var glow := SignalGeom.sub_poly(_path, f0 + (f1 - f0) * 0.35, f1)
 	canvas.draw_polyline(glow, Color(_comet_color, Palette.SIG_COMET_GLOW_OPACITY), float(Palette.SIG_GLOW), true)
 	var tail := SignalGeom.sub_poly(_path, f0, f0 + (f1 - f0) * Palette.SIG_COMET_TAIL_FRACTION)
@@ -267,10 +268,10 @@ func _draw_width_tag(canvas: CanvasItem) -> void:
 	var f := TclTheme.font("ExtraBold")
 	var label := str(connection.width)
 	var tw := 14.0 if label.length() <= 1 else 18.0
-	var ascent := f.get_ascent(7.5)
-	var descent := f.get_descent(7.5)
+	var ascent := f.get_ascent(TAG_FONT)
+	var descent := f.get_descent(TAG_FONT)
 	canvas.draw_string(f, Vector2(mid.x - tw * 0.5, mid.y + (ascent - descent) * 0.5), label,
-		HORIZONTAL_ALIGNMENT_CENTER, tw, 7.5, Palette.DATA_NUMBER)
+		HORIZONTAL_ALIGNMENT_CENTER, tw, TAG_FONT, Palette.DATA_NUMBER)
 
 
 # ------------------------------------------------------------------ previews
@@ -334,10 +335,10 @@ class OverlayLayer extends Node2D:
 			if h._bus:
 				# L.drawBus comet-glow: one wide chord from the comet tail to its head.
 				var s: float = h._comets[0]
-				var len := SignalGeom.poly_len(h._path)
+				var plen := SignalGeom.poly_len(h._path)
 				var tail := maxf(s - ConnectionView.COMET_TAIL_PX, 0.0)
-				var a: Vector2 = SignalGeom.sample(h._path, tail / maxf(len, 1.0))[0]
-				var z: Vector2 = SignalGeom.sample(h._path, s / maxf(len, 1.0))[0]
+				var a: Vector2 = SignalGeom.sample(h._path, tail / maxf(plen, 1.0))[0]
+				var z: Vector2 = SignalGeom.sample(h._path, s / maxf(plen, 1.0))[0]
 				draw_line(a, z, Color(Palette.DATA_NUMBER, 0.18), 16.0, true)
 			else:
 				for s in h._comets:

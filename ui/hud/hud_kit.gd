@@ -37,7 +37,7 @@ static func box(parent: Control, pos: Vector2, size: Vector2, fill: Color, strok
 ## Restyle an existing box (state changes).
 static func restyle(p: Panel, fill: Color, stroke := Color(0, 0, 0, 0), stroke_w := 0.0, radius := 0) -> void:
 	var key := [fill, stroke, stroke_w, radius]
-	if p.get_meta("style_key", null) == key:
+	if p.has_meta("style_key") and p.get_meta("style_key") == key:
 		return  # unchanged: panels are refreshed every frame
 	p.set_meta("style_key", key)
 	p.add_theme_stylebox_override("panel", style(fill, stroke, stroke_w, radius))

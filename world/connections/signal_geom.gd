@@ -166,8 +166,8 @@ static func _quad(p0: Vector2, p1: Vector2, p2: Vector2, t: float) -> Vector2:
 ## pointing along it (L.drawWire "flow-chevrons": base 2×2.5 back, tip 1.5 forward).
 static func chevrons(pts: PackedVector2Array, spacing: float) -> Array:
 	var out: Array = []
-	var len := poly_len(pts)
-	var k := maxi(1, int(floorf(len / spacing)))
+	var plen := poly_len(pts)
+	var k := maxi(1, int(floorf(plen / spacing)))
 	for i in range(1, k + 1):
 		var t := (i - 0.5) / k
 		var s := sample(pts, t)

@@ -121,10 +121,10 @@ func _build() -> void:
 	# 10 Ports centred on their anchors
 	_build_ports(ly)
 	# 11 state overlays (over the shell)
-	for name in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
-		var s := Art.sprite(Art.state_file(name, _size_key), Vector2.ZERO)
+	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
+		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
 		s.modulate.a = 0.0
-		_overlays[name] = s
+		_overlays[overlay] = s
 		body.add_child(s)
 	# 12 upright text layer
 	text_layer = UprightText.new()
@@ -349,7 +349,7 @@ func refresh(delta: float) -> void:
 	text_layer.queue_redraw()
 
 
-func _update_texts(sim: Simulation, running: bool) -> void:
+func _update_texts(sim: Simulation, _running: bool) -> void:
 	var m := machine
 	var vm := resolve_view_mode()
 	var vals := {}
@@ -385,8 +385,8 @@ func _display_value(vm: int) -> String:
 			return "+" + ViewMode.format(BitVector.of(int(m.params.get("k", 0)), m.width), vm)
 		"multiply":
 			var k := int(m.params.get("k", 0))
-			var sign := "−" if k < 0 else ""
-			return "×" + sign + ViewMode.format(BitVector.of(abs(k), m.width), vm)
+			var sgn := "−" if k < 0 else ""
+			return "×" + sgn + ViewMode.format(BitVector.of(abs(k), m.width), vm)
 		"delay":
 			return "%dt" % int(m.params.get("ticks", 3))
 	return ""
@@ -398,7 +398,7 @@ func _readout_value(vm: int) -> String:
 	return v if v != "" else "0"
 
 
-func _silk_text(sim: Simulation) -> String:
+func _silk_text(_sim: Simulation) -> String:
 	var m := machine
 	match m.type:
 		"input", "usb_input":
@@ -423,7 +423,7 @@ func _silk_text(sim: Simulation) -> String:
 			return ""
 
 
-func _bin_value(sim: Simulation) -> String:
+func _bin_value(_sim: Simulation) -> String:
 	if machine.type != "output" or machine.received.is_empty():
 		return ""
 	var last: Packet = machine.received[machine.received.size() - 1]

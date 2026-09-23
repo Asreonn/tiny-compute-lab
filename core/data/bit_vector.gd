@@ -61,8 +61,8 @@ func unsigned() -> int:
 func signed() -> int:
 	if width == 64:
 		return bits
-	var sign := 1 << (width - 1)
-	return bits - (1 << width) if (bits & sign) != 0 else bits
+	var sgn := 1 << (width - 1)
+	return bits - (1 << width) if (bits & sgn) != 0 else bits
 
 
 ## Truth value of a control signal: any bit set. (Control ports are width 1.)
@@ -109,7 +109,7 @@ func _to_string() -> String:
 
 # --- Compare ----------------------------------------------------------------
 
-## Unsigned int64 comparison of raw storage (sign bit set => larger unsigned).
+## Unsigned int64 comparison of raw storage (sgn bit set => larger unsigned).
 static func _u64_cmp(a: int, b: int) -> int:
 	if a == b:
 		return 0
@@ -169,8 +169,8 @@ func add_carry(other: Variant) -> Dictionary:
 	if width == 64:
 		# Unsigned-overflow detection: carry when the modular sum is less than
 		# the addend in unsigned 64-bit terms.
-		var s: int = bits + o.bits
-		return {"value": BitVector.new(64, s), "carry": 1 if _u64_cmp(s, bits) < 0 else 0}
+		var s64: int = bits + o.bits
+		return {"value": BitVector.new(64, s64), "carry": 1 if _u64_cmp(s64, bits) < 0 else 0}
 	var s: int = unsigned() + o.unsigned()
 	return {"value": BitVector.new(width, s), "carry": 1 if s >= (1 << width) else 0}
 
@@ -199,6 +199,7 @@ func udiv(k: Variant) -> BitVector:
 	if kv == 0:
 		push_error("BitVector.udiv: division by zero")
 		return BitVector.zero(width)
+	@warning_ignore("integer_division")
 	return BitVector.of(unsigned() / kv, width)
 
 
@@ -242,7 +243,7 @@ func shr(n: int) -> BitVector:
 	return BitVector.new(width, unsigned() >> n)
 
 
-## Arithmetic shift right: the sign bit is replicated.
+## Arithmetic shift right: the sgn bit is replicated.
 func sar(n: int) -> BitVector:
 	if n < 0:
 		push_error("BitVector.sar: negative shift %d" % n)
