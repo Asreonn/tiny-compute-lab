@@ -9,6 +9,81 @@ const SCALE := 3.0
 
 static var _cache := {}
 static var _manifest := {}
+static var _layouts := {}
+
+
+static func _layout_data() -> Dictionary:
+	if _layouts.is_empty():
+		var f := FileAccess.open(ROOT + "machine_layouts.json", FileAccess.READ)
+		if f:
+			_layouts = JSON.parse_string(f.get_as_text())
+	return _layouts
+
+
+## Machine layout entry from assets/art/machine_layouts.json: machines[type] for the MVP
+## types; "usb_input" resolves to the roadmap USBInput kit (whose width tag width is
+## replaced by the instance width at runtime).
+static func layout(type: String) -> Dictionary:
+	var l := _layout_data()
+	var m: Dictionary = l.get("machines", {})
+	if m.has(type):
+		return m[type]
+	if type == "usb_input":
+		return l.get("roadmap", {}).get("USBInput", {})
+	return {}
+
+
+## Chassis form entry (shell asset + footprint) from layouts.forms.
+static func form(name: String) -> Dictionary:
+	return _layout_data().get("forms", {}).get(name, {})
+
+
+# ------------------------------------------------------------------- asset paths
+
+static func tab_file(family: String) -> String:
+	return "machine/tab_%s.svg" % family.to_lower()
+
+
+static func area_file(kind: String, state: String) -> String:
+	return "machine/area_%s_%s.svg" % [kind.to_lower(), state.to_lower()]
+
+
+static func led_file(state: String) -> String:
+	return "machine/led_%s.svg" % state.to_lower()
+
+
+static func pad_file(state: String, size: String) -> String:
+	return "machine/pad_%s_%s.svg" % [state.to_lower(), size.to_lower()]
+
+
+static func state_file(name: String, size: String) -> String:
+	return "machine/state_%s_%s.svg" % [name.to_lower(), size.to_lower()]
+
+
+static func display_file(width: String) -> String:
+	return "machine/display_%s.svg" % width.to_lower()
+
+
+static func readout_file(mode: String) -> String:
+	return "signal/readout_%s.svg" % mode.to_lower()
+
+
+static func widthtag_file(w: Variant) -> String:
+	return "signal/widthtag_%s.svg" % str(w)
+
+
+static func busport_file(dir: String, state: String) -> String:
+	var d := "in" if dir == "in" else "out"
+	var st := state if state in ["idle", "connected", "active"] else "connected"
+	return "port/busport_%s_%s.svg" % [d, st]
+
+
+## Port sprite file: bus ports use busport_* (bus states idle/connected/active, the
+## remaining states map to connected); width-1 ports use boolean; everything else number.
+static func port_sprite(dir: String, bus: bool, width: int, state: String) -> String:
+	if bus:
+		return busport_file(dir, state)
+	return port_file(dir, width, state)
 
 
 static func tex(rel: String) -> Texture2D:
@@ -69,7 +144,7 @@ static func size_key(type: String) -> String:
 
 
 static func port_file(dir: String, width: int, state: String) -> String:
-	var d := {"in": "input", "out": "output", "ctrl": "control"}[dir]
+	var d: String = {"in": "input", "out": "output", "ctrl": "control"}[dir]
 	var t := "boolean" if width == 1 else "number"
 	if d == "control":
 		t = "boolean"

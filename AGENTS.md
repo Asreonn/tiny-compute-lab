@@ -2,6 +2,9 @@
 
 - Test: `make test` (imports first, then runs `tests/run_tests.gd` headless; exit 0 = pass).
   A NEW `class_name` script is only visible after the import step, so always use `make test`.
+- ALWAYS wrap ad-hoc Godot runs in `timeout 60 godot ...`. A SceneTree script that `await`s frames
+  (especially under `--headless`) can hang forever. Screenshots need a real renderer: use
+  `timeout 60 godot --path . -s tools/shot.gd -- <mission> <out.png>` (no `--headless`).
 - Read `docs/ARCHITECTURE.md` before changing code. Hard rules:
   - `core/` and `game/` are pure data + deterministic simulation: no `Node`, no `_process`,
     no unseeded RNG, iterate by ascending id.
