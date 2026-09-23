@@ -229,7 +229,7 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 		var ap: Array = area.get("pos", [16, 18])
 		_text_specs.append({
 			"key": "bin", "pos": _upright(Vector2(ap[0], ap[1]), off, rot),
-			"width": 84.0, "size": 11.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
+			"width": 84.0, "height": 28.0, "size": 11.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
 			"color": Palette.DATA_NUMBER, "text": "",
 		})
 
@@ -484,4 +484,7 @@ class UprightText extends Node2D:
 			if txt == "":
 				continue
 			var base := Vector2(t["pos"].x, t["pos"].y + f.get_ascent(t["size"]))
+			if t.has("height"):  # vertically centred in a box (e.g. the Output bin)
+				var h: float = f.get_ascent(t["size"]) + f.get_descent(t["size"])
+				base.y = t["pos"].y + (float(t["height"]) - h) / 2.0 + f.get_ascent(t["size"])
 			draw_string(f, base, txt, t["align"], t["width"], t["size"], t["color"])
