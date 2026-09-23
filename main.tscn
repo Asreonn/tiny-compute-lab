@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="PackedScene" path="res://world/world.tscn" id="1_world"]
 [ext_resource type="Script" path="res://main.gd" id="2_main"]
+[ext_resource type="Script" path="res://ui/hud/hud.gd" id="3_hud"]
 
 [node name="Main" type="Node"]
 script = ExtResource("2_main")
@@ -9,3 +10,13 @@ script = ExtResource("2_main")
 [node name="World" parent="." instance=ExtResource("1_world")]
 
 [node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="HudRoot" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_hud")

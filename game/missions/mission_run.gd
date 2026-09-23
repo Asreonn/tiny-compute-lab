@@ -36,7 +36,8 @@ func build_board(sim: Simulation) -> void:
 		var m := Machine.new(0, source, d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))
 		m.locked = true
 		sim.add_machine(m)
-		m.label = "Input" if def.inputs.size() == 1 else "Input %s" % char(65 + i)
+		var base := "USB Input" if source == "usb_input" else "Input"
+		m.label = base if def.inputs.size() == 1 else "%s %s" % [base, char(65 + i)]
 	for i in def.outputs.size():
 		var d: Dictionary = def.outputs[i]
 		var m := Machine.new(0, "output", d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))

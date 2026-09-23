@@ -1,6 +1,8 @@
 extends SceneTree
 ## Screenshot tool (Slice A4a part 2):
-##   godot --path . -s tools/shot.gd -- <mission_id> <out.png> [ticks] [zoom]
+##   godot --path . -s tools/shot.gd -- <mission_id> <out.png> [ticks] [zoom] [select_type|-] [k]
+## select_type selects that machine (Inspector); k overrides the Add/Compare constant (e.g. a wrong
+## value to capture the failure panel). Ticks run through SimulationManager so HUD signals fire.
 ## Loads main.tscn, loads the mission, builds its reference solution, runs [ticks] sim
 ## steps (default 0), waits 3 frames with a real renderer, and saves the viewport to
 ## <out.png>. Rendered offscreen at exactly 1600x900 (the OS window size may be clamped
@@ -13,6 +15,8 @@ var _mission := ""
 var _out_png := ""
 var _ticks := 0
 var _zoom := 1.0
+var _select := ""
+var _k := -1
 var _state := 0  # 0 = wait one frame, 1 = build + step, 2 = wait for draw, 3 = quit
 var _wait := 0
 var _viewport: SubViewport
@@ -28,6 +32,8 @@ func _initialize() -> void:
 	_out_png = args[1]
 	_ticks = int(args[2]) if args.size() > 2 else 0
 	_zoom = float(args[3]) if args.size() > 3 else 1.0
+	_select = args[4] if args.size() > 4 and args[4] != "-" else ""
+	_k = int(args[5]) if args.size() > 5 else -1
 	# Offscreen render target: fixed size, independent of the OS window.
 	_viewport = SubViewport.new()
 	_viewport.name = "ShotViewport"
@@ -66,8 +72,17 @@ func _load_and_build() -> void:
 	var manager := root.get_node("/root/SimulationManager")
 	manager.load_mission(_mission)
 	Solutions.build(manager.sim, _mission)
+	for id in manager.sim.sorted_machine_ids():
+		var m = manager.sim.machines[id]
+		if _k >= 0 and m.params.has("k"):
+			manager.sim.set_param(id, "k", _k)
+		if _select != "" and m.type == _select:
+			_viewport.get_node("Main/World/Tools")._set_selection(id, -1)
+	manager.sim.reset_run()
 	for i in _ticks:
-		manager.sim.step()
+		if manager.run.status != MissionRun.Status.RUNNING:
+			break
+		manager._do_step()
 	# Camera: board centre with the requested zoom (fit_to_board already centred it).
 	var rig := _viewport.get_node("Main/World/CameraRig")
 	if rig != null:
