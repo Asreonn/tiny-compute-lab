@@ -17,9 +17,12 @@ extends Resource
 @export var view_modes: Array = []
 ## true for the pre-BitVector "factory" mechanics regression missions
 @export var legacy: bool = false
+## strict (legacy) validation: a wrong value or a stall FAILS the run. Campaign missions are
+## non-fatal (looping sources, rejected values, streak progress) — docs/ARCHITECTURE.md §6.
+@export var strict_validation: bool = false
 ## [{cell: Vector2i, rot, width, values, interval, strict, start, source: "usb_input"|"input"}]
 @export var inputs: Array = []
-## [{cell: Vector2i, rot, width, expected, ordered, view: ViewMode.Mode}]
+## [{cell: Vector2i, rot, width, expected, ordered, view: ViewMode.Mode, sink: "output"|"terminal_output"}]
 @export var outputs: Array = []
 ## machine types the player may build
 @export var allowed: PackedStringArray = PackedStringArray()
@@ -42,6 +45,7 @@ static func from_dict(i: int, d: Dictionary) -> MissionDef:
 	m.default_width = int(d.get("default_width", 0))
 	m.view_modes = d.get("view_modes", [])
 	m.legacy = bool(d.get("legacy", false))
+	m.strict_validation = bool(d.get("strict_validation", m.legacy))
 	m.inputs = d.get("inputs", [])
 	m.outputs = d.get("outputs", [])
 	m.allowed = PackedStringArray(d.get("allowed", []))

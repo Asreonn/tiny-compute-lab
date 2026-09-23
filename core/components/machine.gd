@@ -38,6 +38,7 @@ var carries := 0  # Add: total carry-outs this run
 var stream: Array = []  # input: Array[BitVector] to emit
 var interval := 1  # input: ticks between packets
 var strict := false  # input: drop (and fail) instead of waiting when blocked
+var loop := false  # input: repeat the stream until the mission passes (campaign sources)
 var next_emit := 0
 var emitted := 0
 var channel := 0  # output: which expected stream it validates

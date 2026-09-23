@@ -65,6 +65,18 @@ static var DEFS := {
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"k": {"label": "Constant", "kind": "int", "default": 1, "min": 0, "max": 255}},
 	},
+	"modulo": {
+		"name": "Modulo", "family": "math", "size": "M", "ticks": 1, "power": 1, "icon": "", "glyph_text": "%",
+		"desc": "Keeps the remainder after dividing by a constant.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
+		"params": {"k": {"label": "Modulus", "kind": "int", "default": 26, "min": 1, "max": 255}},
+	},
+	"terminal_output": {
+		"name": "Terminal", "family": "io", "size": "M", "ticks": 1, "power": 0, "icon": "io_output",
+		"desc": "Collects results as characters and checks them against the expected stream.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
+		"params": {},
+	},
 	"multiply": {
 		"name": "Multiply", "family": "math", "size": "M", "ticks": 2, "power": 2, "icon": "op_multiply",
 		"desc": "Multiplies each packet by a constant.",
@@ -137,7 +149,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "add", "multiply", "compare", "gate", "splitter", "merger", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "buffer", "delay", "counter", "processor"]
 
 
 static func has(type: String) -> bool:

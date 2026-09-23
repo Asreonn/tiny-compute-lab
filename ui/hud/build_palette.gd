@@ -3,7 +3,7 @@ extends Control
 ## machines. Default / Selected (family stroke) / New (green) / Locked (muted + lock).
 
 const CAT_ICON := {"io": "io_input", "math": "op_add", "logic": "op_compare", "routing": "op_split", "storage": "op_buffer"}
-const IO_TYPES := ["input", "usb_input", "output"]
+const IO_TYPES := ["input", "usb_input", "output", "terminal_output"]
 
 var tools: Node
 var _cat := ""

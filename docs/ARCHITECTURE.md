@@ -199,6 +199,18 @@ Expected 110 (6)
 Received 101 (5)
 ```
 
+**Validation is non-fatal (player feedback 2026-09-24, Shapez-style).** Campaign missions never
+"fail":
+- **Sources loop.** A USB source repeats its sequence until the mission passes.
+- **Correct values count.** A value equal to the next expected one (or any remaining one for
+  unordered outputs) advances progress.
+- **Wrong values are rejected, not fatal.** They are counted and shown: the Output shows them in red,
+  and the MissionSummary shows the last received value against the expected one.
+- **PASS** when every output channel has received its expected sequence.
+- **Stalls** (nothing moved for `STALL_TICKS`) raise a *warning* with the reason, not a failure.
+- Legacy missions keep the old strict validation (`strict_validation = true`) as mechanics
+  regression tests.
+
 The original ten "factory" missions are **legacy**. They stay as mechanics regression tests with an
 explicit per-mission `default_width` and are not part of the campaign; they will be redesigned
 later (see `docs/IMPLEMENTATION.md` slice E).

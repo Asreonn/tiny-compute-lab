@@ -1,5 +1,8 @@
 class_name CameraRig
 extends Camera2D
+
+const HUD_LEFT := 336.0
+const HUD_TOP := 68.0
 ## Slice A4a part 2 camera: pan with middle/right drag and WASD/arrows, wheel zoom in steps
 ## inside [0.5, 2.5], defaulting to a fit-to-board view. Emits zoom_tier_changed(tier)
 ## with "far" below Palette.ZOOM_FAR_BELOW, "close" above Palette.ZOOM_CLOSE_ABOVE and
@@ -55,19 +58,24 @@ func _apply_fit() -> void:
 	var vs := get_viewport_rect().size
 	if vs.x <= 0.0 or vs.y <= 0.0:
 		return
-	_zoom_to(minf(vs.x / _fit_rect.size.x, vs.y / _fit_rect.size.y))
-	position = _fit_rect.get_center()
+	# Fit into the area the HUD leaves free: left panels (ToolRail + BuildPalette / MissionSummary)
+	# end at 336 px, the TopBar at 52 (+16 margin); 16 px margins elsewhere.
+	var safe := Rect2(Vector2(HUD_LEFT, HUD_TOP), vs - Vector2(HUD_LEFT + 16.0, HUD_TOP + 16.0))
+	var z := minf(safe.size.x / _fit_rect.size.x, safe.size.y / _fit_rect.size.y) * 0.96
+	_zoom_to(z)
+	z = zoom.x
+	position = _fit_rect.get_center() - (safe.get_center() - vs / 2.0) / z
 
 
 func _process(delta: float) -> void:
 	var pan := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if Input.is_key_pressed(KEY_LEFT):
 		pan.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if Input.is_key_pressed(KEY_RIGHT):
 		pan.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if Input.is_key_pressed(KEY_UP):
 		pan.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if Input.is_key_pressed(KEY_DOWN):
 		pan.y += 1.0
 	if not pan.is_zero_approx():
 		_following_fit = false

@@ -49,6 +49,23 @@ static func _out(cell: Vector2i, width: int, expected: Array, view := ViewMode.M
 	return {"cell": cell, "rot": 0, "width": width, "expected": expected, "ordered": ordered, "view": view}
 
 
+## Slice B sink: a Terminal (characters), CHR view by default.
+static func _term(cell: Vector2i, width: int, expected: Array) -> Dictionary:
+	return {"cell": cell, "rot": 0, "width": width, "expected": expected, "ordered": true, "view": ViewMode.Mode.CHAR, "sink": "terminal_output"}
+
+
+## Text -> BitVectors in the width's charset (TCL-5 up to 6 bits): chars("HELLO", 5).
+static func chars(text: String, width: int) -> Array:
+	var out := []
+	for ch in text:
+		var bv := Charset.encode(ch, width)
+		if bv == null:
+			push_error("Missions.chars: '%s' is not encodable in %d bits" % [ch, width])
+			continue
+		out.append(bv)
+	return out
+
+
 ## Legacy input: width 8, fed from the classic "input" source (legacy mission data only).
 static func _legacy_in(cell: Vector2i, values: Array, interval := 4, strict := false, width := 8) -> Dictionary:
 	return {"cell": cell, "rot": 0, "width": width, "values": values, "interval": interval, "strict": strict, "start": 1, "source": "input"}
@@ -82,6 +99,39 @@ static func _data() -> Array:
 			"allowed": ["add"], "unlocks": [],
 			"goals": [{"kind": "components", "max": 1, "label": "Use 1 component"}],
 			"hint": "The same Add as before — watch the carry when the sum passes 111.",
+		},
+		{
+			"id": "b1_read", "title": "Read the Signal", "teaches": "Characters are bits",
+			"brief": "Five bits are enough for a letter. Route the signal and read it as text.",
+			"formula": "x → x", "size": Vector2i(14, 8),
+			"default_width": 5, "view_modes": [ViewMode.Mode.CHAR, ViewMode.Mode.BIN, ViewMode.Mode.UDEC],
+			"inputs": [_usb_in(Vector2i(1, 3), 5, chars("HELLO", 5), 4)],
+			"outputs": [_term(Vector2i(11, 3), 5, chars("HELLO", 5))],
+			"allowed": [], "unlocks": [],
+			"goals": [{"kind": "latency", "max": 14, "label": "Average latency ≤ 14 ticks"}],
+			"hint": "Wire USB → Terminal. Switch View as between CHR and BIN: same bits, two readings.",
+		},
+		{
+			"id": "b2_shift", "title": "Shift by Three", "teaches": "Caesar shift",
+			"brief": "Julius Caesar hid messages by moving every letter three places on.",
+			"formula": "x → x + 3", "size": Vector2i(14, 8),
+			"default_width": 5, "view_modes": [ViewMode.Mode.CHAR, ViewMode.Mode.BIN, ViewMode.Mode.UDEC],
+			"inputs": [_usb_in(Vector2i(1, 3), 5, chars("HELLO", 5), 4)],
+			"outputs": [_term(Vector2i(11, 3), 5, chars("KHOOR", 5))],
+			"allowed": ["add"], "unlocks": [],
+			"goals": [{"kind": "components", "max": 1, "label": "Use 1 component"}],
+			"hint": "An Add with constant 3 moves every letter three places: H → K.",
+		},
+		{
+			"id": "b3_caesar", "title": "Past Z", "teaches": "Modulo",
+			"brief": "Five bits count to 31, but the alphabet stops at Z. Wrap it around.",
+			"formula": "x → (x + 3) mod 26", "size": Vector2i(16, 9),
+			"default_width": 5, "view_modes": [ViewMode.Mode.CHAR, ViewMode.Mode.BIN, ViewMode.Mode.UDEC],
+			"inputs": [_usb_in(Vector2i(1, 4), 5, chars("ZEBRA", 5), 4)],
+			"outputs": [_term(Vector2i(13, 4), 5, chars("CHEUD", 5))],
+			"allowed": ["add", "modulo"], "unlocks": ["modulo"],
+			"goals": [{"kind": "components", "max": 2, "label": "Use 2 components"}],
+			"hint": "Z + 3 = 28 is a comma in TCL-5. A Modulo 26 brings it back to C.",
 		},
 	]
 

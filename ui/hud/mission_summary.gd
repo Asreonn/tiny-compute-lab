@@ -11,6 +11,7 @@ var _root: Control
 var _out_cells := []  # [Panel, Label]
 var _track_fill: Panel
 var _progress: Label
+var _last: Label  # "Last: , ✗  expected C" or the stall warning
 
 
 func _ready() -> void:
@@ -66,6 +67,7 @@ func _rebuild() -> void:
 	HudKit.box(_root, Vector2(18, 176), Vector2(284, 4), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 2)
 	_track_fill = HudKit.box(_root, Vector2(18, 176), Vector2(0, 4), Palette.STATE_VALID, Color(0, 0, 0, 0), 0, 2)
 	_progress = HudKit.label(_root, "", Vector2(18, 188), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
+	_last = HudKit.label(_root, "", Vector2(18, 208), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 284)
 	if not d.goals.is_empty():
 		HudKit.icon(_root, "icon_star_empty", Vector2(150, 188), 16, Palette.TEXT_SECONDARY)
 		HudKit.label(_root, "%d optional goal%s" % [d.goals.size(), "" if d.goals.size() == 1 else "s"], Vector2(172, 189), 10, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
@@ -100,7 +102,8 @@ func _refresh() -> void:
 		return
 	var d: MissionDef = sm.mission
 	var done: int = sm.run.progress[0] if not sm.run.progress.is_empty() else 0
-	var failed: bool = sm.run.status == MissionRun.Status.FAIL
+	var lo: Dictionary = sm.run.last_ok[0] if not sm.run.last_ok.is_empty() else {}
+	var failed: bool = sm.run.status == MissionRun.Status.FAIL or (not lo.is_empty() and not bool(lo.get("ok", true)))
 	for i in _out_cells.size():
 		var c: Panel = _out_cells[i][0]
 		var l: Label = _out_cells[i][1]
@@ -117,3 +120,16 @@ func _refresh() -> void:
 	var correct: int = sm.run.correct_total()
 	_track_fill.size = Vector2(284.0 * correct / total, 4)
 	_progress.text = "%d / %d" % [correct, d.expected_total()]
+	# Last arrival (rejected values are shown, never fatal) or the stall warning.
+	if sm.run.warning != "":
+		HudKit.set_text(_last, "⚠ " + sm.run.warning, Palette.STATE_BLOCKED)
+	elif not lo.is_empty() and not bool(lo.get("ok", true)):
+		var got := "—"
+		for mid in sm.sim.sorted_machine_ids():
+			var m: Machine = sm.sim.machines[mid]
+			if m.channel == 0 and m.type in ["output", "terminal_output"] and not m.received.is_empty():
+				got = HudKit.fmt(m.received[m.received.size() - 1].data)
+		var want := HudKit.fmt(sm.run.expected_bits[0][mini(done, sm.run.expected_bits[0].size() - 1)])
+		HudKit.set_text(_last, "Last: %s ✗   expected %s" % [got, want], Palette.STATE_ERROR)
+	else:
+		HudKit.set_text(_last, "", Palette.TEXT_MUTED)

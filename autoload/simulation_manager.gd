@@ -1,6 +1,6 @@
 extends Node
 ## The ONLY node that advances the simulation (docs/ARCHITECTURE.md §2, §5).
-## Accumulates real time and calls Simulation.step() at Simulation.TICKS_PER_SEC × speed.
+## Accumulates real time and calls Simulation.step() at TICK_RATE × speed.
 ## Views read sim.run / sim.sim and interpolate with `alpha`; they never tick the sim.
 
 signal mission_loaded(def: MissionDef)
@@ -12,6 +12,9 @@ signal speed_changed(speed: int)
 signal view_mode_changed(mode: int)
 
 const MAX_STEPS_PER_FRAME := 8
+## Real-time playback: sim ticks per real second at 1× (player feedback: 10/s was too fast to
+## read the data). Simulation.TICKS_PER_SEC stays the sim's own metric unit.
+const TICK_RATE := 4.0
 const SPEEDS := [1, 2, 4]
 
 var sim: Simulation
@@ -94,6 +97,11 @@ func reset_run() -> void:
 	ticked.emit(0)
 
 
+## Sim-metric rate (per Simulation.TICKS_PER_SEC ticks) converted to real seconds at 1×.
+static func real_rate(sim_rate: float) -> float:
+	return sim_rate * TICK_RATE / float(Simulation.TICKS_PER_SEC)
+
+
 func set_speed(s: int) -> void:
 	if s in SPEEDS and s != speed:
 		speed = s
@@ -119,7 +127,7 @@ func request_edit() -> void:
 func _process(delta: float) -> void:
 	if not running or sim == null:
 		return
-	_acc += delta * Simulation.TICKS_PER_SEC * speed
+	_acc += delta * TICK_RATE * speed
 	var stepped := 0
 	while _acc >= 1.0 and stepped < MAX_STEPS_PER_FRAME:
 		_do_step()

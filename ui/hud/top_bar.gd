@@ -102,6 +102,11 @@ func _refresh_mission() -> void:
 	_mission_idx.text = "%02d" % (d.index + 1)
 	_mission_title.text = d.title
 	_mission_formula.text = d.formula
+	# Title at its natural width (max 150), the formula takes the rest up to the chevron (x 264).
+	var tw := minf(TclTheme.font(HudKit.W_XBOLD).get_string_size(d.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 150.0)
+	_mission_title.size.x = tw
+	_mission_formula.position.x = 40.0 + tw + 12.0
+	_mission_formula.size.x = 264.0 - _mission_formula.position.x
 
 
 func _process(_delta: float) -> void:
@@ -130,7 +135,7 @@ func _process(_delta: float) -> void:
 		if g["kind"] == "throughput" and g.has("min") and sm.sim.tick > 0 and thr < float(g["min"]):
 			warn = true
 	var mt: Dictionary = _metric["throughput"]
-	HudKit.set_text(mt["value"], "%.1f" % thr if thr > 0.0 else "—", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
+	HudKit.set_text(mt["value"], "%.1f" % sm.real_rate(thr) if thr > 0.0 else "—", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
 	HudKit.restyle(mt["box"], Palette.SURFACE_SUNKEN, Palette.STATE_BLOCKED if warn else Color(0, 0, 0, 0), 1 if warn else 0, 18)
 	HudKit.set_text(_metric["power"]["value"], str(sm.sim.total_power()))
 	var lat: float = sm.sim.avg_latency()

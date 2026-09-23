@@ -509,7 +509,7 @@ func bottleneck() -> Machine:
 	var best_v := 0
 	for id in sorted_machine_ids():
 		var m: Machine = machines[id]
-		if m.type in ["input", "output"]:
+		if m.type in ["input", "usb_input", "output", "terminal_output"]:
 			continue
 		if m.starved_full_ticks > best_v:
 			best_v = m.starved_full_ticks

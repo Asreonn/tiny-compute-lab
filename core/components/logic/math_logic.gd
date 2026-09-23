@@ -1,5 +1,5 @@
 extends ComponentLogic
-## Math machines: add, multiply, processor, counter. All arithmetic is BitVector ops
+## Math machines: add, multiply, modulo, processor, counter. All arithmetic is BitVector ops
 ## at the instance width, so masking and overflow are width-driven.
 
 
@@ -7,7 +7,7 @@ func start(m, sim) -> void:
 	if not m.outputs_empty():
 		return
 	match m.type:
-		"add", "multiply", "processor", "counter":
+		"add", "multiply", "processor", "counter", "modulo":
 			if m.inq["in"].is_empty():
 				return
 			var p: Packet = m.pop("in")
@@ -21,6 +21,8 @@ func start(m, sim) -> void:
 					v = r["value"]
 				"multiply":
 					v = x.mul(int(m.params["k"]))
+				"modulo":
+					v = x.umod(maxi(1, int(m.params["k"])))
 				"processor":
 					match str(m.params["op"]):
 						"x³":

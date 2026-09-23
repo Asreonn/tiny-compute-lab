@@ -159,7 +159,7 @@ func _build_width_tags(ly: Dictionary) -> void:
 			var base := 18.0
 			chip_w = target
 			var c := Art.sprite(rel, pos)
-			c.scale.x = target / base
+			c.scale.x *= target / base  # keep Art.SCALE rasterisation; only narrow the chip
 			c.name = "WidthTag%d" % i
 			body.add_child(c)
 		else:
@@ -456,6 +456,9 @@ func _bin_value(_sim: Simulation) -> String:
 	var run := SimulationManager.run
 	if run != null and run.status == MissionRun.Status.FAIL:
 		wrong = int(run.failure.get("packet", -1)) == last.id
+	elif run != null and machine.channel < run.last_ok.size():
+		var lo: Dictionary = run.last_ok[machine.channel]
+		wrong = int(lo.get("packet", -1)) == last.id and not bool(lo.get("ok", true))
 	_bin_color = Palette.STATE_ERROR if wrong else Palette.DATA_NUMBER
 	return ViewMode.format(last.data, resolve_view_mode())
 

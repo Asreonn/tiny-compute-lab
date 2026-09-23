@@ -19,9 +19,9 @@ static func for_type(type: String) -> ComponentLogic:
 
 static func _make(type: String) -> ComponentLogic:
 	match type:
-		"input", "usb_input", "output":
+		"input", "usb_input", "output", "terminal_output":
 			return load("res://core/components/logic/io_logic.gd").new()
-		"add", "multiply", "processor", "counter":
+		"add", "multiply", "processor", "counter", "modulo":
 			return load("res://core/components/logic/math_logic.gd").new()
 		"compare", "gate":
 			return load("res://core/components/logic/logic_logic.gd").new()

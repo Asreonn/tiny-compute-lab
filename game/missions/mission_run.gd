@@ -1,6 +1,9 @@
 class_name MissionRun
 extends RefCounted
-## Runtime validation of a mission against the simulation. Explains *why* a run fails.
+## Runtime validation of a mission against the simulation.
+## Campaign missions are non-fatal (docs/ARCHITECTURE.md §6): sources loop, wrong values are
+## rejected and shown, an ordered output needs its expected sequence as an unbroken streak, and
+## stalls only raise a warning. Legacy missions (def.strict_validation) keep strict FAIL rules.
 
 enum Status { RUNNING, PASS, FAIL }
 
@@ -14,6 +17,9 @@ var expected_bits: Array = []  # per output channel: Array[BitVector]
 var failure: Dictionary = {}  # {title, reason, expected, received, expected_bits, received_bits, packet, path: PackedStringArray, machines: Array[int]}
 var complete_tick := -1
 var discarded := 0
+var rejected: Array = []  # per output channel: wrong values received (non-strict)
+var last_ok: Array = []  # per output channel: {packet: id, ok: bool} of the last arrival
+var warning := ""  # non-strict stall explanation (cleared when data moves again)
 
 
 func _init(p_def: MissionDef) -> void:
@@ -40,11 +46,13 @@ func build_board(sim: Simulation) -> void:
 		m.label = base if def.inputs.size() == 1 else "%s %s" % [base, char(65 + i)]
 	for i in def.outputs.size():
 		var d: Dictionary = def.outputs[i]
-		var m := Machine.new(0, "output", d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))
+		var sink := str(d.get("sink", "output"))
+		var m := Machine.new(0, sink, d["cell"], int(d.get("width", def.default_width)), int(d.get("rot", 0)))
 		m.locked = true
 		m.channel = i
 		sim.add_machine(m)
-		m.label = "Output" if def.outputs.size() == 1 else "Output %s" % char(65 + i)
+		var base := "Terminal" if sink == "terminal_output" else "Output"
+		m.label = base if def.outputs.size() == 1 else "%s %s" % [base, char(65 + i)]
 	reset(sim)
 	sim.changed.emit()
 
@@ -54,6 +62,9 @@ func reset(sim: Simulation) -> void:
 	failure = {}
 	complete_tick = -1
 	discarded = 0
+	rejected = []
+	last_ok = []
+	warning = ""
 	progress = []
 	remaining = []
 	expected_bits = []
@@ -64,6 +75,8 @@ func reset(sim: Simulation) -> void:
 			arr.append(MissionDef.to_bits(v, w))
 		expected_bits.append(arr)
 		progress.append(0)
+		rejected.append(0)
+		last_ok.append({})
 		remaining.append(arr.duplicate())
 	var ii := 0
 	for id in sim.sorted_machine_ids():
@@ -74,6 +87,7 @@ func reset(sim: Simulation) -> void:
 			for v in d["values"]:
 				m.stream.append(MissionDef.to_bits(v, m.width))
 			m.interval = int(d.get("interval", 3))
+			m.loop = not def.strict_validation  # campaign sources repeat until the mission passes
 			m.strict = bool(d.get("strict", false))
 			m.next_emit = int(d.get("start", 1))
 			ii += 1
@@ -90,7 +104,17 @@ func correct_total() -> int:
 	return n
 
 
+func rejected_total() -> int:
+	var n := 0
+	for r in rejected:
+		n += r
+	return n
+
+
 func accuracy() -> float:
+	if not def.strict_validation:
+		var seen := correct_total() + rejected_total()
+		return 100.0 * correct_total() / float(seen) if seen > 0 else 100.0
 	var t := def.expected_total()
 	return 100.0 * correct_total() / float(t) if t > 0 else 100.0
 
@@ -106,6 +130,9 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 	var ordered: bool = out.get("ordered", true)
 	var view := int(out.get("view", ViewMode.Mode.BIN))
 	var mname := m.label
+	if not def.strict_validation:
+		_on_output_lenient(sim, ch, p, want, ordered)
+		return
 	if ordered:
 		var i: int = progress[ch]
 		if i >= want.size():
@@ -131,6 +158,41 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 		complete_tick = sim.tick
 
 
+## Non-fatal validation: a correct value extends the streak, a wrong one is rejected and resets
+## it (ordered) — so PASS needs the whole expected sequence in a row and a wrong machine can never
+## pass by collecting matches across loops.
+func _on_output_lenient(sim: Simulation, ch: int, p: Packet, want: Array, ordered: bool) -> void:
+	var ok := false
+	if ordered:
+		var i: int = progress[ch]
+		if i < want.size() and want[i].equals(p.data):
+			progress[ch] = i + 1
+			ok = true
+		else:
+			# restart the streak; this value may itself be the first expected one
+			progress[ch] = 1 if want[0].equals(p.data) else 0
+			ok = progress[ch] == 1
+			rejected[ch] += 0 if ok else 1
+	else:
+		var idx := -1
+		for k in remaining[ch].size():
+			if remaining[ch][k].equals(p.data):
+				idx = k
+				break
+		if idx >= 0:
+			remaining[ch].remove_at(idx)
+			progress[ch] += 1
+			ok = true
+		else:
+			rejected[ch] += 1
+			remaining[ch] = expected_bits[ch].duplicate()
+			progress[ch] = 0
+	last_ok[ch] = {"packet": p.id, "ok": ok}
+	if _all_complete():
+		complete_tick = sim.tick
+		status = Status.PASS
+
+
 func on_overflow(sim: Simulation, m: Machine, p: Packet) -> void:
 	if status != Status.RUNNING:
 		return
@@ -143,6 +205,10 @@ func after_tick(sim: Simulation) -> void:
 	if complete_tick >= 0:
 		if sim.packets_in_flight() == 0 or sim.tick - complete_tick >= SETTLE_TICKS:
 			status = Status.PASS
+		return
+	if not def.strict_validation:
+		# Non-fatal: explain a stall instead of failing; clear it once data moves again.
+		warning = _stall_reason(sim) if sim.tick - sim.last_activity_tick >= Simulation.STALL_TICKS else ""
 		return
 	var inputs_done := true
 	for id in sim.machines:

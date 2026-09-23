@@ -10,7 +10,7 @@ static func _io(sim: Simulation) -> Dictionary:
 		var m: Machine = sim.machines[id]
 		if m.type in ["input", "usb_input"]:
 			ins.append(id)
-		elif m.type == "output":
+		elif m.type in ["output", "terminal_output"]:
 			outs.append(id)
 	return {"in": ins, "out": outs}
 
@@ -35,6 +35,18 @@ static func build(sim: Simulation, mission_id: String) -> void:
 			var a := _p(sim, "add", Vector2i(6, 3), {"k": 2})
 			_w(sim, i, "out", a, "in")
 			_w(sim, a, "out", o, "in")
+		"b1_read":
+			_w(sim, i, "out", o, "in")
+		"b2_shift":
+			var a := _p(sim, "add", Vector2i(6, 3), {"k": 3})
+			_w(sim, i, "out", a, "in")
+			_w(sim, a, "out", o, "in")
+		"b3_caesar":
+			var a := _p(sim, "add", Vector2i(4, 4), {"k": 3})
+			var md := _p(sim, "modulo", Vector2i(8, 4), {"k": 26})
+			_w(sim, i, "out", a, "in")
+			_w(sim, a, "out", md, "in")
+			_w(sim, md, "out", o, "in")
 		"boot":
 			_w(sim, i, "out", o, "in")
 		"double":

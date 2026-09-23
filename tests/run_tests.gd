@@ -23,7 +23,9 @@ func _init() -> void:
 	test_move_refuses_invalid()
 	test_layout_roundtrip()
 	test_wrap_carries()
-	test_a1_wrong_constant_fails()
+	test_a1_wrong_constant_is_non_fatal()
+	test_streak_prevents_accidental_pass()
+	test_slice_b()
 	test_save_layout_reloads_and_passes()
 	test_save_record_result_keeps_best()
 	test_save_unlock_chain()
@@ -265,21 +267,70 @@ func test_wrap_carries() -> void:
 	check(add != null and add.carries == 2, "a2 Add carries should be 2, got %s" % [add.carries if add != null else -1])
 
 
-func test_a1_wrong_constant_fails() -> void:
+func _run_with(id: String, setup: Callable, max_ticks := 500) -> Dictionary:
 	var sim := Simulation.new()
-	var run := MissionRun.new(Missions.by_id("a1_plus_two"))
+	var run := MissionRun.new(Missions.by_id(id))
 	run.build_board(sim)
-	Solutions.build(sim, "a1_plus_two")
-	for id in sim.machines:
-		if sim.machines[id].type == "add":
-			sim.set_param(id, "k", 1)
+	setup.call(sim)
 	sim.reset_run()
-	while run.status == MissionRun.Status.RUNNING and sim.tick < 500:
+	while run.status == MissionRun.Status.RUNNING and sim.tick < max_ticks:
 		sim.step()
-	check(run.status == MissionRun.Status.FAIL, "a1 wrong constant should FAIL")
-	check(run.failure.get("title") == "Wrong value", "a1 failure should be 'Wrong value', got %s" % run.failure.get("title"))
-	check(run.failure.get("expected") == "100" and run.failure.get("received") == "011", "a1 expected 100 / received 011, got %s / %s" % [run.failure.get("expected"), run.failure.get("received")])
-	check(run.failure.get("expected_bits") == "100" and run.failure.get("received_bits") == "011", "a1 BIN failure keys, got %s / %s" % [run.failure.get("expected_bits"), run.failure.get("received_bits")])
+	return {"sim": sim, "run": run}
+
+
+## Campaign validation is non-fatal: a wrong constant never FAILs, the values are rejected,
+## the source keeps looping and the mission simply does not pass.
+func test_a1_wrong_constant_is_non_fatal() -> void:
+	var r := _run_with("a1_plus_two", func(sim):
+		Solutions.build(sim, "a1_plus_two")
+		for id in sim.machines:
+			if sim.machines[id].type == "add":
+				sim.set_param(id, "k", 1))
+	var run: MissionRun = r["run"]
+	check(run.status == MissionRun.Status.RUNNING, "a1 wrong constant stays RUNNING (non-fatal), got %s" % MissionRun.Status.keys()[run.status])
+	check(run.failure.is_empty(), "a1 wrong constant records no failure")
+	check(run.rejected_total() > 3, "a1 wrong values are rejected and the source loops (rejected %d)" % run.rejected_total())
+	check(run.progress[0] < 3, "a1 wrong constant never completes the 3-value streak (progress %d)" % run.progress[0])
+	check(not run.last_ok[0].is_empty(), "a1 records the last arrival for the HUD")
+	check(run.accuracy() < 100.0, "a1 accuracy drops with rejected values")
+
+
+## A wrong machine must not pass by collecting matches across loops: identity on a1 outputs
+## 010 011 100 forever; 100 matches expected[0] each loop but the streak always breaks.
+func test_streak_prevents_accidental_pass() -> void:
+	var r := _run_with("a1_plus_two", func(sim):
+		var io := Solutions._io(sim)
+		sim.connect_ports(io["in"][0], "out", io["out"][0], "in"))
+	check(r["run"].status != MissionRun.Status.PASS, "identity wiring must never pass a1")
+
+
+func test_slice_b() -> void:
+	check(ViewMode.format(Missions.chars("HELLO", 5)[0], ViewMode.Mode.BIN) == "0 0111", "chars(HELLO)[0] is H = 0 0111")
+	check(BitVector.of(28, 5).umod(26).equals(BitVector.of(2, 5)), "5-bit 28 % 26 == 2")
+	# b3 with only an Add: Z+3 = 28 = ',' is rejected, never passes
+	var r := _run_with("b3_caesar", func(sim):
+		var io := Solutions._io(sim)
+		var a: Machine = sim.place("add", Vector2i(6, 4), 0, {"k": 3})
+		sim.connect_ports(io["in"][0], "out", a.id, "in")
+		sim.connect_ports(a.id, "out", io["out"][0], "in"))
+	var run: MissionRun = r["run"]
+	check(run.status != MissionRun.Status.PASS, "b3 without Modulo must not pass")
+	check(run.rejected_total() > 0, "b3 without Modulo rejects values")
+	var term: Machine = null
+	for id in r["sim"].machines:
+		if r["sim"].machines[id].type == "terminal_output":
+			term = r["sim"].machines[id]
+	check(term != null and not term.received.is_empty() and Charset.decode(term.received[0].data) == ",", "b3 Add-only: Z+3 arrives as ','")
+	# a 3-bit source cannot feed a 5-bit terminal
+	var sim := Simulation.new()
+	sim.size = Vector2i(16, 8)
+	var src := sim.place("usb_input", Vector2i(1, 3), 0, {}, 3)
+	var dst := sim.place("terminal_output", Vector2i(8, 3), 0, {}, 5)
+	check(sim.connect_error(src.id, "out", dst.id, "in") == "3-bit output cannot connect to a 5-bit input. Use a width converter.", "terminal width mismatch rejected")
+	# determinism
+	var d1 := run_mission("b3_caesar")
+	var d2 := run_mission("b3_caesar")
+	check(d1["log"] == d2["log"] and d1["sim"].tick == d2["sim"].tick, "b3 is deterministic")
 
 
 # ------------------------------------------------------------------ SaveStore

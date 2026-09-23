@@ -1,27 +1,29 @@
 extends ComponentLogic
-## IO machines: input, usb_input (sources) and output (sink).
+## IO machines: input, usb_input (sources); output, terminal_output (validating sinks).
 
 
 func start(m, sim) -> void:
 	match m.type:
 		"input", "usb_input":
 			_start_input(m, sim)
-		"output":
+		"output", "terminal_output":
 			_start_output(m, sim)
 
 
 func _start_input(m, sim) -> void:
-	if m.emitted >= m.stream.size() or sim.tick < m.next_emit:
+	if m.stream.is_empty() or sim.tick < m.next_emit:
+		return
+	if m.emitted >= m.stream.size() and not m.loop:
 		return
 	if m.outq["out"] != null:
 		if m.strict:
-			var lost := Packet.new(sim.new_packet_id(), m.stream[m.emitted], sim.tick)
+			var lost := Packet.new(sim.new_packet_id(), m.stream[m.emitted % m.stream.size()], sim.tick)
 			lost.path.append(m.label)
 			m.emitted += 1
 			m.next_emit = sim.tick + m.interval
 			sim.note_overflow(m, lost)
 		return
-	var p := Packet.new(sim.new_packet_id(), m.stream[m.emitted], sim.tick)
+	var p := Packet.new(sim.new_packet_id(), m.stream[m.emitted % m.stream.size()], sim.tick)
 	p.path.append(m.label)
 	m.outq["out"] = p
 	m.emitted += 1

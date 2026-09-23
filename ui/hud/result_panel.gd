@@ -73,7 +73,7 @@ func _pass(sm: Node) -> void:
 			Palette.FAMILY_ROUTING if i < stars else Palette.TEXT_MUTED)
 	HudKit.label(_panel, sm.mission.title, Vector2(24, 58), 12, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY, 330)
 	_col(24, "Accuracy", "%d%%" % roundi(sm.run.accuracy()), Palette.TEXT_PRIMARY)
-	_col(200, "Throughput", "%.1f/s" % sim.throughput(), Palette.TEXT_PRIMARY)
+	_col(200, "Throughput", "%.1f/s" % sm.real_rate(sim.throughput()), Palette.TEXT_PRIMARY)
 	_col(24, "Latency", "%d t" % roundi(sim.avg_latency()), Palette.TEXT_PRIMARY, 150)
 	_col(200, "Power", str(sim.total_power()), Palette.TEXT_PRIMARY, 150)
 	var y := 206.0
