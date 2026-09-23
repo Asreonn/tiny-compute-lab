@@ -8,6 +8,7 @@ var passes := 0
 
 func _init() -> void:
 	BitVectorTests.run(self)
+	SignalGeomTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()

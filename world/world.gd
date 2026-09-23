@@ -23,6 +23,8 @@ func _ready() -> void:
 func _rebuild(_def: Variant = null) -> void:
 	for c in machine_layer.get_children():
 		c.queue_free()
+	for c in wire_layer.get_children():
+		c.queue_free()
 	var sim := SimulationManager.sim
 	if sim == null:
 		return
@@ -30,6 +32,10 @@ func _rebuild(_def: Variant = null) -> void:
 		var mv := MachineView.new()
 		mv.setup(sim.machines[id])
 		machine_layer.add_child(mv)
+	for id in sim.sorted_connection_ids():
+		var cv := ConnectionView.new()
+		cv.setup(sim.connections[id])
+		wire_layer.add_child(cv)
 	board_view.redraw()
 	var rect := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
 	camera_rig.fit_board(rect)
@@ -40,3 +46,7 @@ func _process(delta: float) -> void:
 		var mv := c as MachineView
 		if mv != null:
 			mv.refresh(delta)
+	for c in wire_layer.get_children():
+		var cv := c as ConnectionView
+		if cv != null:
+			cv.refresh(delta)
