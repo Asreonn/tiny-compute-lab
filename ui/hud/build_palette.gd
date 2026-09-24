@@ -6,7 +6,8 @@ extends Control
 ## Machines that no level unlocks yet are not listed at all.
 
 const TABS := [["quick", "icon_star", "Favourites and recent"], ["math", "op_add", "Math"], ["logic", "op_compare", "Logic"],
-	["routing", "op_split", "Routing"], ["storage", "op_buffer", "Storage"]]
+	["routing", "op_split", "Routing"], ["storage", "op_buffer", "Storage"], ["thermal", "", "Cooling"]]
+const TAB_PITCH := 36.0  # 6 tabs across the 232 px panel
 const IO_TYPES := ["input", "usb_input", "output", "terminal_output", "usb_output"]
 const ITEM_H := 56.0
 const LIST_TOP := 90.0
@@ -33,11 +34,19 @@ func _ready() -> void:
 	_build_search()
 	for i in TABS.size():
 		var cat: String = TABS[i][0]
-		var p := Vector2(8 + i * 44, 44)
-		var b := HudKit.box(self, p, Vector2(40, 36), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 6)
-		var ic := HudKit.icon(b, TABS[i][1], Vector2(10, 8), 20, Palette.TEXT_MUTED)
+		var p := Vector2(8 + i * TAB_PITCH, 44)
+		var b := HudKit.box(self, p, Vector2(TAB_PITCH - 4.0, 36), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 6)
+		var ic: Control
+		if str(TABS[i][1]) != "":
+			ic = HudKit.icon(b, TABS[i][1], Vector2(6, 8), 20, Palette.TEXT_MUTED)
+		else:
+			ic = FinIcon.new()  # the cooling tab: the heatsink fin motif (no icon asset exists)
+			ic.position = Vector2(6, 8)
+			ic.size = Vector2(20, 20)
+			ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(ic)
 		_tabs[cat] = [b, ic]
-		HudKit.hit(self, p, Vector2(40, 36), func(): _select_cat(cat), TABS[i][2])
+		HudKit.hit(self, p, Vector2(TAB_PITCH - 4.0, 36), func(): _select_cat(cat), TABS[i][2])
 	HudKit.box(self, Vector2(8, 86), Vector2(216, 1), Palette.SURFACE_BORDER)
 	_items = Control.new()
 	_items.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -172,6 +181,10 @@ func _item(type: String, pos: Vector2, d: MissionDef) -> void:
 	HudKit.machine_icon(tile, type, Vector2(4, 4), 20, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED)
 	HudKit.label(b, str(def["name"]), Vector2(44, 8), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED, 130)
 	var sub := "%d tick · %d power" % [int(def["ticks"]), int(def["power"])] if allowed else _requirement(type)
+	if allowed and ThermalGrid.COOLERS.has(type):
+		sub = "cools r%d · %d power" % [int(ThermalGrid.COOLERS[type][1]), int(def["power"])]
+	elif allowed and type == "heat_pipe":
+		sub = "carries heat · 0 power"
 	HudKit.label(b, sub, Vector2(44, 26), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 144 if allowed else 164)
 	if not allowed:
 		HudKit.icon(b, "icon_lock", Vector2(190, 16), 16, Palette.TEXT_MUTED)
@@ -265,3 +278,13 @@ func _process(_delta: float) -> void:
 			HudKit.restyle(b, Palette.SURFACE_RAISED, Palette.family(Catalog.def(type)["family"]), 1.5, 8)
 		else:
 			HudKit.restyle(b, base[0], base[1], 1, 8)
+
+
+## 20 px cooling glyph: a spreader base with four fins, in the tab icon colour.
+class FinIcon extends Control:
+	func _draw() -> void:
+		var c := Palette.TEXT_MUTED
+		draw_rect(Rect2(3, 15, 14, 2), c)
+		for i in 4:
+			draw_rect(Rect2(4 + i * 3.5, 4, 1.6, 11), c)
+

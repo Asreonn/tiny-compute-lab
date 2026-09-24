@@ -314,6 +314,21 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, a1, "out", mg, "a")
 			_w(sim, a2, "out", mg, "b")
 			_w(sim, mg, "out", d, "in")
+		16:  # L17: overclocked splitter -> two overclocked Adds -> overclocked merger, a Blower on each Add
+			_lab_plug(sim, s, "bit")
+			var oc := {"clock": "overclocked"}
+			var sp := _pw(sim, "splitter", Vector2i(4, 2), 3, oc)
+			var a1 := _pw(sim, "add", Vector2i(8, 1), 3, {"k": 1, "clock": "overclocked"})
+			var a2 := _pw(sim, "add", Vector2i(8, 5), 3, {"k": 1, "clock": "overclocked"})
+			_pw(sim, "blower", Vector2i(8, 0), 3)
+			_pw(sim, "blower", Vector2i(8, 6), 3)
+			var mg := _pw(sim, "merger", Vector2i(12, 2), 3, oc)
+			_w(sim, s, "out", sp, "in")
+			_w(sim, sp, "a", a1, "in")
+			_w(sim, sp, "b", a2, "in")
+			_w(sim, a1, "out", mg, "a")
+			_w(sim, a2, "out", mg, "b")
+			_w(sim, mg, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

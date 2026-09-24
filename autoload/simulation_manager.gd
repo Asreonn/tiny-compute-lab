@@ -89,7 +89,7 @@ func load_lab() -> void:
 	var lay = saved.get("layout", {})
 	if lay is Dictionary and not (lay as Dictionary).is_empty():
 		sim.load_player_layout(lay)
-	lr.psu_tier = int(saved.get("psu_tier", 0))
+	lr.psu_tier = maxi(lr.psu_tier, int(saved.get("psu_tier", 0)))  # never below what the levels earned
 	var desk = saved.get("desk", {})
 	lr.desk_from_dict(desk if desk is Dictionary else {}, sim)
 	lr.delivered = int(saved.get("delivered", 0))

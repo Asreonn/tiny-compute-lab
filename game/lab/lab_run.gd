@@ -120,6 +120,7 @@ func build_board(sim: Simulation) -> void:
 	sim.campaign_timing = true
 	sim.mission = self
 	unlocked = LabDef.unlocks_upto(level)
+	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))  # rewards of every finished level
 	_ensure_io(sim)
 	new_devices = PackedStringArray()  # a fresh board is not a level-up: nothing pulses as "New"
 	reset(sim)
@@ -221,11 +222,9 @@ func _advance(sim: Simulation) -> void:
 	if level >= LabDef.LEVELS.size():
 		_sync()
 		return
-	# rewards of the level just finished (SYSTEMS_EXPANSION §10), e.g. a better PSU
-	var reward: Dictionary = LabDef.LEVELS[level].get("reward", {})
-	if reward.has("psu_tier"):
-		psu_tier = maxi(psu_tier, int(reward["psu_tier"]))
+	# the rewards of the level just finished (SYSTEMS_EXPANSION §10), e.g. a better PSU
 	level += 1
+	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))
 	unlocked = LabDef.unlocks_upto(level)
 	var sz := LabDef.size_for(level)
 	var grew := sz.x > sim.size.x or sz.y > sim.size.y

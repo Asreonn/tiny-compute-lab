@@ -46,6 +46,7 @@ static func run(t) -> void:
 	_brownout_blower(t)
 	_cooldown_and_determinism(t)
 	_lab_gate(t)
+	_heat_level(t)
 
 
 static func _sim(cap := 0) -> Simulation:
@@ -248,3 +249,37 @@ static func _lab_gate(t) -> void:
 	t.check(not run.thermal_enabled(), "the Lab has no heat before L17")
 	run.level = LabRun.HEAT_LEVEL
 	t.check(run.thermal_enabled(), "heat arrives with the L17 Heat level")
+
+
+## L17 Heat: the reference layout without its Blowers throttles (the window keeps restarting);
+## the same layout at the normal clock is too slow for 8/s.
+static func _heat_level(t) -> void:
+	var hot := _l17(func(m: Machine): return m.type == "blower", {})
+	t.check(hot[0].level == LabRun.HEAT_LEVEL and str(hot[0].warning).contains("THROTTLING"), "L17 without cooling throttles and restarts the window (%s)" % hot[0].warning)
+	var slow := _l17(func(_m): return false, {"clock": "normal"})
+	t.check(slow[0].level == LabRun.HEAT_LEVEL and slow[0].rate() < 8.0, "at the normal clock L17 stays under 8/s (%.1f/s)" % slow[0].rate())
+
+
+## Runs the L17 reference layout minus the machines `drop` selects, with `params` forced onto
+## every machine that has them; returns [run, sim].
+static func _l17(drop: Callable, params: Dictionary) -> Array:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = LabRun.HEAT_LEVEL
+	run.build_board(sim)
+	Solutions.lab_solution(sim, LabRun.HEAT_LEVEL)
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if drop.call(m):
+			sim.remove(id)
+		elif not m.locked:
+			for k in params:
+				if m.params.has(k):
+					m.params[k] = params[k]
+	sim.reset_run()
+	for i in 2500:
+		sim.step()
+		if run.level > LabRun.HEAT_LEVEL:
+			break
+	return [run, sim]
+

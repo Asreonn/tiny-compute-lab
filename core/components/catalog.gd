@@ -276,25 +276,25 @@ static var DEFS := {
 	},
 	# --- thermal family (docs/SYSTEMS_EXPANSION.md §5): board-level copper, no data ports ---
 	"heatsink": {
-		"name": "Heatsink", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
+		"name": "Heatsink", "glyph_text": "HS", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
 		"desc": "Passive copper fins. Cools every tile within 1.",
 		"ports": [],
 		"params": {},
 	},
 	"blower": {
-		"name": "Blower", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 2, "heat": 0, "icon": "",
+		"name": "Blower", "glyph_text": "BL", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 2, "heat": 0, "icon": "",
 		"desc": "Active airflow. Strongly cools every tile within 2 while it gets power.",
 		"ports": [],
 		"params": {},
 	},
 	"heat_pipe": {
-		"name": "Heat Pipe", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
+		"name": "Heat Pipe", "glyph_text": "HP", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
 		"desc": "Carries heat along its axis to a sink. Chain pipes; rotate one to turn a corner.",
 		"ports": [],
 		"params": {},
 	},
 	"radiator": {
-		"name": "Radiator", "family": "thermal", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 1, "heat": 0, "icon": "",
+		"name": "Radiator", "glyph_text": "RD", "family": "thermal", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 1, "heat": 0, "icon": "",
 		"desc": "The strongest cooler: dumps heat from every tile within 2.",
 		"ports": [],
 		"params": {},

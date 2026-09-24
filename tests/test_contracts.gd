@@ -131,7 +131,7 @@ static func _describe(t) -> void:
 # --- the whole lab table --------------------------------------------------------
 
 static func _lab_levels(t) -> void:
-	t.check(LabDef.count() == 16, "the lab has 16 levels (got %d)" % LabDef.count())
+	t.check(LabDef.count() == 17, "the lab has 17 levels (got %d)" % LabDef.count())
 	for idx in range(LabDef.count()):
 		var sim := Simulation.new()
 		var run := LabRun.new()

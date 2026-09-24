@@ -154,7 +154,25 @@ static var LEVELS: Array = [
 		"unlocks": [], "reward": {"psu_tier": 1},
 		"view": ViewMode.Mode.UDEC,
 	},
+	{
+		"id": "lab_l17", "title": "Heat",
+		"brief": "8 values a second: overclock to keep up — and cool the hot parts before they throttle.",
+		# at the normal clock a splitter / merger passes 5/s at most: 8/s needs overclocked routing
+		# and Adds (x4 heat), which throttle unless something cools them
+		"contract": {"kind": "map", "ops": [{"op": "add", "k": 1}], "count": 40, "accept_format": "bits", "accept_width": 3, "min_rate": 8.0, "max_heat": "THROTTLING"},
+		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 1}},
+		"unlocks": ["heatsink", "blower"],
+		"view": ViewMode.Mode.BIN,
+	},
 ]
+
+
+## The best PSU tier earned by the levels finished before level `i` (their "reward" entries).
+static func psu_tier_upto(i: int) -> int:
+	var t := 0
+	for k in range(0, clampi(i, 0, LEVELS.size())):
+		t = maxi(t, int(LEVELS[k].get("reward", {}).get("psu_tier", 0)))
+	return t
 
 
 ## Index of the first level that unlocks machine `type`, or -1 when no level does (yet).
