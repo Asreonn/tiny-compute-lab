@@ -108,6 +108,52 @@ static var DEFS := {
 			"k": {"label": "Threshold", "kind": "int", "default": 10, "min": -99, "max": 99},
 		},
 	},
+	"and_gate": {
+		"name": "AND", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "&",
+		"desc": "Bitwise AND of two words: a bit is 1 only where both are 1. Masks bits off.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"or_gate": {
+		"name": "OR", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "|",
+		"desc": "Bitwise OR of two words: a bit is 1 where either is 1. Sets bits.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"xor_gate": {
+		"name": "XOR", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "^",
+		"desc": "Bitwise XOR of two words: a bit is 1 where they differ. Flips bits.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"not_gate": {
+		"name": "NOT", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "!",
+		"desc": "Flips every bit of a word.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "OUT")],
+		"params": {},
+	},
+	"bus_combiner": {
+		"name": "Bus Combiner", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
+		"desc": "Joins a high part and a low part into one wider word. Waits for both.",
+		"ports": [
+			_p("hi", DIR_IN, ROLE_DATA, "R:lo", Vector2i(0, 0), Side.W, "HI", true),
+			_p("lo", DIR_IN, ROLE_DATA, "P:lo", Vector2i(0, 1), Side.W, "LO", true),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true),
+		],
+		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 4, "min": 1, "max": 63}},
+	},
 	"gate": {
 		"name": "Gate", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_gate",
 		"desc": "Passes the data packet only when the control signal is TRUE; otherwise discards it.",
@@ -302,7 +348,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it

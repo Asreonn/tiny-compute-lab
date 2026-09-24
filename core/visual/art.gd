@@ -42,6 +42,8 @@ static func layout(type: String) -> Dictionary:
 		usb.erase("area")
 		usb["silk"] = {"text": "USB", "pos": [18, 47]}
 		return usb
+	if type in ["and_gate", "or_gate", "xor_gate", "not_gate"]:
+		return l.get("roadmap", {}).get(type.trim_suffix("_gate").to_upper(), {})
 	if type == "cond_router":
 		return l.get("roadmap", {}).get("ConditionalRouter", {})
 	if type == "adder":

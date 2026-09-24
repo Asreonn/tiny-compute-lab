@@ -164,6 +164,14 @@ static var LEVELS: Array = [
 		"unlocks": ["heatsink", "blower"],
 		"view": ViewMode.Mode.BIN,
 	},
+	{
+		"id": "lab_l18", "title": "BYTE",
+		"brief": "Eight bits: real ASCII. The key stick now holds a mask — AND each lower-case letter with it to make it upper case.",
+		"contract": {"kind": "paired", "pair": ["text", "key"], "ops": [{"op": "encode_char", "width": 8}, {"op": "and_src", "src": "key"}, {"op": "decode_char"}], "count": 24, "accept_format": "text"},
+		"streams": {"text": {"values": ["hellobyteworld"]}, "key": {"values": [223]}},
+		"unlocks": ["and_gate", "or_gate", "xor_gate", "not_gate", "bus_combiner"], "reward": {"psu_tier": 2},
+		"view": ViewMode.Mode.CHAR,
+	},
 ]
 
 

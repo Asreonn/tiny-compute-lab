@@ -329,6 +329,20 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, a1, "out", mg, "a")
 			_w(sim, a2, "out", mg, "b")
 			_w(sim, mg, "out", d, "in")
+		17:  # L18: 8-bit ASCII AND the 0xDF mask from the key stick
+			var s2 := _lab_socket(sim, 4)
+			_lab_plug(sim, s, "text")
+			_lab_plug(sim, s2, "key")
+			var ce := _p(sim, "char_encoder", Vector2i(4, 1), {"width": 8})
+			var ne := _p(sim, "number_encoder", Vector2i(4, 4), {"width": 8})
+			var an := _pw(sim, "and_gate", Vector2i(9, 2), 8)
+			var dc := _p(sim, "char_decoder", Vector2i(13, 2), {"width": 8})
+			_w(sim, s, "out", ce, "in")
+			_w(sim, s2, "out", ne, "in")
+			_w(sim, ce, "out", an, "a")
+			_w(sim, ne, "out", an, "b")
+			_w(sim, an, "out", dc, "in")
+			_w(sim, dc, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

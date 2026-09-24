@@ -7,6 +7,9 @@ func start(m, sim) -> void:
 	if m.type in ["zero_extend", "sign_extend", "truncate"]:
 		_start_width(m, sim)
 		return
+	if m.type == "bus_combiner":
+		_start_combiner(m, sim)
+		return
 	if m.type != "bit_splitter":
 		return
 	if not m.outputs_empty():
@@ -45,4 +48,15 @@ func _start_width(m, sim) -> void:
 		"sign_extend": v = x.sign_extend(to)
 		_: v = x.truncate(to)
 	m.begin_job({"out": p.derive(sim.new_packet_id(), v)}, p)
+
+
+## Bus Combiner: hi:lo, one pair at a time (the inverse of the Bit Splitter).
+func _start_combiner(m, sim) -> void:
+	if not m.outputs_empty() or m.inq["hi"].is_empty() or m.inq["lo"].is_empty():
+		return
+	var ph: Packet = m.pop("hi")
+	var pl: Packet = m.pop("lo")
+	var out := pl.derive(sim.new_packet_id(), pl.data.concat(ph.data))
+	out.merge_origins(ph)
+	m.begin_job({"out": out}, pl)
 

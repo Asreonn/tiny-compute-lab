@@ -23,11 +23,11 @@ static func _make(type: String) -> ComponentLogic:
 			return load("res://core/components/logic/io_logic.gd").new()
 		"add", "adder", "multiply", "processor", "counter", "modulo":
 			return load("res://core/components/logic/math_logic.gd").new()
-		"compare", "gate":
+		"compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate":
 			return load("res://core/components/logic/logic_logic.gd").new()
 		"splitter", "merger", "demux", "mux", "cond_router":
 			return load("res://core/components/logic/routing_logic.gd").new()
-		"bit_splitter", "zero_extend", "sign_extend", "truncate":
+		"bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate":
 			return load("res://core/components/logic/conversion_logic.gd").new()
 		"number_encoder", "char_encoder", "number_decoder", "char_decoder":
 			return load("res://core/components/logic/codec_logic.gd").new()

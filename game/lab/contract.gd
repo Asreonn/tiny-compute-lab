@@ -220,13 +220,18 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 				if cur is String:
 					return DROP
 			return cur
-		"add_src":
-			# paired: add the value another stream contributed (a key, a number, bits)
+		"add_src", "and_src", "or_src", "xor_src":
+			# paired: combine with the value another stream contributed (a key, a number, bits)
 			if not (v is BitVector) or not _pair_values.has(str(op.get("src", ""))):
 				return DROP
 			var o: Variant = _pair_values[str(op.get("src", ""))]
 			var n := int((o as RawValue).value) if o is RawValue else ((o as BitVector).unsigned() if o is BitVector else 0)
-			return (v as BitVector).add(n)
+			var bv := v as BitVector
+			match str(op.get("op", "")):
+				"and_src": return bv.band(BitVector.of(n, bv.width))
+				"or_src": return bv.bor(BitVector.of(n, bv.width))
+				"xor_src": return bv.bxor(BitVector.of(n, bv.width))
+			return bv.add(n)
 	return DROP
 
 
@@ -268,6 +273,10 @@ func describe() -> String:
 			var src := str(_first_op("add_src").get("src", "key"))
 			if _is_caesar_paired():
 				return "Caesar + %s (%s)" % [src, _format_name()]
+			for g in [["and_src", "AND"], ["or_src", "OR"], ["xor_src", "XOR"]]:
+				var gop := _first_op(g[0])
+				if not gop.is_empty():
+					return "x %s %s (%s)" % [g[1], str(gop.get("src", "key")), _format_name()]
 			return "%s paired × %d" % [" + ".join(pair), count]
 		_:
 			if _is_caesar():

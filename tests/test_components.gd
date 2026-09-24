@@ -10,6 +10,8 @@ static func run(t) -> void:
 	_cond_router(t)
 	_if_bit(t)
 	_width_converters(t)
+	_gates(t)
+	_combiner(t)
 
 
 static func _sim() -> Simulation:
@@ -102,4 +104,33 @@ static func _width_converters(t) -> void:
 	for i in 4:
 		sim2.step()
 	t.check(bad.state == Machine.State.ERROR and bad.error_text != "", "extending to fewer bits is a configuration error (%s)" % bad.error_text)
+
+
+static func _gates(t) -> void:
+	for c in [["and_gate", "11001100", "10101010", "10001000"], ["or_gate", "11001100", "10101010", "11101110"], ["xor_gate", "11001100", "10101010", "01100110"]]:
+		var sim := _sim()
+		var g := sim.place(c[0], Vector2i(2, 2), 0, {}, 8)
+		_feed(sim, g, "a", c[1], {1: {"seq": 0, "value": RawValue.text("h")}})
+		_feed(sim, g, "b", c[2], {2: {"seq": 0, "value": RawValue.key(223)}})
+		var p: Packet = _run_until_out(sim, g).get("packet")
+		t.check(p != null and p.data.equals(BitVector.from_bin(c[3])) and p.origins.size() == 2, "%s %s %s = %s with both lineages" % [c[0], c[1], c[2], c[3]])
+	var sim2 := _sim()
+	var n := sim2.place("not_gate", Vector2i(2, 2), 0, {}, 4)
+	_feed(sim2, n, "in", "1010")
+	var pn: Packet = _run_until_out(sim2, n).get("packet")
+	t.check(pn != null and pn.data.equals(BitVector.from_bin("0101")), "NOT 1010 = 0101")
+	# 'h' (0x68) AND 0xDF = 'H' (0x48)
+	var h := Charset.encode("h", 8)
+	t.check(Charset.decode(h.band(BitVector.of(223, 8))) == "H", "ASCII: h AND 0xDF = H")
+
+
+static func _combiner(t) -> void:
+	var sim := _sim()
+	var c := sim.place("bus_combiner", Vector2i(2, 2), 0, {"lo": 3}, 5)
+	t.check(c.port_width("hi") == 2 and c.port_width("lo") == 3 and c.port_width("out") == 5, "a 5-bit combiner takes 2 high + 3 low bits")
+	_feed(sim, c, "lo", "011")
+	t.check(_run_until_out(sim, c, 6).is_empty(), "the combiner waits for both parts")
+	_feed(sim, c, "hi", "10")
+	var p: Packet = _run_until_out(sim, c).get("packet")
+	t.check(p != null and p.data.equals(BitVector.from_bin("10011")), "hi 10 : lo 011 = 10011")
 

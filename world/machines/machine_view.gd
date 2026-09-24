@@ -254,7 +254,7 @@ func _build_width_tags(ly: Dictionary) -> void:
 		var port_id := ""
 		if machine.type == "usb_input":
 			w = machine.width  # the roadmap tag is a placeholder for the instance width
-		elif machine.type in ["bit_splitter", "zero_extend", "sign_extend", "truncate"] and i < cports.size():
+		elif machine.type in ["bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate"] and i < cports.size():
 			# The BusSplitter kit's tags sit at ports in / hi / lo; tag i shows the CURRENT
 			# width of port i (machine.port_width), refreshed on param changes — not the
 			# layout's placeholder numbers.
