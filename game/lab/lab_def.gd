@@ -110,6 +110,14 @@ static var LEVELS: Array = [
 ]
 
 
+## Index of the first level that unlocks machine `type`, or -1 when no level does (yet).
+static func unlock_level(type: String) -> int:
+	for i in LEVELS.size():
+		if type in (LEVELS[i].get("unlocks", []) as Array):
+			return i
+	return -1
+
+
 static func count() -> int:
 	return LEVELS.size()
 

@@ -14,12 +14,14 @@ signal tool_changed(tool_name: String)
 signal selection_changed(machine_id: int, conn_id: int)  # -1 = none
 signal hover_changed(info: Dictionary)  # {} or {kind, id, port, screen_pos}
 signal notice(text: String, kind: String)  # kind "info"|"error"
+signal placed(type: String)  # a machine was placed from the palette / a duplicate (recents)
 
 const T := Palette.TILE
 const PORT_HIT_PX := 12.0
 const WIRE_HIT_PX := 8.0
 const PACKET_HIT_PX := 10.0
 const DRAG_START_PX := 4.0  # world px an LMB must travel before it becomes a drag
+const EDGE_ASSIST_PX := 16.0  # wire mode: a click this close to a machine edge picks its nearest port
 
 var tool := "select"  # "select" | "wire" | "place" (delete / rotate are actions, not modes)
 var last_place_type := ""  # E builds this again (SYSTEMS_EXPANSION §9 control map)
@@ -32,6 +34,7 @@ var _wire_layer: Node2D
 var _packet_layer: PacketLayer
 var _overlay_layer: Node2D
 var _preview: PreviewLayer
+var _move_preview: MovePreview  # connected move: origin ghost + hologram routes
 
 # --- placement ghost ("place" tool)
 var place_type := ""  # non-empty while a placement ghost is being dragged around
@@ -63,6 +66,9 @@ func _ready() -> void:
 	_preview = PreviewLayer.new()
 	_preview.name = "ToolPreview"
 	_overlay_layer.add_child(_preview)
+	_move_preview = MovePreview.new()
+	_move_preview.name = "MovePreview"
+	_overlay_layer.add_child(_move_preview)
 	SimulationManager.run_finished.connect(_on_run_finished)
 	SimulationManager.ticked.connect(_on_ticked)
 	SimulationManager.layout_changed.connect(_on_layout_changed)
@@ -226,6 +232,7 @@ func _cancel_drags() -> void:
 	if not _move_drag.is_empty():
 		_move_drag = {}
 		_clear_ghost()
+		_clear_move_preview()
 	if tool == "place" and place_type != "":
 		_clear_place()
 		set_tool("select")
@@ -327,8 +334,12 @@ func _lmb_press(world: Vector2) -> void:
 					"wire":
 						_set_selection(-1, int(_press_hit["id"]))
 		"wire":
-			if _press_hit.get("kind") == "port" and _port_dir(int(_press_hit["id"]), str(_press_hit.get("port", ""))) == Catalog.DIR_OUT:
+			if _press_hit.get("kind") == "port":
 				_begin_wire(int(_press_hit["id"]), str(_press_hit["port"]), world)
+			elif _press_hit.get("kind") == "machine":
+				var near := _edge_port(int(_press_hit["id"]), world)
+				if near != "":
+					_begin_wire(int(_press_hit["id"]), near, world)
 		"place":
 			_try_place(world)
 
@@ -373,8 +384,8 @@ func _track_press_drag(world: Vector2) -> void:
 	var mid := int(_press_hit.get("id", -1))
 	if mid < 0:
 		return
-	if kind == "port" and _port_dir(mid, str(_press_hit.get("port", ""))) == Catalog.DIR_OUT:
-		_begin_wire(mid, str(_press_hit["port"]), world)
+	if kind == "port":
+		_begin_wire(mid, str(_press_hit["port"]), world)  # any port: an input starts a reverse wire
 		return
 	var sim := SimulationManager.sim
 	if sim != null and sim.machines.has(mid) and not sim.machines[mid].locked and kind == "machine":
@@ -457,23 +468,49 @@ func _finish_move_drag() -> void:
 	var cell: Vector2i = _move_drag.get("cell", Vector2i(-1, 0))
 	var from: Vector2i = _move_drag.get("from", Vector2i(-1, 0))
 	var dup := bool(_move_drag.get("duplicate", false))
-	_clear_ghost()
+	var preview: Dictionary = _move_drag.get("preview", {})
 	_move_drag = {}
-	if sim != null and mid >= 0 and sim.machines.has(mid) and cell != from and cell.x >= 0:
+	_clear_move_preview()
+	if sim == null or mid < 0 or not sim.machines.has(mid) or cell == from or cell.x < 0:
+		_clear_ghost()
+		return
+	var m: Machine = sim.machines[mid]
+	if dup:
+		_clear_ghost()
 		SimulationManager.request_edit()
-		if not sim.machines.has(mid):
-			return
-		var m: Machine = sim.machines[mid]
-		if dup:
-			var copy := sim.place(m.type, cell, m.rot, m.params.duplicate(true), m.width)
-			if copy == null:
-				notice.emit(sim.placement_error(m.type, cell, m.rot), "error")
-			else:
-				_set_selection(copy.id, -1)
-		elif not sim.move(mid, cell):
-			notice.emit(sim.last_error, "error")
+		var copy := sim.place(m.type, cell, m.rot, m.params.duplicate(true), m.width)
+		if copy == null:
+			notice.emit(sim.placement_error(m.type, cell, m.rot), "error")
 		else:
-			_apply_selection()
+			_set_selection(copy.id, -1)
+		return
+	# connected move: commit only when every wire can follow; otherwise snap back untouched
+	if preview.is_empty():
+		preview = sim.relayout_preview(mid, cell, m.rot)
+	if not bool(preview.get("ok", false)):
+		notice.emit(str(preview.get("error", "Can't move there")), "error")
+		_snap_back_ghost(from)
+		return
+	_clear_ghost()
+	SimulationManager.request_edit()
+	if sim.machines.has(mid) and not sim.move(mid, cell):
+		notice.emit(sim.last_error, "error")
+	_apply_selection()
+
+
+## A refused move: the hologram glides back to where the machine still stands (180 ms).
+func _snap_back_ghost(from: Vector2i) -> void:
+	if _ghost_pad != null and is_instance_valid(_ghost_pad):
+		_ghost_pad.queue_free()
+	_ghost_pad = null
+	var gv := _ghost_view
+	_ghost_view = null
+	_ghost_cell = Vector2i(-1, 0)
+	if gv == null or not is_instance_valid(gv):
+		return
+	var tw := gv.create_tween()
+	tw.tween_property(gv, "position", Vector2(from) * T, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(gv.queue_free)
 
 
 func _update_move_ghost(world: Vector2) -> void:
@@ -481,11 +518,59 @@ func _update_move_ghost(world: Vector2) -> void:
 	var mid := int(_move_drag.get("machine_id", -1))
 	if sim == null or not sim.machines.has(mid):
 		_move_drag = {}
+		_clear_move_preview()
 		return
 	var m: Machine = sim.machines[mid]
 	var cell := _snap_cell(world, m.type, m.rot)
+	if _move_drag.has("preview") and cell == _move_drag.get("cell", Vector2i(-1, 0)):
+		return  # same tile: the hologram is current
 	_move_drag["cell"] = cell
+	var from: Vector2i = _move_drag.get("from", cell)
+	var preview := {"ok": true, "routes": {}, "fail": [], "error": ""}
+	if bool(_move_drag.get("duplicate", false)):
+		var err := sim.placement_error(m.type, cell, m.rot)
+		preview = {"ok": err == "", "routes": {}, "fail": [], "error": err}
+	elif cell != from:
+		preview = sim.relayout_preview(mid, cell, m.rot)
+	_move_drag["preview"] = preview
 	_rebuild_ghost(cell, m.type, m.rot)
+	_show_move_preview(m, cell, from, preview)
+
+
+## Hologram routes for the wires that would follow the move (valid: solid green; failed: red
+## dashes with an X) and a dashed outline where the machine stands now. The wires being
+## re-routed fade meanwhile.
+func _show_move_preview(m: Machine, cell: Vector2i, from: Vector2i, preview: Dictionary) -> void:
+	var sim := SimulationManager.sim
+	var ghost := Machine.new(0, m.type, cell, m.width, m.rot, m.params)
+	var paths := []
+	var affected := []
+	var routes: Dictionary = preview.get("routes", {})
+	for cid in routes:
+		affected.append(cid)
+		paths.append([_wire_pts(sim, int(cid), m.id, ghost, routes[cid]), "ValidTarget"])
+	for cid in preview.get("fail", []):
+		affected.append(cid)
+		paths.append([_wire_pts(sim, int(cid), m.id, ghost, []), "InvalidTarget"])
+	_set_pending_removal(affected)
+	_move_preview.origin = Rect2(Vector2(from) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T) if not bool(_move_drag.get("duplicate", false)) else Rect2()
+	_move_preview.paths = paths
+	_move_preview.queue_redraw()
+
+
+func _wire_pts(sim: Simulation, cid: int, moving: int, ghost: Machine, cells: Array) -> PackedVector2Array:
+	var c: Connection = sim.connections[cid]
+	var fm: Machine = ghost if c.from_id == moving else sim.machines[c.from_id]
+	var tm: Machine = ghost if c.to_id == moving else sim.machines[c.to_id]
+	return _route_pts(MachineView.port_world(fm, c.from_port), cells, MachineView.port_world(tm, c.to_port))
+
+
+func _clear_move_preview() -> void:
+	if _move_preview != null:
+		_move_preview.paths = []
+		_move_preview.origin = Rect2()
+		_move_preview.queue_redraw()
+	_set_pending_removal([])
 
 
 # ============================================================ wire tool
@@ -496,28 +581,33 @@ func _update_wire_preview(world: Vector2) -> void:
 		return
 	var fid := int(_wire_drag.get("from_id", -1))
 	var fport := str(_wire_drag.get("from_port", ""))
+	var rev := bool(_wire_drag.get("reverse", false))
 	if not sim.machines.has(fid):
 		_clear_preview()
 		return
 	var from := MachineView.port_world(sim.machines[fid], fport)
 	_preview_cells = []
 	_preview_target = {}
+	_preview.rings = PackedVector2Array()
 	# The source's current wire will be replaced by any committed drop: show it faded.
 	var doomed := sim.replaced_by(fid, fport, fid, fport)
 	var target := _hit_port(world)
+	if target.is_empty():
+		target = _body_snap(world)  # smart wiring: a body with exactly one compatible port
 	if not target.is_empty() and sim.machines.has(int(target["id"])):
 		# Over a port: exactly the route that release would place (WYSIWYG).
 		var tid := int(target["id"])
 		var tport := str(target["port"])
 		var to := MachineView.port_world(sim.machines[tid], tport)
-		var old := sim.replaced_by(fid, fport, tid, tport)
-		var err := sim.connect_error(fid, fport, tid, tport, old)
-		var r := sim.route_between(fid, fport, tid, tport)
+		var e := _ends(fid, fport, tid, tport, rev)
+		var old := sim.replaced_by(e[0], e[1], e[2], e[3])
+		var err := sim.connect_error(e[0], e[1], e[2], e[3], old)
+		var r := sim.route_between(e[0], e[1], e[2], e[3])
 		if err == "" and bool(r.get("ok", false)):
 			_preview_cells = r["cells"]
 			_preview_target = {"id": tid, "port": tport}
 			_set_pending_removal(old)
-			_show_preview(_route_pts(from, _preview_cells, to), "ValidTarget")
+			_show_preview(_route_pts(to, _preview_cells, from) if rev else _route_pts(from, _preview_cells, to), "ValidTarget")
 			return
 		_set_pending_removal(doomed)
 		_wire_drag["error"] = err if err != "" else "No route"
@@ -526,6 +616,7 @@ func _update_wire_preview(world: Vector2) -> void:
 		_show_preview(_route_pts(from, bad_route, to), "InvalidTarget")
 		return
 	# Free drag: live route from the source to the tile under the cursor.
+	_wire_drag.erase("error")
 	_set_pending_removal(doomed)
 	var cells := _route_to_cell(sim, fid, fport, _cell_of(world))
 	if cells.is_empty():
@@ -534,10 +625,66 @@ func _update_wire_preview(world: Vector2) -> void:
 		_show_preview(_route_pts(from, cells, Vector2.INF), "ConnectionPreview")
 
 
+## [out id, out port, in id, in port] of a wire between the drag source and a target.
+static func _ends(fid: int, fport: String, tid: int, tport: String, rev: bool) -> Array:
+	return [tid, tport, fid, fport] if rev else [fid, fport, tid, tport]
+
+
+## Smart wiring: over a machine body, the one port a drop would connect to — or {} and the
+## candidates ringed when several fit (or none).
+func _body_snap(world: Vector2) -> Dictionary:
+	var sim := SimulationManager.sim
+	var h := _hit_machine(world)
+	if h.is_empty():
+		return {}
+	var tid := int(h["id"])
+	var fid := int(_wire_drag.get("from_id", -1))
+	var fport := str(_wire_drag.get("from_port", ""))
+	var rev := bool(_wire_drag.get("reverse", false))
+	if tid == fid or not sim.machines.has(tid):
+		return {}
+	var tm: Machine = sim.machines[tid]
+	var fits := []
+	for pd in tm.ports():
+		var pid := str(pd["id"])
+		if (pd["dir"] == Catalog.DIR_OUT) != rev:
+			continue
+		var e := _ends(fid, fport, tid, pid, rev)
+		if sim.connect_error(e[0], e[1], e[2], e[3], sim.replaced_by(e[0], e[1], e[2], e[3])) != "":
+			continue
+		if bool(sim.route_between(e[0], e[1], e[2], e[3]).get("ok", false)):
+			fits.append(pid)
+	if fits.size() == 1:
+		return {"id": tid, "port": fits[0]}
+	for pid in fits:
+		_preview.rings.append(MachineView.port_world(tm, pid))
+	return {}
+
+
+## Wire mode edge assist: the port nearest to a click within EDGE_ASSIST_PX of the machine edge.
+func _edge_port(mid: int, world: Vector2) -> String:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(mid):
+		return ""
+	var m: Machine = sim.machines[mid]
+	var r := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+	var edge := minf(minf(world.x - r.position.x, r.end.x - world.x), minf(world.y - r.position.y, r.end.y - world.y))
+	if edge > EDGE_ASSIST_PX:
+		return ""
+	var best := ""
+	var best_d := INF
+	for pd in m.ports():
+		var d := world.distance_to(MachineView.port_world(m, str(pd["id"])))
+		if d < best_d:
+			best_d = d
+			best = str(pd["id"])
+	return best
+
+
 ## Start a wire from an output port. An output that already carries a wire can be rewired:
 ## its wire stays until a new connection is committed, then it is replaced (QoL).
 func _begin_wire(mid: int, port: String, world: Vector2) -> void:
-	_wire_drag = {"from_id": mid, "from_port": port}
+	_wire_drag = {"from_id": mid, "from_port": port, "reverse": _port_dir(mid, port) != Catalog.DIR_OUT}
 	hover_changed.emit({})  # no tooltips while dragging a wire
 	_update_wire_preview(world)
 
@@ -584,6 +731,7 @@ func _finish_wire_drag(world: Vector2) -> void:
 	var sim := SimulationManager.sim
 	var fid := int(_wire_drag.get("from_id", -1))
 	var fport := str(_wire_drag.get("from_port", ""))
+	var rev := bool(_wire_drag.get("reverse", false))
 	_update_wire_preview(world)  # the preview for exactly this cursor position
 	var target := _preview_target
 	var cells := _preview_cells
@@ -598,7 +746,8 @@ func _finish_wire_drag(world: Vector2) -> void:
 	if not target.is_empty():
 		SimulationManager.request_edit()
 		# commit: replaces the source's / target's old wires atomically (only now)
-		if sim.rewire(fid, fport, int(target["id"]), str(target["port"]), cells) != null:
+		var e := _ends(fid, fport, int(target["id"]), str(target["port"]), rev)
+		if sim.rewire(e[0], e[1], e[2], e[3], cells) != null:
 			return
 		err = sim.last_error
 	if err == "" and _hit_port(world).is_empty():
@@ -619,6 +768,7 @@ func _try_place(world: Vector2) -> void:
 	if m == null:
 		notice.emit(sim.placement_error(place_type, cell, place_rot), "error")
 		return
+	placed.emit(place_type)
 	if Input.is_key_pressed(KEY_SHIFT):
 		_rebuild_ghost(_snap_cell(world, place_type, place_rot), place_type, place_rot)
 	else:
@@ -657,7 +807,10 @@ func _rebuild_ghost(cell: Vector2i, type: String, rot: int) -> void:
 		ghost_m.params = src.params.duplicate()
 		ghost_m.width = src.width
 	var key := str(Catalog.def(type)["size"]).to_lower()
-	var err := sim.placement_error(type, cell, rot)
+	var moving := int(_move_drag.get("machine_id", -1)) if not bool(_move_drag.get("duplicate", false)) else -1
+	var err := sim.placement_error(type, cell, rot, moving)
+	if err == "" and not bool((_move_drag.get("preview", {}) as Dictionary).get("ok", true)):
+		err = "route"
 	var pad := Art.sprite(Art.pad_file("placevalid" if err == "" else "placeinvalid", key), Vector2(cell) * T)
 	_ghost_pad = pad
 	_overlay_layer.add_child(pad)
@@ -697,6 +850,7 @@ func _show_preview(pts: PackedVector2Array, state: String) -> void:
 
 func _clear_preview() -> void:
 	_preview.pts = PackedVector2Array()
+	_preview.rings = PackedVector2Array()
 	_preview.state = ""
 	_preview.queue_redraw()
 
@@ -885,6 +1039,7 @@ func _clear_ghost_after_rebuild() -> void:
 class PreviewLayer extends Node2D:
 	const FLOW_PX_PER_S := 24.0  # preview dash flow speed (source → cursor)
 	var pts := PackedVector2Array()
+	var rings := PackedVector2Array()  # smart wiring: candidate ports (12 px state.valid rings)
 	var state := ""
 	var _flow := 0.0
 
@@ -896,3 +1051,21 @@ class PreviewLayer extends Node2D:
 	func _draw() -> void:
 		if pts.size() >= 2:
 			ConnectionView.draw_preview(self, pts, state, _flow)
+		for r in rings:
+			draw_arc(r, 6.0, 0.0, TAU, 24, Palette.STATE_VALID, 1.5, true)
+
+
+## Connected-move holograms: the origin outline (dashed state.hover α .6) and one previewed
+## route per wire that follows the machine (ConnectionView.draw_preview styles).
+class MovePreview extends Node2D:
+	var origin := Rect2()
+	var paths: Array = []  # [[PackedVector2Array, state], ...]
+
+	func _draw() -> void:
+		if origin.size != Vector2.ZERO:
+			SystemsDraw.rrect_dashed(self, origin.grow(-2.0), 8.0, Color(Palette.STATE_HOVER, 0.6), 1.5, 5.0, 4.0)
+		for p in paths:
+			var pts: PackedVector2Array = p[0]
+			if pts.size() >= 2:
+				ConnectionView.draw_preview(self, pts, str(p[1]))
+

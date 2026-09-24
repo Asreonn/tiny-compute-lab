@@ -36,7 +36,8 @@ func _process(_delta: float) -> bool:
 		4: _undo_check()
 		5: _redo_check()
 		6: _duplicate_and_settings()
-		7: _run()
+		7: _smart_wire()
+		8: _run()
 	if _fail != "":
 		return _done(_fail)
 	return false
@@ -185,6 +186,23 @@ func _duplicate_and_settings() -> void:
 	_tools.delete_machine(dup)
 	_expect(_count("add") == 1 and sim.connections.size() == 2, "delete removes the duplicate, the wires stay")
 	_step = 7
+
+
+## F3: in Select mode, drag from the Output's INPUT port (a reverse wire) and drop on the Add's
+## body: it has exactly one compatible port, so the drop snaps to it.
+func _smart_wire() -> void:
+	var sim = _mgr.sim
+	var add := _find("add")
+	var out := _find("output")
+	var old: Connection = sim.connection_at_port(out, "in")
+	sim.disconnect_wire(old.id)
+	_expect(sim.connection_at_port(out, "in") == null, "the Add -> Output wire was removed")
+	_tools.set_tool("select")
+	var body: Vector2 = Vector2(sim.machines[add].cell) * 64.0 + Vector2(64, 32)  # the Add's centre
+	_drag(_mv.port_world(sim.machines[out], "in"), body)
+	var c: Connection = sim.connection_at_port(out, "in")
+	_expect(c != null and c.from_id == add and c.from_port == "out", "a reverse drag onto the body snaps to the Add's output")
+	_step = 8
 
 
 func _run() -> void:

@@ -252,6 +252,40 @@ func _wires_through(cells: Array) -> Array:
 	return out
 
 
+## Connected-move preview (SYSTEMS_EXPANSION §9): the route every affected wire (the machine's
+## own and those crossing its new footprint) would take if machine `id` stood at `cell` / `rot`.
+## Changes nothing. {ok, routes: {cid: cells}, fail: [cids], error}.
+func relayout_preview(id: int, cell: Vector2i, rot: int) -> Dictionary:
+	if not machines.has(id):
+		return {"ok": false, "routes": {}, "fail": [], "error": "No such machine"}
+	var m: Machine = machines[id]
+	var err := placement_error(m.type, cell, rot, id)
+	var routes := {}
+	var fail := []
+	if err == "":
+		var old_cell := m.cell
+		var old_rot := m.rot
+		m.cell = cell
+		m.rot = rot
+		var ids := _wires_through(m.footprint())
+		for cid in sorted_connection_ids():
+			var c: Connection = connections[cid]
+			if (c.from_id == id or c.to_id == id) and not cid in ids:
+				ids.append(cid)
+		for cid in ids:
+			var c2: Connection = connections[cid]
+			var r := route_between(c2.from_id, c2.from_port, c2.to_id, c2.to_port, cid)
+			if r["ok"]:
+				routes[cid] = r["cells"]
+			else:
+				fail.append(cid)
+		m.cell = old_cell
+		m.rot = old_rot
+		if not fail.is_empty():
+			err = "Would cut the wire %s" % _wire_name(int(fail[0]))
+	return {"ok": err == "", "routes": routes, "fail": fail, "error": err}
+
+
 ## New routes for `ids` on the current board, or {"fail": cid} when one has no route.
 func _reroute_plan(ids: Array) -> Dictionary:
 	var plan := {}

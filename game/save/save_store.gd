@@ -176,6 +176,18 @@ static func save_lab(lab: Dictionary) -> void:
 	_save(data)
 
 
+## Player preferences that are not progress: {favourites: [types], recents: [types]}.
+static func load_prefs() -> Dictionary:
+	var p = _load().get("prefs", {})
+	return p if typeof(p) == TYPE_DICTIONARY else {}
+
+
+static func save_prefs(prefs: Dictionary) -> void:
+	var data := _load()
+	data["prefs"] = prefs
+	_save(data)
+
+
 ## Record a finished run. Stars keep the best result; throughput keeps the best value.
 static func record_result(id: String, p_stars: int, throughput: float) -> void:
 	var data := _load()
