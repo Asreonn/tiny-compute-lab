@@ -39,7 +39,12 @@ func _init() -> void:
 # ------------------------------------------------------------------ accessors
 
 func title() -> String:
-	return str(LabDef.level(level)["title"])
+	return "Free Build" if all_done() else str(LabDef.level(level)["title"])
+
+
+## Every contract is complete: the Lab is a sandbox (the last contract keeps judging deliveries).
+func all_done() -> bool:
+	return level >= LabDef.count()
 
 
 ## The current level's contract (fresh, pure data).

@@ -47,6 +47,7 @@ static func run(t) -> void:
 	_cooldown_and_determinism(t)
 	_lab_gate(t)
 	_heat_level(t)
+	_datacenter(t)
 
 
 static func _sim(cap := 0) -> Simulation:
@@ -282,4 +283,26 @@ static func _l17(drop: Callable, params: Dictionary) -> Array:
 		if run.level > LabRun.HEAT_LEVEL:
 			break
 	return [run, sim]
+
+
+## L21 Datacenter: swap each Radiator of the reference layout for a Blower — the Blowers draw
+## 2 power each, the 32-unit PSU browns out and the line falls under 8/s.
+static func _datacenter(t) -> void:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = 20
+	run.build_board(sim)
+	Solutions.lab_solution(sim, 20)
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "radiator":
+			var c := m.cell
+			sim.remove(id)
+			sim.place("blower", c, 0, {}, 5)
+	sim.reset_run()
+	for i in 2500:
+		sim.step()
+		if run.level > 20:
+			break
+	t.check(run.level == 20 and sim.overloaded() and run.rate() < 8.0, "L21 cooled by Blowers overdraws the PSU (%d/%d) and makes %.1f/s" % [sim.power_demand(), sim.power_capacity(), run.rate()])
 

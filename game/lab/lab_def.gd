@@ -172,6 +172,33 @@ static var LEVELS: Array = [
 		"unlocks": ["and_gate", "or_gate", "xor_gate", "not_gate", "bus_combiner"], "reward": {"psu_tier": 2},
 		"view": ViewMode.Mode.CHAR,
 	},
+	{
+		"id": "lab_l19", "title": "XOR Cipher",
+		"brief": "Encrypt: XOR each ASCII letter with its own key byte and deliver the raw cipher bytes.",
+		"contract": {"kind": "paired", "pair": ["text", "key"], "ops": [{"op": "encode_char", "width": 8}, {"op": "xor_src", "src": "key"}], "count": 24, "accept_format": "bits", "accept_width": 8},
+		"streams": {"text": {"values": ["attackatdawn"]}, "key": {"values": [23, 5, 77, 61, 9, 88, 42, 14]}},
+		"unlocks": ["shift_left", "shift_right"],
+		"view": ViewMode.Mode.HEX,
+	},
+	{
+		"id": "lab_l20", "title": "Cheap Multiply",
+		"brief": "Times four at 4/s on just 6 power. Multipliers are too hungry — find a cheaper way.",
+		# Multiply: 2 power for 1.7/s (two fit the cap but make 3.3/s); x4 = shift left by 2: 1 power, 5/s
+		"contract": {"kind": "map", "ops": [{"op": "mul", "k": 4}], "count": 30, "accept_format": "bits", "accept_width": 5, "min_rate": 4.0, "max_power": 6},
+		"streams": {"bit": {"values": ["00011", "10110", "01001", "11100", "00110", "01111", "10001", "00100"], "width": 5, "interval": 1}},
+		"unlocks": [],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l21", "title": "Datacenter",
+		"brief": "Times three at 8/s, and nothing may even get HOT. Overclocked Multipliers need serious cooling.",
+		# an overclocked Multiply alone goes CRITICAL; a Blower leaves it HOT; a Radiator (or two
+		# Blowers) keeps it WARM — and four of them on the 32-unit PSU only fit with Radiators
+		"contract": {"kind": "map", "ops": [{"op": "mul", "k": 3}], "count": 40, "accept_format": "bits", "accept_width": 5, "min_rate": 8.0, "max_heat": "HOT"},
+		"streams": {"bit": {"values": ["00011", "10110", "01001", "11100", "00110", "01111", "10001", "00100"], "width": 5, "interval": 1}},
+		"unlocks": ["heat_pipe", "radiator"], "reward": {"psu_tier": 3},
+		"view": ViewMode.Mode.UDEC,
+	},
 ]
 
 

@@ -86,6 +86,9 @@ func _show_level_banner() -> void:
 	var lvl: int = sm.lab_run.level
 	var lv: Dictionary = LabDef.level(lvl)
 	HudKit.set_text(_banner_label, "LEVEL %d COMPLETE" % lvl, Palette.STATE_VALID)
+	if sm.lab_run.all_done():
+		HudKit.set_text(_banner_label, "ALL CONTRACTS COMPLETE", Palette.STATE_VALID)
+		lv = {}  # the last level's unlocks were already shown when it started
 	var unlocked := ""
 	var names := PackedStringArray()
 	for t in lv.get("unlocks", []):
@@ -93,6 +96,8 @@ func _show_level_banner() -> void:
 	if not names.is_empty():
 		unlocked = " · unlocked: " + ", ".join(names)
 	HudKit.set_text(_banner_sub, "Next: %s%s" % [sm.lab_run.title(), unlocked], Palette.TEXT_SECONDARY)
+	if sm.lab_run.all_done():
+		HudKit.set_text(_banner_sub, "Free build — the Lab is yours. More levels are coming.", Palette.TEXT_SECONDARY)
 	_banner_base = _banner.position
 	_banner.visible = true
 	_banner_t = 3.0

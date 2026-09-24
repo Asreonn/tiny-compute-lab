@@ -343,6 +343,50 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, ne, "out", an, "b")
 			_w(sim, an, "out", dc, "in")
 			_w(sim, dc, "out", d, "in")
+		18:  # L19: ASCII XOR the key byte, delivered as raw 8-bit cipher bytes
+			var s2 := _lab_socket(sim, 4)
+			_lab_plug(sim, s, "text")
+			_lab_plug(sim, s2, "key")
+			var ce := _p(sim, "char_encoder", Vector2i(4, 1), {"width": 8})
+			var ne := _p(sim, "number_encoder", Vector2i(4, 4), {"width": 8})
+			var xo := _pw(sim, "xor_gate", Vector2i(9, 2), 8)
+			_w(sim, s, "out", ce, "in")
+			_w(sim, s2, "out", ne, "in")
+			_w(sim, ce, "out", xo, "a")
+			_w(sim, ne, "out", xo, "b")
+			_w(sim, xo, "out", d, "in")
+		19:  # L20: x4 is a shift left by 2 — one machine, 1 power
+			_lab_plug(sim, s, "bit")
+			var sh := _pw(sim, "shift_left", Vector2i(5, 1), 5, {"n": 2})
+			_w(sim, s, "out", sh, "in")
+			_w(sim, sh, "out", d, "in")
+		20:  # L21: four overclocked Multiplies, each over a Radiator, fed and drained by overclocked routing
+			_lab_plug(sim, s, "bit")
+			var oc := {"clock": "overclocked"}
+			var sp1 := _pw(sim, "splitter", Vector2i(4, 7), 5, oc)
+			var sp2 := _pw(sim, "splitter", Vector2i(8, 4), 5, oc)
+			var sp3 := _pw(sim, "splitter", Vector2i(8, 11), 5, oc)
+			var ms := []
+			for y in [2, 6, 10, 14]:
+				ms.append(_pw(sim, "multiply", Vector2i(13, y), 5, {"k": 3, "clock": "overclocked"}))
+				_pw(sim, "radiator", Vector2i(13, y + 1), 5)
+			var mg1 := _pw(sim, "merger", Vector2i(18, 3), 5, oc)
+			var mg2 := _pw(sim, "merger", Vector2i(18, 11), 5, oc)
+			var mg3 := _pw(sim, "merger", Vector2i(23, 7), 5, oc)
+			_w(sim, s, "out", sp1, "in")
+			_w(sim, sp1, "a", sp2, "in")
+			_w(sim, sp1, "b", sp3, "in")
+			_w(sim, sp2, "a", ms[0], "in")
+			_w(sim, sp2, "b", ms[1], "in")
+			_w(sim, sp3, "a", ms[2], "in")
+			_w(sim, sp3, "b", ms[3], "in")
+			_w(sim, ms[0], "out", mg1, "a")
+			_w(sim, ms[1], "out", mg1, "b")
+			_w(sim, ms[2], "out", mg2, "a")
+			_w(sim, ms[3], "out", mg2, "b")
+			_w(sim, mg1, "out", mg3, "a")
+			_w(sim, mg2, "out", mg3, "b")
+			_w(sim, mg3, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

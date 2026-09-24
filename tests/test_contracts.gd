@@ -13,6 +13,7 @@ static func run(t) -> void:
 	_drive_move(t)
 	_paired(t)
 	_l13_needs_buffer(t)
+	_l20_multiplies_fail(t)
 
 
 # --- helpers --------------------------------------------------------------------
@@ -131,7 +132,7 @@ static func _describe(t) -> void:
 # --- the whole lab table --------------------------------------------------------
 
 static func _lab_levels(t) -> void:
-	t.check(LabDef.count() == 18, "the lab has 18 levels (got %d)" % LabDef.count())
+	t.check(LabDef.count() == 21, "the lab has 21 levels (got %d)" % LabDef.count())
 	for idx in range(LabDef.count()):
 		var sim := Simulation.new()
 		var run := LabRun.new()
@@ -244,4 +245,30 @@ static func _l13_needs_buffer(t) -> void:
 		if run.level > 12:
 			break
 	t.check(run.level == 12 and lost > 0, "L13 without a Buffer loses letters (%d) and does not complete" % lost)
+
+
+## L20: two Multiplies fit the 6-power cap but cannot reach 4/s; the shift can.
+static func _l20_multiplies_fail(t) -> void:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = 19
+	run.build_board(sim)
+	var io := _io(sim)
+	sim.remove_device(io["socket"])
+	sim.insert_device(io["socket"], "bit")
+	var sp := sim.place("splitter", Vector2i(4, 2), 0, {}, 5)
+	var m1 := sim.place("multiply", Vector2i(8, 1), 0, {"k": 4}, 5)
+	var m2 := sim.place("multiply", Vector2i(8, 4), 0, {"k": 4}, 5)
+	var mg := sim.place("merger", Vector2i(12, 2), 0, {}, 5)
+	sim.connect_ports(io["socket"], "out", sp.id, "in")
+	sim.connect_ports(sp.id, "a", m1.id, "in")
+	sim.connect_ports(sp.id, "b", m2.id, "in")
+	sim.connect_ports(m1.id, "out", mg.id, "a")
+	sim.connect_ports(m2.id, "out", mg.id, "b")
+	sim.connect_ports(mg.id, "out", io["drive"], "in")
+	t.check(sim.power_demand() <= 6, "two Multiplies + routing fit the cap (%d)" % sim.power_demand())
+	sim.reset_run()
+	for i in 2000:
+		sim.step()
+	t.check(run.level == 19 and run.delivered >= 30 and run.rate() < 4.0, "…but make only %.1f/s: L20 stays open" % run.rate())
 

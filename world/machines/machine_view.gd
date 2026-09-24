@@ -111,9 +111,12 @@ func _build() -> void:
 	body.add_child(Art.sprite(Art.tab_file(str(m.def()["family"])), _v(tab) if tab is Array and not tab.is_empty() else Vector2.ZERO))
 	# 4 ActivityArea (idle state; the roadmap schema stores `areas[]`)
 	var area: Dictionary = _entry(ly, "area")
-	if area.is_empty() and ly.get("areas", null) is Array and not (ly["areas"] as Array).is_empty():
-		var a0: Variant = (ly["areas"] as Array)[0]
-		area = a0 if a0 is Dictionary else {}
+	if area.is_empty() and ly.get("areas", null) is Array:
+		# the first area that is not the OpWindow (drawn separately below) is the ActivityArea
+		for a0 in ly["areas"]:
+			if a0 is Dictionary and str(a0.get("kind", "")) != "OpWindow":
+				area = a0
+				break
 	if not area.is_empty():
 		_area_kind = str(area.get("kind", "Dial"))
 		_area_idle = str(area.get("idle", "Idle"))
@@ -625,6 +628,9 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
+		if t["key"] == "operator" and m.type in ["shift_left", "shift_right"]:
+			t["text"] = ("«%d" if m.type == "shift_left" else "»%d") % int(m.params.get("n", 1))  # the live amount
+			continue
 		if t["key"] == "operator" and m.type == "cond_router":
 			var op := str(m.params.get("op", ">"))
 			t["text"] = "b%d" % int(m.params.get("k", 0)) if op == "bit" else op  # the live test

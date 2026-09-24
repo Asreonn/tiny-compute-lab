@@ -201,6 +201,10 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 			return RawValue.text(Charset.decode(v as BitVector)) if v is BitVector else DROP
 		"keep_if":
 			return v if _keep(v, op) else DROP
+		"shl":
+			return (v as BitVector).shl(int(op.get("k", 1))) if v is BitVector else DROP
+		"shr":
+			return (v as BitVector).shr(int(op.get("k", 1))) if v is BitVector else DROP
 		"zext":
 			return (v as BitVector).zero_extend(int(op.get("width", 1))) if v is BitVector and (v as BitVector).width <= int(op.get("width", 1)) else DROP
 		"sext":
@@ -321,6 +325,8 @@ func _expr_of(chain: Array, base: String) -> String:
 			"mul": e = "%s × %d" % [e, k]
 			"mod": e = "%s mod %d" % [e, k]
 			"slice": e = "low %d bits of %s" % [int(op.get("len", 1)), e]
+			"shl": e = "%s « %d" % [e, k]
+			"shr": e = "%s » %d" % [e, k]
 			"zext": e = "zx%d(%s)" % [int(op.get("width", 1)), e]
 			"sext": e = "sx%d(%s)" % [int(op.get("width", 1)), e]
 			"trunc": e = "tr%d(%s)" % [int(op.get("width", 1)), e]

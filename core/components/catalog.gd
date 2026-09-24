@@ -138,6 +138,18 @@ static var DEFS := {
 		],
 		"params": {},
 	},
+	"shift_left": {
+		"name": "Shift Left", "family": "logic", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "«",
+		"desc": "Moves every bit n places up; the top bits fall off. The same as × 2ⁿ, far cheaper.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
+		"params": {"n": {"label": "Places", "kind": "int", "default": 1, "min": 1, "max": 7}},
+	},
+	"shift_right": {
+		"name": "Shift Right", "family": "logic", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "»",
+		"desc": "Moves every bit n places down, filling with 0; the low bits fall off. The same as ÷ 2ⁿ.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
+		"params": {"n": {"label": "Places", "kind": "int", "default": 1, "min": 1, "max": 7}},
+	},
 	"not_gate": {
 		"name": "NOT", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "!",
 		"desc": "Flips every bit of a word.",
@@ -348,7 +360,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "shift_left", "shift_right", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it

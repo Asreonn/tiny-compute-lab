@@ -36,6 +36,13 @@ func start(m, sim) -> void:
 			var out := pa.derive(sim.new_packet_id(), v)
 			out.merge_origins(pb)
 			m.begin_job({"out": out}, pa)
+		"shift_left", "shift_right":
+			if m.inq["in"].is_empty():
+				return
+			var ps: Packet = m.pop("in")
+			var sn := clampi(int(m.params.get("n", 1)), 0, 63)
+			var sv: BitVector = ps.data.shl(sn) if m.type == "shift_left" else ps.data.shr(sn)
+			m.begin_job({"out": ps.derive(sim.new_packet_id(), sv)}, ps)
 		"not_gate":
 			if m.inq["in"].is_empty():
 				return

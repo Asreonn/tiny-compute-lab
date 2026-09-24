@@ -116,7 +116,7 @@ func _lab_rebuild(sm: Node) -> void:
 	offset_right = 16 + 320.0
 	offset_bottom = -16
 	_root = HudKit.box(self, Vector2.ZERO, Vector2(320.0, h), Palette.SURFACE_PANEL, Palette.SURFACE_BORDER, 1, 10)
-	HudKit.label(_root, "L%d · %s" % [lvl + 1, lr.title()], Vector2(18, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 260)
+	HudKit.label(_root, lr.title() if lr.all_done() else "L%d · %s" % [lvl + 1, lr.title()], Vector2(18, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 260)
 	var brief := HudKit.label(_root, lr_brief(lr), Vector2(18, 40), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	brief.custom_minimum_size = Vector2(284, 0)

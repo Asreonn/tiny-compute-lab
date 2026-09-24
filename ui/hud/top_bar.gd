@@ -113,7 +113,7 @@ func _refresh_mission() -> void:
 	var sm := _mgr()
 	if sm.in_lab and sm.lab_run != null:
 		var lr: LabRun = sm.lab_run
-		_mission_idx.text = "L%d" % (lr.level + 1)
+		_mission_idx.text = "∞" if lr.all_done() else "L%d" % (lr.level + 1)
 		_mission_title.text = lr.title()
 		_mission_formula.text = "→ %d × %s" % [lr.request_count(), HudKit.fmt(lr.request_bits())]
 		var twl := minf(TclTheme.font(HudKit.W_XBOLD).get_string_size(lr.title(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 128.0)
