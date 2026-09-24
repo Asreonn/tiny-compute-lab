@@ -188,13 +188,13 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 | Item | State |
 |---|---|
 | Core: BitVector / ViewMode / Charset; explicit widths; deterministic sim | done |
-| Tutorial missions a1, a2 (3-bit), b1–b3 (5-bit characters, Caesar) | done |
+| Tutorial missions a1, a2 (3-bit), b1–b3 (5-bit characters, Caesar), c1–c5 (Adder, Register, ROM, AND mask, shifts) | done |
 | Title screen on the laptop lid (Continue / Tutorial / Settings / New Lab / Quit), GameSettings | done |
 | Checkpoint D: raw boundary, USB sockets + data modules, codecs, contracts, port racks, desk zones, save v2, laptop intro | done |
 | Checkpoint E: work units + clock modes, PSU + brownout (from L16), thermal grid + cooling family (from L17), heat strip / LEDs, T / P overlays | done |
 | Checkpoint F: undo/redo, hotkeys + camera, hover card, quick action bar, duplicate, copy/paste settings, smart wiring, connected move, palette QoL, multi-select | done |
-| Checkpoints G/H: every component group (A–G) and Lab levels L1–L26, rewards, PSU on the desk, Free Build after L26 | done |
+| Checkpoints G/H: every component group (A–G) and Lab levels L1–L28 (a tiny CPU at L27–L28), rewards, PSU on the desk, Free Build after L28 | done |
 | Checkpoint I: AudioBus cues, success sweep, PSU overload pulse | done |
 | Checkpoint J: `make check` (tests + smokes), screenshot pass against Penpot 18/19 (hover card, quick bar, thermal overlay aligned), docs | done |
-| Checks | `make check` = `make test` (736) + `make smoke` (8 headless smokes); visual: `tools/{lab_shot,systems_shot,qol_shot,title_shot}.gd` |
-| Next | L27+ (a tiny CPU: fetch → decode → execute), more tutorial missions for the late machines |
+| Checks | `make check` = `make test` (752) + `make smoke` (8 headless smokes); visual: `tools/{lab_shot,systems_shot,qol_shot,title_shot}.gd` |
+| Next | L29+ (jumps / loops, a register file), more machines as the CPU grows |

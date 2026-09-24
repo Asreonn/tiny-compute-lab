@@ -48,6 +48,33 @@ static func build(sim: Simulation, mission_id: String) -> void:
 			var a := _p(sim, "add", Vector2i(6, 3), {"k": 3})
 			_w(sim, i, "out", a, "in")
 			_w(sim, a, "out", o, "in")
+		"c1_two":
+			var ad := _pw(sim, "adder", Vector2i(6, 3), 3)
+			_w(sim, i, "out", ad, "a")
+			_w(sim, io["in"][1], "out", ad, "b")
+			_w(sim, ad, "out", o, "in")
+		"c2_total":
+			var ad := _pw(sim, "adder", Vector2i(4, 3), 5)
+			var sp := _pw(sim, "splitter", Vector2i(7, 3), 5, {"mode": "Duplicate"})
+			var rg := _pw(sim, "register", Vector2i(4, 6), 5, {"mode": "echo", "init": 0})
+			_w(sim, i, "out", ad, "a")
+			_w(sim, ad, "out", sp, "in")
+			_w(sim, sp, "a", o, "in")
+			_w(sim, sp, "b", rg, "in")
+			_w(sim, rg, "out", ad, "b")
+		"c3_lookup":
+			var rom := _pw(sim, "rom", Vector2i(6, 3), 3, {"table": "6 4 7 1 0 3 5 2", "out": 3})
+			_w(sim, i, "out", rom, "in")
+			_w(sim, rom, "out", o, "in")
+		"c4_caps":
+			var an := _pw(sim, "and_gate", Vector2i(6, 3), 8)
+			_w(sim, i, "out", an, "a")
+			_w(sim, io["in"][1], "out", an, "b")
+			_w(sim, an, "out", o, "in")
+		"c5_shift":
+			var sh := _pw(sim, "shift_left", Vector2i(6, 3), 5, {"n": 2})
+			_w(sim, i, "out", sh, "in")
+			_w(sim, sh, "out", o, "in")
 		"b3_caesar":
 			var a := _p(sim, "add", Vector2i(4, 4), {"k": 3})
 			var md := _p(sim, "modulo", Vector2i(8, 4), {"k": 26})

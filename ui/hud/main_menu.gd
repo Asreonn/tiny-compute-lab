@@ -4,11 +4,11 @@ extends Control
 ## Opening pauses the simulation; Esc / the cross closes; clicking a card loads that mission.
 
 const W := 620.0
-const H := 440.0
-const CARD_W := 180.0
-const CARD_H := 96.0
-const GAP := 16.0
-const COLS := 3
+const H := 480.0
+const CARD_W := 137.0
+const CARD_H := 78.0
+const GAP := 12.0
+const COLS := 4
 
 var _dim: ColorRect
 var _panel: Panel
@@ -112,21 +112,21 @@ func _card(pos: Vector2, d: MissionDef, idx: int) -> void:
 	card.add_to_group("menu_cards")
 	card.set_meta("mission_id", d.id)
 
-	HudKit.label(card, "%02d" % (d.index + 1), Vector2(14, 12), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED)
+	HudKit.label(card, "%02d" % (d.index + 1), Vector2(12, 8), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED)
 	var title_color := Palette.DATA_NUMBER if completed else (Palette.TEXT_PRIMARY if unlocked else Palette.TEXT_MUTED)
-	HudKit.label(card, d.title, Vector2(14, 34), 14, HudKit.W_XBOLD, title_color, 150)
-	HudKit.label(card, d.teaches, Vector2(14, 56), 10, HudKit.W_MEDIUM,
-		Palette.TEXT_SECONDARY if unlocked else Palette.TEXT_MUTED, 150)
+	HudKit.label(card, d.title, Vector2(12, 26), 12, HudKit.W_XBOLD, title_color, CARD_W - 20)
+	HudKit.label(card, d.teaches, Vector2(12, 44), 9, HudKit.W_MEDIUM,
+		Palette.TEXT_SECONDARY if unlocked else Palette.TEXT_MUTED, CARD_W - 20)
 
 	if not unlocked:
-		HudKit.icon(card, "icon_lock", Vector2(152, 12), 16, Palette.TEXT_MUTED)
+		HudKit.icon(card, "icon_lock", Vector2(CARD_W - 26, 8), 14, Palette.TEXT_MUTED)
 		return
 	if completed:
 		for i in 3:
-			HudKit.icon(card, "icon_star" if i < stars else "icon_star_empty", Vector2(14 + i * 20, 72), 16,
+			HudKit.icon(card, "icon_star" if i < stars else "icon_star_empty", Vector2(12 + i * 16, 58), 13,
 				Palette.FAMILY_ROUTING if i < stars else Palette.TEXT_MUTED)
 	else:
-		HudKit.dot(card, Vector2(160, 16), 6, Palette.STATE_VALID)
+		HudKit.dot(card, Vector2(CARD_W - 18, 12), 6, Palette.STATE_VALID)
 	var cb := Callable(func():
 		close()
 		_mgr().load_mission(d.id))

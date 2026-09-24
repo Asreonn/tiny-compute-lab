@@ -190,6 +190,7 @@ front of the drive.
 | `max_heat` | no machine reaches the given stage (e.g. `THROTTLING`) during the window |
 | `max_lost` | socket overruns ≤ L during the window |
 | `max_latency` | the median origin → drive latency ≤ T ticks |
+| `max_rejected` | wrong deliveries ≤ R during the window (a filter that must really filter) |
 
 **Constraint failures are soft.** Breaking a constraint resets only the *window* (accepted counts
 keep accumulating as "total"). The HUD shows which constraint broke, and why.
@@ -424,15 +425,17 @@ Each level adds exactly one architectural demand, and every level reuses the fac
 | 24 | Calculator | paired over three sticks: number ± key, the bit stick picks ADD / SUB | control-selected compute | ALU |
 | 25 | Tiny Memory | filter: run WE / address / value instructions on RAM, deliver the reads | programmable memory | RAM, Register Bank, Instruction Decoder |
 | 26 | Playback | map: the n-th clock pulse plays note n of a table | sequencing | Program Counter |
-| 27+ | a tiny CPU (fetch → decode → execute) | — | — | Free Build until then |
+| 27 | Fetch & Execute | map: the accumulator after each instruction of a typed 8-instruction program (ADD k / SUB k) | a CPU: fetch (PC → ROM), decode, execute (ALU + ACC register) | — |
+| 28 | Output Port | filter: only OUT instructions show the accumulator, `max_rejected` 0 | selective output (Gate on the OUT line) | — |
+| 29+ | jumps, loops, a register file … | — | — | Free Build until then |
 
 - **Migration:** the saved Lab levels L1–L3 keep their index. Saved L4–L6 map to the new L6, L7
   and L8, which cover the same content. See §12.
-- **As built (2026-09-25):** L12–L26 are implemented; each level's demand is proven by a test
+- **As built (2026-09-25):** L12–L28 are implemented; each level's demand is proven by a test
   that the naive layout fails (L13 unbuffered, L16/L20 Multiplies, L17 uncooled or at the normal
   clock, L21 Blower-cooled). Rewards are level data (`reward: {psu_tier}`) and a board never has
   less than the levels earned. After L21 the Lab is a **Free Build** (the last contract keeps
-  judging) after L26. History-dependent contracts (running sum, memory program, playback) are
+  judging) after L28. History-dependent contracts (running sum, memory program, playback) are
   judged from the origin's `seq` and the level's stream (O(cycle) via periodicity). The PSU is the laptop's adapter lying on the desk under the output
   mat (not a grid tile, so no save can collide with it).
 - **Tuning:** every contract has a reference solution in `tests/solutions.gd`. A test proves each

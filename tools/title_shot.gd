@@ -31,10 +31,10 @@ func _process(_d: float) -> bool:
 	if _frame == 60:
 		_shot("settings")
 		_ts._show_page("tutorial")
-	if _frame == 80:
+	if _frame == 120:
 		_shot("tutorial")
 		_ts._show_page("confirm")
-	if _frame == 100:
+	if _frame == 160:
 		_shot("confirm")
 		SaveStore.clear()
 		quit(0)

@@ -143,24 +143,37 @@ func _add(action: String, title: String, sub: String, icon: String, opts := {}) 
 
 func _layout_tiles() -> void:
 	var n := _tiles.size()
-	var total := n * TILE.x + (n - 1) * GAP
+	# more than 6 tiles (the tutorial list): two rows of compact tiles
+	var compact := n > 6
+	var tile := Vector2(160, 84) if compact else TILE
+	var per_row := ceili(n / 2.0) if compact else n
+	var total := per_row * tile.x + (per_row - 1) * GAP
 	var x0 := (BASE.x - total) * 0.5
 	for i in n:
 		var t: Dictionary = _tiles[i]
-		var pos := Vector2(x0 + i * (TILE.x + GAP), ROW_Y)
-		var box := HudKit.box(_content, pos, TILE, Palette.SURFACE_PANEL, Palette.SURFACE_BORDER, 1, 10)
+		var row := i / per_row
+		var col := i % per_row
+		var pos := Vector2(x0 + col * (tile.x + GAP), (ROW_Y - 36.0 + row * (tile.y + 12.0)) if compact else ROW_Y)
+		t["compact"] = compact
+		var box := HudKit.box(_content, pos, tile, Palette.SURFACE_PANEL, Palette.SURFACE_BORDER, 1, 10)
 		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t["box"] = box
 		t["home"] = pos
 		var muted: bool = t["muted"]
 		var ic := Palette.STATE_ERROR if t["danger"] else (Palette.DATA_NUMBER if t["primary"] else Palette.TEXT_SECONDARY)
-		HudKit.icon(box, str(t["icon"]), Vector2(18, 18), 22, Palette.TEXT_MUTED if muted else ic)
 		var title := str(t["title"])
-		var fs := 16 if title.length() <= 14 else (14 if title.length() <= 16 else 12)  # fit long names
-		HudKit.label(box, title, Vector2(18, 54 + (16 - fs) * 0.5), fs, HudKit.W_XBOLD, Palette.TEXT_MUTED if muted else Palette.TEXT_PRIMARY, TILE.x - 26)
-		HudKit.label(box, str(t["sub"]), Vector2(18, 82), 11, HudKit.W_MEDIUM, Palette.TEXT_MUTED, TILE.x - 30)
+		if compact:
+			HudKit.icon(box, str(t["icon"]), Vector2(14, 12), 18, Palette.TEXT_MUTED if muted else ic)
+			var cfs := 13 if title.length() <= 16 else 11
+			HudKit.label(box, title, Vector2(14, 38), cfs, HudKit.W_XBOLD, Palette.TEXT_MUTED if muted else Palette.TEXT_PRIMARY, tile.x - 22)
+			HudKit.label(box, str(t["sub"]), Vector2(14, 60), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, tile.x - 24)
+		else:
+			HudKit.icon(box, str(t["icon"]), Vector2(18, 18), 22, Palette.TEXT_MUTED if muted else ic)
+			var fs := 16 if title.length() <= 14 else (14 if title.length() <= 16 else 12)  # fit long names
+			HudKit.label(box, title, Vector2(18, 54 + (16 - fs) * 0.5), fs, HudKit.W_XBOLD, Palette.TEXT_MUTED if muted else Palette.TEXT_PRIMARY, TILE.x - 26)
+			HudKit.label(box, str(t["sub"]), Vector2(18, 82), 11, HudKit.W_MEDIUM, Palette.TEXT_MUTED, TILE.x - 30)
 		var idx := i
-		var hb := HudKit.hit(_content, pos, TILE, func(): _activate(idx), str(t["title"]))
+		var hb := HudKit.hit(_content, pos, tile, func(): _activate(idx), str(t["title"]))
 		hb.mouse_entered.connect(func():
 			_focus = idx
 			_refresh_focus())
@@ -256,11 +269,16 @@ func _input(event: InputEvent) -> void:
 	if not k.pressed or k.echo:
 		return
 	match k.keycode:
-		KEY_LEFT, KEY_UP:
+		KEY_LEFT:
 			_focus = (_focus - 1 + _tiles.size()) % _tiles.size()
 			_refresh_focus()
-		KEY_RIGHT, KEY_DOWN, KEY_TAB:
+		KEY_RIGHT, KEY_TAB:
 			_focus = (_focus + 1) % _tiles.size()
+			_refresh_focus()
+		KEY_UP, KEY_DOWN:
+			var per_row := ceili(_tiles.size() / 2.0) if _tiles.size() > 6 else _tiles.size()
+			var step := per_row if _tiles.size() > 6 else 1
+			_focus = clampi(_focus + (step if k.keycode == KEY_DOWN else -step), 0, _tiles.size() - 1)
 			_refresh_focus()
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			_activate(_focus)
