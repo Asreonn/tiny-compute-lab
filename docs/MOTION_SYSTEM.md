@@ -142,3 +142,42 @@ All motion uses cubic-out unless stated. The effect level is given in brackets.
 | Overlays | `T`/`P` toggle with a 150 ms cross-fade; machines fade to α .55 underneath. | — |
 | Status LED | Instant texture swap (no fade). | per state |
 
+
+## 9. HUD motion and board ambience (player request 2026-09-24: smooth, minimal, futuristic)
+
+UI motion is cubic-out, short, and never bouncy. Nothing in the HUD glows. Everything is disabled under reduced motion.
+
+| Element | Motion |
+|---|---|
+| **Speed selector** (1× 2× 5× 10×) | A selection pill (`surface.raised`, 1 px `surface.border-strong`, radius `control`) slides its x/width to the chosen segment in 180 ms. Labels cross-fade over 120 ms (selected `text.primary`, others `text.muted`). Keys `1`–`4` drive the same animation. |
+| Mode pill (BUILD / RUNNING / PAUSED) | Colour cross-fade 200 ms. The RUNNING dot breathes (α .6 ↔ 1, 1.6 s). This is the only permanent HUD loop. |
+| Buttons (all `IconButton`s) | Hover: the background fades to `surface.raised` + 1 px `border-strong` over 120 ms, and the icon goes `text.secondary` → `text.primary`. Press: scale .96 for 80 ms. Selected: an accent underline (2 px, `state.build`) slides between siblings in 160 ms. |
+| Tool rail | The selection highlight slides between tools (160 ms) instead of jumping. |
+| Palette cards | Hover: 2 px lift + border to `border-strong` (120 ms). An unlock pulses the "New" dot twice (2 × 300 ms), then it holds. |
+| Panels (inspector, request, device tray, hover card) | Open: 12 px slide + fade over 180 ms. Close: 140 ms. |
+| Numbers (counters, rate, power) | Values roll to the new number over 200 ms. Progress bars tween width over 250 ms. |
+| Level banner | Enters from the top (24 px + fade, 260 ms), holds, exits in 200 ms. |
+| Menu cards | Staggered entrance, 40 ms apart (fade + 12 px). |
+
+**Board ambience** ("a livelier background"; below L1, α ≤ .1, never over machines or wires):
+- **Trace sweep.** Every 8–12 s a soft band travels along one decal `TraceBundle` line at 120 px/s:
+  `data.number` α .06, 24 px long, round ends. At most one sweep at a time.
+- **Via twinkle.** Decal vias occasionally brighten α .04 → .1 → .04 over 1.2 s, every 3–6 s.
+- **Vignette.** A radial vignette of `bg.void` α .35 at the viewport edges gives depth. It is static.
+- **Timing.** It is driven by a seed (board size + level), not the simulation, and never changes
+  gameplay. It runs slightly more often while the simulation is running.
+
+## 10. Intro: the laptop (Penpot page `20 Intro · Laptop`)
+
+About 4.1 s, played on game launch only (not on every board load). Any click or key skips to the end state.
+
+| t | Beat |
+|---|---|
+| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + boot bar), and a deck whose keyboard has **one keycap per board tile**, laid exactly on the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
+| 0.0–1.4 s | The camera eases (cubic in-out) from the whole laptop toward the keyboard. The lid slides out of the top. |
+| 1.2–2.6 s | The keycaps dissolve in a left → right sweep, each over ~250 ms, and every key becomes its PCB tile. The factory (machines, wires, packets) is live underneath. |
+| 2.4–3.2 s | The deck housing thins to the board edge and fades out; the camera reaches the gameplay framing. |
+| 3.4–4.1 s | The HUD enters: top bar 24 px down, tool rail 24 px in, palette, request panel. Fade + slide, 220 ms each, 60 ms stagger. |
+
+**Board edges** (laptop illusion): the locked USB Inputs sit in column 0 and the Contract Drive in
+the last two columns. Their modules protrude past the board edge, through the laptop's side ports.
