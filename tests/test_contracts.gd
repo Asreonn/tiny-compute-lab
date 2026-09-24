@@ -12,6 +12,7 @@ static func run(t) -> void:
 	_constraints(t)
 	_drive_move(t)
 	_paired(t)
+	_l13_needs_buffer(t)
 
 
 # --- helpers --------------------------------------------------------------------
@@ -130,7 +131,7 @@ static func _describe(t) -> void:
 # --- the whole lab table --------------------------------------------------------
 
 static func _lab_levels(t) -> void:
-	t.check(LabDef.count() == 12, "the lab has 12 levels (got %d)" % LabDef.count())
+	t.check(LabDef.count() == 13, "the lab has 13 levels (got %d)" % LabDef.count())
 	for idx in range(LabDef.count()):
 		var sim := Simulation.new()
 		var run := LabRun.new()
@@ -224,4 +225,23 @@ static func _paired(t) -> void:
 	swapped.origins = {11: {"seq": 7, "value": RawValue.text("X")}, 10: {"seq": 7, "value": RawValue.key(5)}}
 	t.check(c.judge(swapped, [10, 11]), "the sticks may sit in either socket")
 	t.check(enc != null and c.describe() == "Caesar + key (text)", "describe: %s" % c.describe())
+
+
+## L13's demand is real: the L12 layout (no Buffer) loses letters in the bursts and never finishes.
+static func _l13_needs_buffer(t) -> void:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = 12
+	run.build_board(sim)
+	Solutions.lab_solution(sim, 11)
+	sim.reset_run()
+	var lost := 0
+	for i in 2000:
+		sim.step()
+		for e in sim.events:
+			if str(e.get("kind", "")) == "lost":
+				lost += 1
+		if run.level > 12:
+			break
+	t.check(run.level == 12 and lost > 0, "L13 without a Buffer loses letters (%d) and does not complete" % lost)
 

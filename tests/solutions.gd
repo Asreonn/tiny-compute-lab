@@ -253,6 +253,26 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, ad, "out", mo, "in")
 			_w(sim, mo, "out", dc, "in")
 			_w(sim, dc, "out", d, "in")
+		12:  # L13: as L12, with two Buffers that swallow the text bursts so no letter is lost
+			var s2 := _lab_socket(sim, 4)
+			_lab_plug(sim, s, "text")
+			_lab_plug(sim, s2, "key")
+			var ce := _p(sim, "char_encoder", Vector2i(3, 1), {"width": 5})
+			var bu := _pw(sim, "buffer", Vector2i(6, 1), 5, {"capacity": 8})
+			var bu2 := _pw(sim, "buffer", Vector2i(9, 1), 5, {"capacity": 8})
+			var ne := _p(sim, "number_encoder", Vector2i(4, 4), {"width": 5})
+			var ad := _pw(sim, "adder", Vector2i(13, 2), 5)
+			var mo := _pw(sim, "modulo", Vector2i(17, 2), 5, {"k": 26})
+			var dc := _p(sim, "char_decoder", Vector2i(21, 2), {"width": 5})
+			_w(sim, s, "out", ce, "in")
+			_w(sim, ce, "out", bu, "in")
+			_w(sim, bu, "out", bu2, "in")
+			_w(sim, s2, "out", ne, "in")
+			_w(sim, bu2, "out", ad, "a")
+			_w(sim, ne, "out", ad, "b")
+			_w(sim, ad, "out", mo, "in")
+			_w(sim, mo, "out", dc, "in")
+			_w(sim, dc, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

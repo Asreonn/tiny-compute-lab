@@ -115,6 +115,19 @@ static var LEVELS: Array = [
 		"devices": ["key"], "unlocks": ["adder"],
 		"view": ViewMode.Mode.CHAR,
 	},
+	{
+		"id": "lab_l13", "title": "Changing Key",
+		"brief": "The key changes every 8 letters and the text arrives in bursts. Keep every pair in step.",
+		"contract": {"kind": "paired", "pair": ["text", "key"], "ops": [{"op": "encode_char", "width": 5}, {"op": "add_src", "src": "key"}, {"op": "mod", "k": 26}, {"op": "decode_char"}], "count": 24, "accept_format": "text", "max_lost": 0},
+		# 36 letters every 2 ticks (the encoder keeps up), then a long gap: the average matches the
+		# steady key (1 per 8 ticks), the burst does not — about 27 letters pile up behind the
+		# Adder, more than wires alone hold, and a lost letter would pair every later letter with
+		# the wrong key
+		"streams": {"text": {"values": ["KEEPTHEPAIRSINSTEP"], "pattern": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 218]},
+			"key": {"values": [1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 9, 9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2, 2, 2, 2, 2], "interval": 8}},
+		"unlocks": ["counter"],
+		"view": ViewMode.Mode.CHAR,
+	},
 ]
 
 
