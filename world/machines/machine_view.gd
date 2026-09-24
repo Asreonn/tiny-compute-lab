@@ -16,6 +16,9 @@ const SILK_ALPHA := 0.55  # material silk text opacity
 const TAG_ASSETS := ["1", "2", "3", "4", "8", "16"]  # widthtag assets that exist
 const TAG_FALLBACK := "16"  # chip used for widths without an asset (single-digit widths use 14 px, others 18 px)
 const GHOST_ALPHA := 0.6  # opacity of drag/build ghost views
+## Codec machines (D4): the raw <-> bits boundary, drawn with a procedural raw port and a
+## token-slot pill + silk chevron (design/reference/systems_v1.js codec()).
+const CODEC_TYPES := ["number_encoder", "char_encoder", "number_decoder", "char_decoder"]
 
 const MACHINE_STATE_LED := ["idle", "receiving", "processing", "outputready", "blocked", "error", "off"]
 
@@ -46,6 +49,11 @@ var _port_bus := {}  # port id -> bool
 var _port_dir := {}  # port id -> "in"/"out"/"ctrl"
 var _port_w := {}  # port id -> int
 var _port_contact := {}  # port id -> PortContact (L1 contact ring node)
+var _raw_ports := {}  # port id -> RawPortView (procedural raw receptacle)
+var _codec_slot: CodecSlot = null  # codec token slot (D4)
+var _usb_socket: UsbSocketView = null  # USB socket face + module (D4)
+var _contract: ContractDriveView = null  # locked USB Output contract drive (D4)
+var _tag_nodes: Array = []  # width tag sprites (hidden when the mapped port is raw)
 var _tag_values: Array = []  # width shown by each width tag (upright text)
 var _tag_ports: Array = []  # tag i -> port id whose CURRENT width it shows ("" = layout/instance width)
 var _tag_fallback: Array = []  # tag i -> layout width used when there is no port mapping
@@ -138,6 +146,22 @@ func _build() -> void:
 		s.modulate.a = 0.0
 		_overlays[overlay] = s
 		body.add_child(s)
+	# 11b D4 procedural systems layered over the chassis: codec token slot, USB socket
+	# face + data module, and the locked USB Output contract drive.
+	if machine.type in CODEC_TYPES:
+		_codec_slot = CodecSlot.new()
+		_codec_slot.name = "CodecSlot"
+		body.add_child(_codec_slot)
+	if machine.type == "usb_input" and machine.socket:
+		_usb_socket = UsbSocketView.new()
+		_usb_socket.machine = machine
+		_usb_socket.name = "UsbSocket"
+		body.add_child(_usb_socket)
+	if machine.type == "usb_output" and machine.locked and SimulationManager.run != null and SimulationManager.run.has_method("request_bits"):
+		_contract = ContractDriveView.new()
+		_contract.machine = machine
+		_contract.name = "ContractDrive"
+		body.add_child(_contract)
 	# 12 upright text layer
 	# 12a processing progress (ActivityArea progress, docs/MOTION_SYSTEM.md): rotates with the body
 	_progress = ProcessProgress.new()
@@ -173,6 +197,7 @@ func _build_width_tags(ly: Dictionary) -> void:
 	_tag_values.clear()
 	_tag_ports.clear()
 	_tag_fallback.clear()
+	_tag_nodes.clear()
 	var tags: Array = ly.get("width_tags", [])
 	if tags == null:
 		tags = []
@@ -194,6 +219,13 @@ func _build_width_tags(ly: Dictionary) -> void:
 			# layout's placeholder numbers.
 			port_id = str(cports[i]["id"])
 			w = machine.port_width(port_id)
+		elif machine.type in CODEC_TYPES:
+			# One tag on the bus side; it shows the live `width` param (D4).
+			for p in cports:
+				if bool(p.get("bus", false)):
+					port_id = str(p["id"])
+					w = machine.port_width(port_id)
+					break
 		var pos := _v(tag.get("pos", [0, 0]))
 		var chip_w := 14.0
 		var rel := Art.widthtag_file(w)
@@ -208,10 +240,12 @@ func _build_width_tags(ly: Dictionary) -> void:
 			c.scale.x *= target / base  # keep Art.SCALE rasterisation; only narrow the chip
 			c.name = "WidthTag%d" % i
 			body.add_child(c)
+			_tag_nodes.append(c)
 		else:
 			var c := Art.sprite(rel, pos)
 			c.name = "WidthTag%d" % i
 			body.add_child(c)
+			_tag_nodes.append(c)
 		_tag_values.append(w)
 		_tag_ports.append(port_id)
 		_tag_fallback.append(int(tag["width"]))
@@ -263,6 +297,15 @@ func _build_ports(ly: Dictionary) -> void:
 		ring.name = "PortContact%s" % pid.capitalize()
 		body.add_child(ring)
 		_port_contact[pid] = ring
+		# D4: a procedural raw receptacle. Visibility follows machine.port_role() every
+		# frame, so a USB socket swaps its BusPort sprite for the raw port when a raw
+		# module is plugged (and back when it is unplugged).
+		var rp := RawPortView.new()
+		rp.dir = dir
+		rp.position = _v(lp.get("anchor", [0, 0]))
+		rp.name = "RawPort%s" % pid.capitalize()
+		body.add_child(rp)
+		_raw_ports[pid] = rp
 
 
 func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictionary) -> void:
@@ -412,8 +455,16 @@ func refresh(delta: float) -> void:
 	var sim := SimulationManager.sim
 	var running := SimulationManager.running
 	_update_progress()
-	# LED from machine state
+	# LED from machine state (lab sockets: Receiving on a packet leaving this tick, Idle when
+	# plugged, Off when empty — design/reference/systems_v1.js socket states)
 	var led_name: String = MACHINE_STATE_LED[m.state]
+	if machine.socket:
+		if "out" in machine.sent_ports:
+			led_name = "receiving"
+		elif machine.device != "":
+			led_name = "idle"
+		else:
+			led_name = "off"
 	if _led != null and led_name != _led_rel:
 		_led.texture = Art.tex(Art.led_file(led_name))
 		_led_rel = led_name
@@ -456,8 +507,32 @@ func refresh(delta: float) -> void:
 		if _port_nodes[pid].texture != pt:
 			_port_nodes[pid].texture = pt
 		_update_contact(pid, sim)
+	# D4: raw receptacles follow the port role; codec slot / socket / contract overlays.
+	for pid in _raw_ports:
+		var raw_role: bool = machine.port_role(pid) == Catalog.ROLE_RAW
+		_raw_ports[pid].visible = raw_role
+		if _port_nodes.has(pid):
+			_port_nodes[pid].visible = not raw_role
+		if _port_contact.has(pid):
+			_port_contact[pid].visible = not raw_role
+	if _codec_slot != null:
+		_update_codec_slot()
+	if _usb_socket != null:
+		_usb_socket.hovered = hovered and not selected
+		_usb_socket.refresh()
+	if _contract != null:
+		_contract.refresh()
 	# Upright texts
 	_update_texts(sim, running)
+	# Width tags hide (sprite and silk digits) when their port is a raw receptacle.
+	for i in _tag_nodes.size():
+		var tpid: String = str(_tag_ports[i]) if i < _tag_ports.size() else ""
+		var raw_tag: bool = tpid != "" and machine.port_role(tpid) == Catalog.ROLE_RAW
+		_tag_nodes[i].visible = not raw_tag
+		if raw_tag:
+			for t in _text_specs:
+				if t["key"] == "tag%d" % i:
+					t["text"] = ""
 	text_layer.queue_redraw()
 	# Resource indicators: same visibility rule as the old stats silk (normal + close zoom,
 	# never at far zoom). Ghosts/locked machines have no _ri (they are not built).
@@ -628,8 +703,25 @@ func _port_state(pid: String, _running: bool) -> String:
 ## Edge-detect a port contact on a NEW simulation tick: when the port first becomes part of
 ## received_ports/sent_ports for sim.tick, stamp _contact_start so the L1 ring plays once.
 func _update_contact(pid: String, sim: Simulation) -> void:
+	if sim == null:
+		return
+	# D4 raw receptacle: Idle / Connected when wired / Active during the 120 ms contact
+	# window (the rawPort Active ring itself is the L1 contact mark).
+	var rp: RawPortView = _raw_ports.get(pid)
+	if rp != null and machine.port_role(pid) == Catalog.ROLE_RAW:
+		var rnow := Time.get_ticks_msec()
+		if pid in machine.received_ports or pid in machine.sent_ports:
+			if rp._seen_tick != sim.tick and (rp._start < 0 or rnow - rp._start >= PortContact.DURATION):
+				rp._seen_tick = sim.tick
+				rp._start = rnow
+		else:
+			rp._seen_tick = -1
+		var ractive := rp._start >= 0 and rnow - rp._start <= PortContact.DURATION
+		var rwired := sim.connection_at_port(machine.id, pid) != null
+		rp.set_state("Active" if ractive else ("Connected" if rwired else "Idle"))
+		return
 	var ring: PortContact = _port_contact.get(pid)
-	if ring == null or sim == null:
+	if ring == null:
 		return
 	var m := machine
 	var now := Time.get_ticks_msec()
@@ -644,6 +736,27 @@ func _update_contact(pid: String, sim: Simulation) -> void:
 	# Redraw only while the 120 ms window is open (plus one frame to clear it).
 	if ring._start >= 0 and now - ring._start <= PortContact.DURATION + 34:
 		ring.queue_redraw()
+
+
+## Glyph shown in a codec's token slot: the job's raw input while an encoder absorbs, or the
+## produced raw value while a decoder emits (design/reference/systems_v1.js codec()).
+func _update_codec_slot() -> void:
+	var enc := machine.type in ["number_encoder", "char_encoder"]
+	var glyph := ""
+	var st := "Idle"
+	if not machine.job.is_empty():
+		if enc:
+			var inp: Packet = machine.job.get("input")
+			if inp != null and inp.is_raw():
+				glyph = inp.raw.glyph()
+				st = "Absorbing"
+		else:
+			var results: Dictionary = machine.job.get("results", {})
+			var res: Packet = results.get("out")
+			if res != null and res.is_raw():
+				glyph = res.raw.glyph()
+				st = "Emitting"
+	_codec_slot.set_data(enc, glyph, st)
 
 
 # ------------------------------------------------------------------ L1 port contact ring
@@ -691,6 +804,193 @@ class PortContact extends Node2D:
 			draw_style_box(_style, Rect2(Vector2(-10.5, -10.5), Vector2(21, 21)))
 		else:
 			draw_arc(Vector2.ZERO, RADIUS, 0.0, TAU, 32, col, 1.0, true)
+
+
+# ------------------------------------------------------------------ D4 procedural systems
+
+## A raw receptacle (24x24) drawn procedurally with SystemsDraw.raw_port at the port anchor.
+## `dir` is the catalog direction ("in"/"out"), `state` Idle | Connected | Active.
+class RawPortView extends Node2D:
+	var dir := "out"
+	var state := "Idle"
+	var _seen_tick := -1
+	var _start := -1
+	var _drawn := ""
+
+	func set_state(s: String) -> void:
+		if s != _drawn:
+			_drawn = s
+			state = s
+			queue_redraw()
+
+	func _draw() -> void:
+		SystemsDraw.raw_port(self, Vector2(-12, -12), dir, state)
+
+
+## Codec token slot (D4): 26x18 r9 pill at x 14 (encoder) / 88 (decoder) y 23 with the glyph
+## of the value being processed, plus the silk chevron at x 45 / 75.
+class CodecSlot extends Node2D:
+	var enc := true
+	var glyph := ""
+	var state := "Idle"
+
+	func set_data(e: bool, g: String, s: String) -> void:
+		if e == enc and g == glyph and s == state:
+			return
+		enc = e
+		glyph = g
+		state = s
+		queue_redraw()
+
+	func _draw() -> void:
+		var slot_x := 14.0 if enc else 88.0
+		var chev_x := 45.0 if enc else 75.0
+		var pill := Rect2(slot_x, 23, 26, 18)
+		SystemsDraw.rrect(self, pill, 9.0, Palette.MACHINE_SCREEN)
+		SystemsDraw.rrect_outline(self, pill, 9.0, Color(Palette.FAMILY_IO, 0.55), 1.0)
+		if state != "Idle" and glyph != "":
+			var col := Color(Palette.FAMILY_IO, 0.5 if state == "Absorbing" else 1.0)
+			SystemsDraw.text_center(self, Rect2(slot_x, 24, 26, 16), glyph, 10.0 if glyph.length() > 1 else 12.0, col)
+		var chev := PackedVector2Array([Vector2(chev_x + 1, 28), Vector2(chev_x + 5, 32), Vector2(chev_x + 1, 36)])
+		draw_polyline(chev, Color(Palette.MATERIAL_SILK, 0.5), 1.5, true)
+
+
+## USB socket overlay (D4): the female port face + the plugged data module, with the MOTION §8
+## plug/unplug motion. Reads only machine.device / gen_seq / sent_ports.
+class UsbSocketView extends Node2D:
+	const PLUG_S := 0.18
+	const UNPLUG_S := 0.16
+	var machine: Machine
+	var hovered := false
+	var _prev := ""
+	var _started := false
+	var _anim_start := -1.0
+	var _anim_plug := true
+	var _anim_device := ""
+	var _offset := 0.0
+	var _alpha := 1.0
+	var _cursor := -1
+	var _lit := false
+
+	func refresh() -> void:
+		var dev: String = machine.device
+		if not _started:
+			_started = true
+			_prev = dev
+			if dev != "":
+				_anim_device = dev
+		if dev != _prev:
+			_anim_device = dev if dev != "" else _prev
+			_anim_plug = dev != ""
+			_anim_start = Time.get_ticks_msec() / 1000.0
+			_prev = dev
+		var now := Time.get_ticks_msec() / 1000.0
+		if _anim_start >= 0.0:
+			var dur := PLUG_S if _anim_plug else UNPLUG_S
+			var el := now - _anim_start
+			if el >= dur:
+				_offset = 0.0
+				_alpha = 1.0
+				_anim_start = -1.0
+				if not _anim_plug:
+					_anim_device = ""
+			else:
+				var t := _ease_out(el / dur)
+				if _anim_plug:
+					_offset = -44.0 * (1.0 - t)
+					_alpha = 1.0
+				else:
+					_offset = -48.0 * t
+					_alpha = 1.0 - 0.5 * t
+		_lit = "out" in machine.sent_ports
+		_cursor = (machine.gen_seq - 1) % 30 if _lit else -1
+		queue_redraw()
+
+	func _ease_out(t: float) -> float:
+		var c := clampf(t, 0.0, 1.0)
+		return 1.0 - pow(1.0 - c, 3.0)
+
+	func _draw() -> void:
+		var plugged := machine.device != "" or (_anim_start >= 0.0 and not _anim_plug)
+		SystemsDraw.port_face(self, Vector2(-6, 14), plugged, _lit, false)
+		if _anim_device != "":
+			SystemsDraw.data_module(self, Vector2(-102 + _offset, 4), _anim_device, {
+				"inserted": true, "cursor": _cursor,
+				"acc": SystemsDraw._kind_accent(_anim_device), "alpha": _alpha,
+			})
+		elif hovered and machine.device == "":
+			SystemsDraw.data_module(self, Vector2(-128, 4), "bit", {"ghost": true})
+			SystemsDraw.rrect_outline(self, Rect2(-8, 12, 20, 40), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
+
+
+## Locked USB Output contract drive (D4, lab only): flipped port face + job module showing the
+## requested value / fill progress, the accept/reject seam flash and the complete frame.
+class ContractDriveView extends Node2D:
+	const SEAM_S := 0.15
+	const PULSE_S := 0.2
+	var machine: Machine
+	var _flash_start := -1.0
+	var _flash_ok := true
+	var _underline := false
+	var _last_tick := -1
+	var _last_lct := -100000
+	var _lct_start := -1.0
+
+	func refresh() -> void:
+		var run = SimulationManager.run
+		if run == null or not run.has_method("request_bits"):
+			return
+		var sim := SimulationManager.sim
+		if sim != null and sim.tick != _last_tick:
+			_last_tick = sim.tick
+			for e in sim.events:
+				if str(e.get("kind", "")) == "output" and int(e.get("machine", -1)) == machine.id:
+					_flash_start = Time.get_ticks_msec() / 1000.0
+					_flash_ok = bool((run.last_ok[0] as Dictionary).get("ok", true)) if run.last_ok.size() > 0 else true
+					_underline = not _flash_ok
+		var lct := int(run.level_completed_tick)
+		if lct != _last_lct:
+			_last_lct = lct
+			if lct >= 0:
+				_lct_start = Time.get_ticks_msec() / 1000.0
+		queue_redraw()
+
+	func _glyph(run) -> String:
+		if run.has_method("request_label"):
+			var lbl = run.request_label()
+			if lbl is String and lbl != "" and lbl.length() <= 5:
+				return lbl
+		var g: String = ViewMode.format(run.request_bits(), run.view_mode()).replace(" ", "")
+		return g.substr(0, 5) if g.length() > 5 else g
+
+	func _draw() -> void:
+		var run = SimulationManager.run
+		if run == null or not run.has_method("request_bits"):
+			return
+		var now := Time.get_ticks_msec() / 1000.0
+		var accent: Color = Palette.FAMILY_IO if run.view_mode() == ViewMode.Mode.CHAR else Palette.DATA_NUMBER
+		var fill := 0.0
+		if run.has_method("request_count") and run.request_count() > 0:
+			fill = clampf(float(run.delivered) / float(run.request_count()), 0.0, 1.0)
+		SystemsDraw.port_face(self, Vector2(118, 14), true, false, true)
+		SystemsDraw.data_module(self, Vector2(134, 4), "job", {
+			"flip": true, "inserted": true, "glyph": _glyph(run), "fill": fill, "acc": accent,
+		})
+		if _flash_start >= 0.0:
+			if now - _flash_start < SEAM_S:
+				draw_line(Vector2(134, 14), Vector2(134, 46), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)
+				if _underline:
+					draw_rect(Rect2(18, 44, 80, 1.5), Color(Palette.STATE_BLOCKED, 0.9))
+			else:
+				_flash_start = -1.0
+		if _lct_start >= 0.0:
+			var el := now - _lct_start
+			if el < PULSE_S * 2.0:
+				var a := absf(sin(PI * el / PULSE_S))
+				SystemsDraw.rrect_outline(self, Rect2(132, 2, 100, 60), 6.0, Color(Palette.STATE_SUCCESS, a), 1.5)
+			else:
+				SystemsDraw.rrect_outline(self, Rect2(132, 2, 100, 60), 6.0, Palette.STATE_SUCCESS, 1.5)
+				_lct_start = -1.0
 
 
 # ------------------------------------------------------------------ upright text

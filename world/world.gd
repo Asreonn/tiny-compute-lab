@@ -19,6 +19,8 @@ var _fit_size := Vector2i.ZERO
 ## Lab-expansion reveal: ids of the locked USB Inputs added on the last level-up, plus the
 ## shared reveal start. Views own the fade clock; World just tags the freshly added machines.
 const REVEAL_DURATION := 2.5
+## Horizontal room for the USB data modules outside the grid (module 96 px + plug clearance).
+const IO_OVERHANG := 112.0
 var _known_ids: Array = []
 var _prev_size := Vector2i.ZERO
 var _reveal_ids: Array = []
@@ -79,7 +81,10 @@ func _rebuild(_def: Variant = null) -> void:
 	if sim != _fit_sim or sim.size != _fit_size:
 		_fit_sim = sim
 		_fit_size = sim.size
-		camera_rig.fit_board(Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T))
+		# The USB modules and the contract drive's job module stick out past the west/east grid
+		# edges (laptop side ports, STYLE_GUIDE §14.4): frame them too.
+		var board := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
+		camera_rig.fit_board(board.grow_individual(IO_OVERHANG, 0.0, IO_OVERHANG, 0.0))
 
 
 func _process(delta: float) -> void:

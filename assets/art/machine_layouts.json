@@ -2684,6 +2684,254 @@
     }
    ]
   },
+  "NumberEncoder": {
+  "status": "kit",
+  "form": "Module-M",
+  "family": "conversion",
+  "areas": [
+   {
+    "kind": "Bits",
+    "idle": "Idle",
+    "pos": [
+     58,
+     25
+    ]
+   }
+  ],
+  "operator": null,
+  "dial_text": null,
+  "display": null,
+  "readout": null,
+  "digits": null,
+  "silk": {
+   "text": "NUM",
+   "pos": [
+    16,
+    47
+   ]
+  },
+  "width_tags": [
+   {
+    "width": "3",
+    "pos": [
+     98,
+     46
+    ]
+   }
+  ],
+  "led": [
+   110,
+   6
+  ],
+  "tab": [
+   16,
+   10
+  ],
+  "ports": [
+   {
+    "dir": "Input",
+    "type": "Raw",
+    "anchor": [
+     0,
+     32
+    ]
+   },
+   {
+    "dir": "Output",
+    "type": "Bus",
+    "anchor": [
+     128,
+     32
+    ]
+   }
+  ]
+ },
+  "CharEncoder": {
+  "status": "kit",
+  "form": "Module-M",
+  "family": "conversion",
+  "areas": [
+   {
+    "kind": "Bits",
+    "idle": "Idle",
+    "pos": [
+     58,
+     25
+    ]
+   }
+  ],
+  "operator": null,
+  "dial_text": null,
+  "display": null,
+  "readout": null,
+  "digits": null,
+  "silk": {
+   "text": "CHR",
+   "pos": [
+    16,
+    47
+   ]
+  },
+  "width_tags": [
+   {
+    "width": "5",
+    "pos": [
+     98,
+     46
+    ]
+   }
+  ],
+  "led": [
+   110,
+   6
+  ],
+  "tab": [
+   16,
+   10
+  ],
+  "ports": [
+   {
+    "dir": "Input",
+    "type": "Raw",
+    "anchor": [
+     0,
+     32
+    ]
+   },
+   {
+    "dir": "Output",
+    "type": "Bus",
+    "anchor": [
+     128,
+     32
+    ]
+   }
+  ]
+ },
+  "NumberDecoder": {
+  "status": "kit",
+  "form": "Module-M",
+  "family": "conversion",
+  "areas": [
+   {
+    "kind": "Bits",
+    "idle": "Idle",
+    "pos": [
+     16,
+     25
+    ]
+   }
+  ],
+  "operator": null,
+  "dial_text": null,
+  "display": null,
+  "readout": null,
+  "digits": null,
+  "silk": {
+   "text": "NUM",
+   "pos": [
+    16,
+    47
+   ]
+  },
+  "width_tags": [
+   {
+    "width": "3",
+    "pos": [
+     98,
+     46
+    ]
+   }
+  ],
+  "led": [
+   110,
+   6
+  ],
+  "tab": [
+   16,
+   10
+  ],
+  "ports": [
+   {
+    "dir": "Input",
+    "type": "Bus",
+    "anchor": [
+     0,
+     32
+    ]
+   },
+   {
+    "dir": "Output",
+    "type": "Raw",
+    "anchor": [
+     128,
+     32
+    ]
+   }
+  ]
+ },
+  "CharDecoder": {
+  "status": "kit",
+  "form": "Module-M",
+  "family": "conversion",
+  "areas": [
+   {
+    "kind": "Bits",
+    "idle": "Idle",
+    "pos": [
+     16,
+     25
+    ]
+   }
+  ],
+  "operator": null,
+  "dial_text": null,
+  "display": null,
+  "readout": null,
+  "digits": null,
+  "silk": {
+   "text": "CHR",
+   "pos": [
+    16,
+    47
+   ]
+  },
+  "width_tags": [
+   {
+    "width": "5",
+    "pos": [
+     98,
+     46
+    ]
+   }
+  ],
+  "led": [
+   110,
+   6
+  ],
+  "tab": [
+   16,
+   10
+  ],
+  "ports": [
+   {
+    "dir": "Input",
+    "type": "Bus",
+    "anchor": [
+     0,
+     32
+    ]
+   },
+   {
+    "dir": "Output",
+    "type": "Raw",
+    "anchor": [
+     128,
+     32
+    ]
+   }
+  ]
+ },
   "USBInput": {
    "status": "kit",
    "form": "EdgeIn-M",

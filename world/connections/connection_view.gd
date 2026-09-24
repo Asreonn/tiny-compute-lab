@@ -186,9 +186,10 @@ func _comet_arcs() -> Array:
 ## layer children. The opaque overlay node re-draws dashes, comets, chevrons and the
 ## bus width tag on top.
 func _apply_layers() -> void:
-	var col := Palette.datatype(connection.width)
-	var dim := Palette.datatype_dim(connection.width)
-	_dash_on = connection.width == 1 and not _bus
+	var raw := _is_raw()
+	var col := Palette.FAMILY_IO if raw else Palette.datatype(connection.width)
+	var dim := Palette.FAMILY_IO if raw else Palette.datatype_dim(connection.width)
+	_dash_on = connection.width == 1 and not _bus and not raw
 	_comet_color = col
 	_halo_on = false
 	_chevrons_on = false
@@ -211,7 +212,7 @@ func _apply_layers() -> void:
 			_edge_color = Palette.BOARD_PAD_EDGE
 			_edge_op = 1.0
 			_core_color = col
-			_core_op = Palette.SIG_ACTIVE_CORE_OPACITY
+			_core_op = 0.9 if raw else Palette.SIG_ACTIVE_CORE_OPACITY
 			_core_w = Palette.SIG_CORE
 		"Blocked":
 			_edge_color = Palette.STATE_BLOCKED
@@ -229,7 +230,7 @@ func _apply_layers() -> void:
 			_edge_color = Palette.BOARD_PAD_EDGE
 			_edge_op = 1.0
 			_core_color = dim
-			_core_op = 1.0
+			_core_op = 0.35 if raw else 1.0
 			_core_w = Palette.SIG_CORE
 	_halo.width = 20.0 if _bus else float(Palette.SIG_SELECT_HALO)
 	_halo.visible = _halo_on
@@ -244,6 +245,15 @@ func _apply_layers() -> void:
 	for ln in _lanes:
 		var lane_c := Palette.STATE_BLOCKED if _state == "Blocked" else (col if lit else dim)
 		ln.default_color = Color(lane_c, 0.9 if lit else 1.0)
+
+
+## Raw links carry RawValues: the same trench with an IO-green core (idle α .35, the active
+## comet segment α .9, design/reference/systems_v1.js "Wire").
+func _is_raw() -> bool:
+	var sim := SimulationManager.sim
+	if sim == null or connection == null or not sim.machines.has(connection.from_id):
+		return false
+	return sim.machines[connection.from_id].port_role(connection.from_port) == Catalog.ROLE_RAW
 
 
 ## One brighter core segment: a single 2.5 px stroke from (s − 30 px) to s along the
