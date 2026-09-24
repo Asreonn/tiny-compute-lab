@@ -15,6 +15,31 @@
 - **Work split:** DS writes routine GDScript, logic, tests and scenes (`make test`). The
   orchestrator owns architecture, review, Godot runs, integration and visual fidelity.
 
+## Direction change (player, 2026-09-24): one persistent Lab, not a series of puzzles
+
+The main game is **one persistent board that the player keeps growing** (Shapez-style). A central
+**Hub** asks for something to be delivered; when the request is met, the next request comes (and
+unlocks new machines). The factory is never reset between requests. The separate from-scratch
+missions (a1…b3) stay only as the **Tutorial**.
+
+### Lab mode (decided with the player, 2026-09-24)
+- **Tutorial:** the current missions (N results of a transformation, varied transformations).
+- **Main game (Lab):** one persistent factory, never reset.
+  - **Requests are "deliver N × value V":** V is an explicit BitVector (e.g. 20 × `100` 3-bit, 30 × `K` 5-bit, later 8-bit `A`).
+  - **Validation:** only an exact match counts (width and bits); anything else is ignored with no penalty.
+  - **Progression:** meeting a request unlocks machines, new data sources and board area.
+- **No central Hub.** Data arrives through **USB Input** ports ("someone plugs in a stick of raw
+  data") and leaves through a **USB Output** port ("the processed data is handed back").
+  - USB Output is a new canonical component, to be designed in Penpot as the mirror of the USB
+    Input kit (EdgeOut chassis, USB silk, BusPort, width tag). Until then it reuses the Output
+    composition with USB silk.
+  - The USB Output port accepts any width: it validates width and bits against the request. This
+    is the one documented exception to the width-match rule.
+- **Expanding board:** the Lab starts small; each level can grow the board and add USB Inputs in
+  the new area. Existing machines and wires never move.
+- **Live editing:** the simulation keeps running while the player builds (no reset on edit).
+- **Content:** the machines of slices C–E arrive as Lab unlocks.
+
 ## Slice order
 
 | Slice | Goal | Width | New components | New views/HUD |
