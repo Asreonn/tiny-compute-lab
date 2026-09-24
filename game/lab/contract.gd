@@ -31,6 +31,10 @@ var count := 0
 var min_rate := 0.0
 ## Socket overruns allowed in the window. -1 = none.
 var max_lost := -1
+## Lab power demand allowed during the window (SYSTEMS_EXPANSION §3). 0 = none.
+var max_power := 0
+## The heat stage no machine may reach during the window (ThermalGrid.Stage). -1 = none.
+var max_heat := -1
 ## Index into the socket list whose origin drives map/filter.
 var primary_socket := 0
 ## The primary socket's stream kind ("bit", "number", "text", "sensor"), for describe().
@@ -47,6 +51,8 @@ static func from_level(lv: Dictionary) -> Contract:
 	c.count = int(d.get("count", 0))
 	c.min_rate = float(d.get("min_rate", 0.0))
 	c.max_lost = int(d.get("max_lost", -1))
+	c.max_power = int(d.get("max_power", 0))
+	c.max_heat = ThermalGrid.STAGE_NAMES.find(str(d.get("max_heat", ""))) if d.has("max_heat") else -1
 	c.primary_socket = int(d.get("primary_socket", 0))
 	c.ops = d.get("ops", [])
 	c.pair = d.get("pair", [])

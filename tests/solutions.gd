@@ -296,6 +296,24 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, s, "out", zx, "in")
 			_w(sim, zx, "out", mu, "in")
 			_w(sim, mu, "out", d, "in")
+		15:  # L16: two Adder doublers (x + x) share the load: 6 power for 5/s
+			_lab_plug(sim, s, "bit")
+			var sp := _pw(sim, "splitter", Vector2i(4, 2), 3)
+			var d1 := _pw(sim, "splitter", Vector2i(8, 1), 3, {"mode": "Duplicate"})
+			var d2 := _pw(sim, "splitter", Vector2i(8, 5), 3, {"mode": "Duplicate"})
+			var a1 := _pw(sim, "adder", Vector2i(12, 1), 3)
+			var a2 := _pw(sim, "adder", Vector2i(12, 5), 3)
+			var mg := _pw(sim, "merger", Vector2i(16, 3), 3)
+			_w(sim, s, "out", sp, "in")
+			_w(sim, sp, "a", d1, "in")
+			_w(sim, sp, "b", d2, "in")
+			_w(sim, d1, "a", a1, "a")
+			_w(sim, d1, "b", a1, "b")
+			_w(sim, d2, "a", a2, "a")
+			_w(sim, d2, "b", a2, "b")
+			_w(sim, a1, "out", mg, "a")
+			_w(sim, a2, "out", mg, "b")
+			_w(sim, mg, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

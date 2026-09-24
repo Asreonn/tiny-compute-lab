@@ -31,6 +31,7 @@ var _note_start := -1.0
 var _pulse_kinds := PackedStringArray()
 var _pulse_start := -1.0
 var _font: Font
+var _psu_key := []  # [capacity, demand] last drawn (the gauge redraws when they change)
 
 
 func _ready() -> void:
@@ -271,6 +272,12 @@ func _process(_delta: float) -> void:
 	if not run.new_devices.is_empty() and run.new_devices != _pulse_kinds:
 		_pulse_kinds = run.new_devices.duplicate()
 		_pulse_start = Time.get_ticks_msec() / 1000.0
+	var sim := _sim()
+	if sim != null and run.has_psu():
+		var key := [run.power_capacity(), sim.power_demand()]
+		if key != _psu_key:
+			_psu_key = key
+			queue_redraw()
 	var now := Time.get_ticks_msec() / 1000.0
 	var animating := (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
 	if animating:
@@ -292,6 +299,8 @@ func _draw() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	for side in ["in", "out"]:
 		_draw_desk(run, side, now)
+	if run.has_psu():
+		_draw_psu(run, sim)
 	# drop targets while dragging / selected
 	var active := _drag if _dragging else _selected
 	if not active.is_empty():
@@ -312,6 +321,45 @@ func _draw() -> void:
 			_draw_note(clampf(1.0 - maxf(el - (NOTE_S - 0.3), 0.0) / 0.3, 0.0, 1.0))
 		else:
 			_note_start = -1.0
+
+
+## The laptop's power adapter lies on the desk under the output mat once the Lab has one (L16+,
+## SYSTEMS_EXPANSION §4, STYLE_GUIDE §14.6): Module M chassis, gold tab, icon_power, a gauge with
+## one cell per power unit (gold → amber at 75 % → red + overflow chevrons), silk "PSU · cap" and
+## a copper cable into the laptop's east edge.
+func psu_rect() -> Rect2:
+	var d := desk_rect("out")
+	return Rect2(Vector2(d.position.x + (DESK_W - 128.0) * 0.5, d.end.y + 36.0), Vector2(128, 64))
+
+
+func _draw_psu(run: LabRun, sim: Simulation) -> void:
+	var r := psu_rect()
+	var cap := run.power_capacity()
+	var dem := sim.power_demand()
+	# cable: brick → down the desk edge → into the laptop's east edge near the bottom
+	var y := minf(_board_px().y - 24.0, r.position.y + 40.0)
+	var cable := PackedVector2Array([r.position + Vector2(0, 40), Vector2(r.position.x - 16.0, r.position.y + 40.0), Vector2(r.position.x - 16.0, y), Vector2(_board_px().x + 6.0, y)])
+	draw_polyline(cable, Palette.MATERIAL_VENT, 5.0, true)
+	draw_polyline(cable, Palette.MATERIAL_COPPER_DIM, 3.0, true)
+	SystemsDraw.rrect(self, Rect2(Vector2(_board_px().x, y - 5.0), Vector2(8, 10)), 1.5, Palette.MATERIAL_FRAME)
+	# chassis (the canonical Module M shell) + gold tab + power icon
+	var shell := Art.tex("machine/shell_module_m.svg")
+	if shell != null:
+		var pad := Art.pad("machine/shell_module_m.svg")
+		draw_texture_rect(shell, Rect2(r.position - Vector2(pad, pad), shell.get_size() / Art.SCALE), false)
+	SystemsDraw.rrect(self, Rect2(r.position + Vector2(16, 8), Vector2(24, 3)), 1.0, Palette.MATERIAL_GOLD)
+	var icon := Art.icon("icon_power")
+	if icon != null:
+		draw_texture_rect(icon, Rect2(r.position + Vector2(14, 18), Vector2(20, 20)), false, Palette.MATERIAL_GOLD)
+	var rows := 1 if cap <= 8 else (2 if cap <= 16 else 4)
+	SystemsDraw.gauge(self, r.position + Vector2(40, 18 if rows <= 2 else 12), 72.0, cap, dem, rows)
+	draw_string(_font, r.position + Vector2(16, 55), "PSU · %d" % cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(Palette.MATERIAL_SILK, 0.55))
+	# LED: idle / blocked (>= 75 %) / error (> 100 %)
+	var led := "error" if dem > cap else ("blocked" if dem * 4 >= cap * 3 else "idle")
+	var lt := Art.tex(Art.led_file(led))
+	if lt != null:
+		var lp := Art.pad(Art.led_file(led))
+		draw_texture_rect(lt, Rect2(r.position + Vector2(110, 6) - Vector2(lp, lp), lt.get_size() / Art.SCALE), false)
 
 
 func _port_face_center(m: Machine) -> Vector2:

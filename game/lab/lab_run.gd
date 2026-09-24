@@ -172,6 +172,15 @@ func after_tick(sim: Simulation) -> void:
 		window_lost = 0
 		accepted_ticks.clear()
 		_window_warning = "Values were lost at USB 1 — the window restarted."
+	# power / heat caps (soft: breaking one only restarts the window)
+	if c.max_power > 0 and sim.power_demand() > c.max_power:
+		_restart_window("Power demand %d is over the %d cap — the window restarted." % [sim.power_demand(), c.max_power])
+	if c.max_heat >= 0:
+		for id in sim.sorted_machine_ids():
+			var m: Machine = sim.machines[id]
+			if m.heat_stage >= c.max_heat:
+				_restart_window("%s reached %s — the window restarted." % [m.label, ThermalGrid.STAGE_NAMES[m.heat_stage]])
+				break
 	_trim(sim.tick)
 	if _window_warning != "":
 		warning = _window_warning
@@ -181,6 +190,13 @@ func after_tick(sim: Simulation) -> void:
 		warning = "Nothing has moved for %d ticks — packets are stuck somewhere." % Simulation.STALL_TICKS
 	else:
 		warning = ""
+
+
+func _restart_window(why: String) -> void:
+	delivered = 0
+	window_lost = 0
+	accepted_ticks.clear()
+	_window_warning = why
 
 
 # ------------------------------------------------------------------ levels
@@ -205,6 +221,10 @@ func _advance(sim: Simulation) -> void:
 	if level >= LabDef.LEVELS.size():
 		_sync()
 		return
+	# rewards of the level just finished (SYSTEMS_EXPANSION §10), e.g. a better PSU
+	var reward: Dictionary = LabDef.LEVELS[level].get("reward", {})
+	if reward.has("psu_tier"):
+		psu_tier = maxi(psu_tier, int(reward["psu_tier"]))
 	level += 1
 	unlocked = LabDef.unlocks_upto(level)
 	var sz := LabDef.size_for(level)
@@ -525,7 +545,7 @@ func thermal_enabled() -> bool:
 	return level >= HEAT_LEVEL
 
 
-## Clock modes are unlocked by the power levels (L16+); the Inspector hides the param until then.
+## Clock modes are the reward of L16 Power Cap; the Inspector hides the param until then.
 func clock_unlocked() -> bool:
-	return level >= POWER_LEVEL
+	return level > POWER_LEVEL  # the reward of L16 Power Cap
 

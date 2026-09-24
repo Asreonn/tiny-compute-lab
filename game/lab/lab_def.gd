@@ -144,6 +144,16 @@ static var LEVELS: Array = [
 		"unlocks": ["zero_extend", "sign_extend", "truncate"],
 		"view": ViewMode.Mode.UDEC,
 	},
+	{
+		"id": "lab_l16", "title": "Power Cap",
+		"brief": "The laptop runs on its starter adapter: 8 power. Double every value at 4/s without drawing more.",
+		# Multiply costs 2 power for 1.7/s; an Adder fed x and x by a Duplicate splitter doubles
+		# at 2.5/s for 2 power — two of them fit the cap, Multiplies do not
+		"contract": {"kind": "map", "ops": [{"op": "mul", "k": 2}], "count": 30, "accept_format": "bits", "accept_width": 3, "min_rate": 4.0, "max_power": 8},
+		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 1}},
+		"unlocks": [], "reward": {"psu_tier": 1},
+		"view": ViewMode.Mode.UDEC,
+	},
 ]
 
 

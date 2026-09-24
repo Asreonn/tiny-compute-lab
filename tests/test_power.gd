@@ -38,6 +38,7 @@ static func run(t) -> void:
 	_paused(t)
 	_psu_tiers(t)
 	_determinism(t)
+	_power_cap_level(t)
 
 
 static func _sim(cap: int) -> Simulation:
@@ -139,7 +140,10 @@ static func _psu_tiers(t) -> void:
 	t.check(run.power_capacity() == 32 and run.psu_name() == "Desktop PSU", "tier 2 is the 32-unit Desktop PSU")
 	run.psu_tier = 9
 	t.check(run.power_capacity() == 64, "the tier is clamped to High-Capacity 64")
-	t.check(run.clock_unlocked(), "clock modes unlock with the power level")
+	t.check(not run.clock_unlocked(), "clock modes are not yet open during L16 Power Cap")
+	run.level = LabRun.POWER_LEVEL + 1
+	t.check(run.clock_unlocked(), "clock modes are the reward of L16")
+	run.level = LabRun.POWER_LEVEL
 	var sim := Simulation.new()
 	run.level = 10
 	run.psu_tier = 0
@@ -166,3 +170,54 @@ static func _trace(cap: int) -> Array:
 static func _determinism(t) -> void:
 	t.check(_trace(5) == _trace(5), "a brownout run is deterministic")
 	t.check(_trace(5) != _trace(0), "the brownout changes the timing")
+
+
+## L16 Power Cap: three Multiplies (demand 10 on the 8-unit adapter) keep restarting the window;
+## the reference solution completes and earns the Improved Adapter (16).
+static func _power_cap_level(t) -> void:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = LabRun.POWER_LEVEL
+	run.build_board(sim)
+	t.check(sim.power_capacity() == 8, "L16 runs on the 8-unit starter adapter")
+	var s := -1
+	var d := -1
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "usb_input" and m.cell.y == 1:
+			s = id
+		elif m.type == "usb_output" and m.device == "job":
+			d = id
+	sim.remove_device(s)
+	sim.insert_device(s, "bit")
+	var sp1 := sim.place("splitter", Vector2i(4, 2), 0, {}, 3)
+	var sp2 := sim.place("splitter", Vector2i(8, 4), 0, {}, 3)
+	var ms := [sim.place("multiply", Vector2i(12, 1), 0, {"k": 2}, 3), sim.place("multiply", Vector2i(12, 4), 0, {"k": 2}, 3), sim.place("multiply", Vector2i(12, 7), 0, {"k": 2}, 3)]
+	var mg1 := sim.place("merger", Vector2i(16, 4), 0, {}, 3)
+	var mg2 := sim.place("merger", Vector2i(20, 2), 0, {}, 3)
+	sim.connect_ports(s, "out", sp1.id, "in")
+	sim.connect_ports(sp1.id, "a", ms[0].id, "in")
+	sim.connect_ports(sp1.id, "b", sp2.id, "in")
+	sim.connect_ports(sp2.id, "a", ms[1].id, "in")
+	sim.connect_ports(sp2.id, "b", ms[2].id, "in")
+	sim.connect_ports(ms[1].id, "out", mg1.id, "a")
+	sim.connect_ports(ms[2].id, "out", mg1.id, "b")
+	sim.connect_ports(ms[0].id, "out", mg2.id, "a")
+	sim.connect_ports(mg1.id, "out", mg2.id, "b")
+	sim.connect_ports(mg2.id, "out", d, "in")
+	t.check(sim.power_demand() == 10, "three Multiplies + routing draw 10 (got %d)" % sim.power_demand())
+	sim.reset_run()
+	for i in 1500:
+		sim.step()
+	t.check(run.level == LabRun.POWER_LEVEL and run.warning.contains("over the 8 cap"), "over the cap the window keeps restarting (%s)" % run.warning)
+	var sim2 := Simulation.new()
+	var run2 := LabRun.new()
+	run2.level = LabRun.POWER_LEVEL
+	run2.build_board(sim2)
+	Solutions.lab_solution(sim2, LabRun.POWER_LEVEL)
+	t.check(sim2.power_demand() <= 8, "the Adder doublers fit the cap (%d)" % sim2.power_demand())
+	sim2.reset_run()
+	while run2.level == LabRun.POWER_LEVEL and sim2.tick < 4000:
+		sim2.step()
+	t.check(run2.level > LabRun.POWER_LEVEL and run2.psu_tier == 1 and run2.power_capacity() == 16, "finishing L16 earns the Improved Adapter (16)")
+
