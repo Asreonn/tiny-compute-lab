@@ -21,10 +21,55 @@ const DECAL_FILES := [
 	"board/decal_silkmark.svg",
 ]
 
+## Board ambience master switch (MOTION_SYSTEM §9). Set false to disable all ambience.
+const AMBIENCE := true
+## TraceBundle decal line polylines in decal-local px (from assets/art/board/decal_tracebundle.svg).
+const TRACEBUNDLE_LINES := [
+	[Vector2(0, 16), Vector2(110, 16), Vector2(150, 56), Vector2(256, 56)],
+	[Vector2(0, 26), Vector2(100, 26), Vector2(140, 66), Vector2(256, 66)],
+	[Vector2(0, 36), Vector2(90, 36), Vector2(130, 76), Vector2(256, 76)],
+]
+## Via positions in decal-local px (from assets/art/board/decal_vias.svg).
+const VIAS := [Vector2(12.5, 12.5), Vector2(32.5, 16.5), Vector2(20.5, 36.5), Vector2(48.5, 40.5), Vector2(34.5, 56.5)]
+const SWEEP_SPEED := 120.0  # px/s
+const SWEEP_LEN := 24.0  # px
+const VIA_DURATION := 1.2  # s
+const VIA_DOT_R := 1.5  # 3 px dot
+
 ## Lab-expansion reveal state (views only READ the sim; the animation clock is local).
 var _prev_size := Vector2i.ZERO
 var _reveal_old := Vector2i.ZERO
 var _reveal_start := -1.0
+
+## Board ambience state (deterministic per board size + mission id, never the simulation).
+var _amb_rng := RandomNumberGenerator.new()
+var _amb_key := ""
+var _trace_rect := Rect2()  # world rect of the placed TraceBundle decal (empty if none)
+var _vias_rect := Rect2()  # world rect of the placed vias decal (empty if none)
+var _sweep_active := false
+var _sweep_t := 0.0
+var _sweep_interval := 8.0
+var _sweep_line := PackedVector2Array()
+var _sweep_len := 0.0
+var _sweep_pos := 0.0
+var _via_active := false
+var _via_t := 0.0
+var _via_interval := 3.0
+var _via_elapsed := 0.0
+var _via_pos := Vector2.ZERO
+var _vignette: CanvasLayer
+
+
+func _ready() -> void:
+	if not AMBIENCE:
+		return
+	_vignette = CanvasLayer.new()
+	_vignette.name = "AmbienceVignette"
+	_vignette.layer = 1  # above the world canvas, below the HUD (added after World in main.tscn)
+	add_child(_vignette)
+	var v := Vignette.new()
+	v.name = "Vignette"
+	_vignette.add_child(v)
 
 ## Draws from SimulationManager.sim; deterministic per mission, decals never sit under a
 ## machine that is on the board at layout time.
@@ -48,6 +93,7 @@ func _draw() -> void:
 	draw_rect(board, Palette.BOARD_ZONE_EDGE, false, 2.0)
 	_draw_reveal(sim, size, board)
 	_draw_decals(sim, size, board)
+	_draw_ambience(board)
 
 
 ## Lab-expansion reveal: when the board grows (level-up), newly added tiles get a STATE_BUILD
@@ -77,7 +123,7 @@ func _draw_reveal(_sim, size: Vector2i, _board: Rect2) -> void:
 		draw_line(Vector2(0.0, old.y), Vector2(old.x, old.y), border, 1.0)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var sim := SimulationManager.sim
 	if sim == null:
 		return
@@ -89,6 +135,7 @@ func _process(_delta: float) -> void:
 		_prev_size = sim.size
 	if _reveal_start >= 0.0:
 		queue_redraw()  # drive the fade
+	_update_ambience(delta, sim)
 
 
 ## Mission-id-seeded scatter of 3-5 sparse decals on empty tiles.
@@ -119,6 +166,11 @@ func _draw_decals(sim, size: Vector2i, board: Rect2) -> void:
 		draw_texture_rect(t, rect, false, Color(1.0, 1.0, 1.0, DECAL_ALPHA))
 		used.append(rel)
 		placed += 1
+		# Remember where the ambience-relevant decals landed (trace sweep / via twinkle).
+		if rel == "board/decal_tracebundle.svg" and _trace_rect.size == Vector2.ZERO:
+			_trace_rect = rect
+		elif rel == "board/decal_vias.svg" and _vias_rect.size == Vector2.ZERO:
+			_vias_rect = rect
 
 
 func _occupied_by_machine(sim, tile: Vector2i) -> bool:
@@ -143,3 +195,166 @@ func _near_machine(sim, rect: Rect2, board: Rect2) -> bool:
 
 func redraw() -> void:
 	queue_redraw()
+
+
+# ------------------------------------------------------------------ board ambience (MOTION_SYSTEM §9)
+
+## Reseed the ambience RNG when the board size or mission/level changes. Deterministic per
+## (size, mission id) so a board always ambiences the same way; never the simulation.
+func _amb_seed_key(sim) -> String:
+	var mission_id := SimulationManager.mission.id if SimulationManager.mission != null else "default"
+	return "%dx%d:%s" % [sim.size.x, sim.size.y, mission_id]
+
+
+func _update_ambience(delta: float, sim) -> void:
+	if not AMBIENCE:
+		return
+	var key := _amb_seed_key(sim)
+	if key != _amb_key:
+		_amb_key = key
+		_amb_rng.seed = hash(key)
+	var running := SimulationManager.running
+	var redraw := false
+	# Trace sweep: at most one at a time; travels at SWEEP_SPEED along the chosen line.
+	if _sweep_active:
+		_sweep_pos += SWEEP_SPEED * delta
+		if _sweep_pos >= _sweep_len:
+			_sweep_active = false
+			_sweep_t = 0.0
+			_sweep_interval = _amb_rng.randf_range(8.0, 12.0) * (0.7 if running else 1.0)
+		else:
+			redraw = true
+	else:
+		_sweep_t += delta
+		if _sweep_t >= _sweep_interval:
+			_start_sweep(sim)
+			redraw = true
+	# Via twinkle: one via at a time brightens over VIA_DURATION.
+	if _via_active:
+		_via_elapsed += delta
+		if _via_elapsed >= VIA_DURATION:
+			_via_active = false
+			_via_t = 0.0
+			_via_interval = _amb_rng.randf_range(3.0, 6.0)
+		else:
+			redraw = true
+	else:
+		_via_t += delta
+		if _via_t >= _via_interval:
+			_start_via()
+			redraw = true
+	if redraw:
+		queue_redraw()
+
+
+func _start_sweep(sim) -> void:
+	var line := PackedVector2Array()
+	if _trace_rect.size != Vector2.ZERO:
+		# One of the TraceBundle decal's lines, in world space.
+		var local: Array = TRACEBUNDLE_LINES[_amb_rng.randi() % TRACEBUNDLE_LINES.size()]
+		line = PackedVector2Array()
+		for p in local:
+			line.append(_trace_rect.position + p)
+	else:
+		# Fallback: a random major grid line segment of 6-10 tiles.
+		var horizontal := _amb_rng.randf() < 0.5
+		var tiles := _amb_rng.randi_range(6, 10)
+		var a := Vector2.ZERO
+		var b := Vector2.ZERO
+		if horizontal:
+			tiles = mini(tiles, maxi(sim.size.x, 1))
+			var row := (_amb_rng.randi() % (maxi(sim.size.y, 1) / 4 + 1)) * 4
+			var col0 := _amb_rng.randi() % maxi(sim.size.x - tiles + 1, 1)
+			a = Vector2(col0 * T, row * T)
+			b = Vector2((col0 + tiles) * T, row * T)
+		else:
+			tiles = mini(tiles, maxi(sim.size.y, 1))
+			var col := (_amb_rng.randi() % (maxi(sim.size.x, 1) / 4 + 1)) * 4
+			var row0 := _amb_rng.randi() % maxi(sim.size.y - tiles + 1, 1)
+			a = Vector2(col * T, row0 * T)
+			b = Vector2(col * T, (row0 + tiles) * T)
+		line = PackedVector2Array([a, b])
+	_sweep_line = line
+	_sweep_len = _pline_len(line)
+	_sweep_pos = 0.0
+	_sweep_active = _sweep_len > 0.0
+
+
+func _start_via() -> void:
+	if _vias_rect.size == Vector2.ZERO:
+		_via_interval = _amb_rng.randf_range(3.0, 6.0)  # no vias: wait and retry
+		return
+	var local: Vector2 = VIAS[_amb_rng.randi() % VIAS.size()]
+	_via_pos = _vias_rect.position + local
+	_via_elapsed = 0.0
+	_via_active = true
+
+
+func _draw_ambience(_board: Rect2) -> void:
+	if not AMBIENCE:
+		return
+	# Trace sweep band: DATA_NUMBER α .06, 24 px long, 2 px wide, round caps.
+	if _sweep_active and _sweep_line.size() >= 2:
+		var head := _pline_pt(_sweep_line, _sweep_pos)
+		var tail := _pline_pt(_sweep_line, maxf(0.0, _sweep_pos - SWEEP_LEN))
+		draw_polyline(PackedVector2Array([tail, head]), Color(Palette.DATA_NUMBER, 0.06), 2.0, true)
+	# Via twinkle: a 3 px dot of DATA_NUMBER brightening α .04 → .1 → .04 over VIA_DURATION.
+	if _via_active:
+		var ph := clampf(_via_elapsed / VIA_DURATION, 0.0, 1.0)
+		var a: float
+		if ph < 0.5:
+			a = 0.04 + (0.1 - 0.04) * (ph / 0.5)
+		else:
+			a = 0.1 - (0.1 - 0.04) * ((ph - 0.5) / 0.5)
+		draw_circle(_via_pos, VIA_DOT_R, Color(Palette.DATA_NUMBER, a))
+
+
+static func _pline_len(pts: PackedVector2Array) -> float:
+	var d := 0.0
+	for i in range(1, pts.size()):
+		d += pts[i].distance_to(pts[i - 1])
+	return d
+
+
+static func _pline_pt(pts: PackedVector2Array, s: float) -> Vector2:
+	var d := 0.0
+	for i in range(1, pts.size()):
+		var seg := pts[i] - pts[i - 1]
+		var l := seg.length()
+		if l <= 0.0:
+			continue
+		if d + l >= s:
+			return pts[i - 1] + seg * ((s - d) / l)
+		d += l
+	return pts[pts.size() - 1]
+
+
+# ------------------------------------------------------------------ vignette
+
+## Static radial vignette over the viewport edges (MOTION_SYSTEM §9): BG_VOID α .35 at the
+## corners → 0 at 60 % radius. Lives in a CanvasLayer above the world / below the HUD,
+## ignores the mouse, and scales with the window.
+class Vignette extends Control:
+	var _tex: GradientTexture2D
+
+	func _ready() -> void:
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.6, 1.0])
+		g.colors = PackedColorArray([Color(Palette.BG_VOID, 0.0), Color(Palette.BG_VOID, 0.0), Color(Palette.BG_VOID, 0.35)])
+		_tex = GradientTexture2D.new()
+		_tex.gradient = g
+		_tex.fill = GradientTexture2D.FILL_RADIAL
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		if _tex == null:
+			return
+		var s := size
+		if s.x <= 1.0 or s.y <= 1.0:
+			return
+		if _tex.width != int(s.x) or _tex.height != int(s.y):
+			_tex.width = int(ceil(s.x))
+			_tex.height = int(ceil(s.y))
+		draw_texture_rect(_tex, Rect2(Vector2.ZERO, s), false)

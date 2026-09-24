@@ -58,6 +58,7 @@ const REVEAL_PULSES := 2.0
 var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
 var _progress: ProcessProgress
+var _ri: ResourceIndicators
 const DONE_HOLD := 0.25  # fraction of a tick a finished job shows 100 % before the next fills
 
 
@@ -146,6 +147,22 @@ func _build() -> void:
 	var asz := Art.area_size(_area_kind)
 	_progress.area_rect = Rect2(_progress.center - asz * 0.5, asz) if asz != Vector2.ZERO else Rect2()
 	body.add_child(_progress)
+	# 12b resource indicators (STYLE_GUIDE §3): a child of the rotating Body so it rotates
+	# with the chassis like other silk (tiny geometry, no text -> no upright problem).
+	# Player machines only: mission IO / lab infrastructure (locked) and ghosts show none.
+	if not machine.locked and not ghost:
+		var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
+		_ri = ResourceIndicators.new()
+		_ri.name = "ResourceIndicators"
+		if _size_key == "s":
+			_ri.compact = true
+			_ri.xr = 58.0
+			_ri.y = 4.0
+		else:
+			_ri.compact = false
+			_ri.xr = base.x - 20.0
+			_ri.y = base.y - 15.0
+		body.add_child(_ri)
 	text_layer = UprightText.new()
 	text_layer.name = "UprightText"
 	add_child(text_layer)
@@ -276,18 +293,6 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 			"key": "ro_value", "pos": _upright(Vector2(rp[0] + 30, rp[1] + 4), off, rot),
 			"width": 54.0, "size": 10.0, "align": HORIZONTAL_ALIGNMENT_RIGHT,
 			"color": col, "text": "",
-		})
-	# Machine stats silk (player request 2026-09-24; STYLE_GUIDE §3 exception): tick cost and
-	# power as silkscreen (8 px, 55 % silk) in the bottom-right corner zone, right-aligned at
-	# (W − 24, H − 15) — one S-gap clear of the chassis corner screw — on player machines only
-	# (mission I/O is fixed and costs nothing).
-	if not machine.locked:
-		var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
-		_text_specs.append({
-			"key": "stats", "pos": _upright(Vector2(base.x - 24.0, base.y - 15.0), off, rot),
-			"width": 0.0, "size": 8.0, "align": HORIZONTAL_ALIGNMENT_RIGHT,
-			"color": Color(Palette.MATERIAL_SILK, SILK_ALPHA), "text": "",
-			"ticks": machine.processing_ticks(), "power": machine.power(),
 		})
 	# Dial operator text (roadmap kit, e.g. Modulo "%"): Penpot draws it 18/800 centred in the
 	# 40 px dial at (area.x, area.y + 9).
@@ -454,6 +459,14 @@ func refresh(delta: float) -> void:
 	# Upright texts
 	_update_texts(sim, running)
 	text_layer.queue_redraw()
+	# Resource indicators: same visibility rule as the old stats silk (normal + close zoom,
+	# never at far zoom). Ghosts/locked machines have no _ri (they are not built).
+	if _ri != null:
+		var cam := get_viewport().get_camera_2d()
+		var far := cam != null and cam.zoom.x < Palette.ZOOM_FAR_BELOW
+		_ri.visible = not far
+		if not far:
+			_ri.set_data(machine.processing_ticks(), machine.power(), str(machine.params.get("clock", "normal")))
 
 
 func _update_texts(sim: Simulation, _running: bool) -> void:
@@ -471,7 +484,7 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
-		if t["key"] == "dial" or t["key"] == "stats":
+		if t["key"] == "dial":
 			continue  # static text
 		var txt: String = vals.get(t["key"], "")
 		t["text"] = txt
@@ -692,13 +705,7 @@ class UprightText extends Node2D:
 		if mv == null:
 			return
 		var f := TclTheme.font("ExtraBold")
-		var cam := get_viewport().get_camera_2d()
-		var far := cam != null and cam.zoom.x < Palette.ZOOM_FAR_BELOW
 		for t in mv._text_specs:
-			if t["key"] == "stats":
-				if not far:
-					_draw_stats(f, t)
-				continue
 			var txt: String = t.get("text", "")
 			if txt == "":
 				continue
@@ -708,25 +715,78 @@ class UprightText extends Node2D:
 				base.y = t["pos"].y + (float(t["height"]) - h) / 2.0 + f.get_ascent(t["size"])
 			draw_string(f, base, txt, t["align"], t["width"], t["size"], t["color"])
 
-	## "[clock] 4  [power] 1" right-aligned at pos (top of the text box): the HUD's own
-	## latency/power icons at 9 px, tinted like the silk text.
-	func _draw_stats(f: Font, t: Dictionary) -> void:
-		var size := int(t["size"])
-		var col: Color = t["color"]
-		var asc := f.get_ascent(size)
-		var items := [["icon_latency", str(t["ticks"])], ["icon_power", str(t["power"])]]
-		var x: float = t["pos"].x
-		var y: float = t["pos"].y
-		for k in range(items.size() - 1, -1, -1):
-			var txt: String = items[k][1]
-			var w := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-			x -= w
-			draw_string(f, Vector2(x, y + asc), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
-			x -= 10.0
-			var tex := Art.icon(items[k][0])
-			if tex != null:
-				draw_texture_rect(tex, Rect2(Vector2(x, y + 0.5), Vector2(9, 9)), false, col)
-			x -= 6.0
+
+# ------------------------------------------------------------------ resource indicators
+
+## Tiny geometry on the chassis (STYLE_GUIDE §3 / design/reference/systems_v1.js `RI`, `RIs`
+## — ported 1:1): clock dots (one per tick of job cost, up to 6, then a '+'), gold power pips
+## (up to 4), a divider, and clock-mode chevrons. A child of the rotating Body so it rotates
+## with the chassis; it is all vector geometry so it needs no upright layer. Hidden at far zoom
+## by the parent (same visibility rule the old stats silk had).
+class ResourceIndicators extends Node2D:
+	var ticks := 0
+	var power := 0
+	var mode := "normal"  # "normal" / "fast" / "overclocked"
+	var compact := false  # S-size machines use the compact form
+	var xr := 0.0  # right anchor x in body-local px
+	var y := 0.0  # top y in body-local px
+
+	func set_data(t: int, p: int, m: String) -> void:
+		if t == ticks and p == power and m == mode:
+			return
+		ticks = t
+		power = p
+		mode = m
+		queue_redraw()
+
+	func _draw() -> void:
+		var silk := Color(Palette.MATERIAL_SILK, 0.7)
+		var divider := Color(Palette.MATERIAL_SILK, 0.25)
+		var gold := Color(Palette.MATERIAL_GOLD, 0.9)
+		var dots := mini(ticks, 6)
+		var plus := ticks > 6
+		var pips := mini(power, 4)
+		if compact:
+			_draw_compact(silk, divider, gold, dots, plus, pips)
+		else:
+			_draw_full(silk, divider, gold, dots, plus, pips)
+
+	func _draw_full(silk: Color, divider: Color, gold: Color, dots: int, plus: bool, pips: int) -> void:
+		var chev := 1 if mode == "fast" else (2 if mode == "overclocked" else 0)
+		var w := chev * 6 + (2 if chev > 0 else 0) + dots * 6 + (4 if plus else 0) + 6 + (pips * 5 if power > 0 else 5)
+		var x := xr - w
+		for i in chev:
+			draw_polyline(PackedVector2Array([Vector2(x + 1, y + 1), Vector2(x + 4, y + 4), Vector2(x + 1, y + 7)]), Color(Palette.STATE_BLOCKED, 1.0), 1.5, true)
+			x += 6
+		if chev > 0:
+			x += 2
+		for i in dots:
+			draw_circle(Vector2(x + 2.5, y + 4.0), 2.5, silk)
+			x += 6
+		if plus:
+			draw_rect(Rect2(x, y + 3.5, 3, 1), silk)
+			draw_rect(Rect2(x + 1, y + 2.5, 1, 3), silk)
+			x += 4
+		x += 3
+		draw_rect(Rect2(x, y + 1, 1, 6), divider)
+		x += 3
+		if power == 0:
+			draw_rect(Rect2(x, y + 1, 3, 6), Color(Palette.MATERIAL_SILK, 0.35), false, 0.75)
+		for i in pips:
+			draw_rect(Rect2(x, y, 3, 8), gold)
+			x += 5
+
+	func _draw_compact(silk: Color, divider: Color, gold: Color, dots: int, plus: bool, pips: int) -> void:
+		var x := xr - (dots * 4 + 5 + pips * 3.5)
+		for i in dots:
+			draw_circle(Vector2(x + 1.5, y + 3.0), 1.5, silk)
+			x += 4
+		x += 2
+		draw_rect(Rect2(x, y + 1, 1, 4), divider)
+		x += 3
+		for i in pips:
+			draw_rect(Rect2(x, y, 2, 6), gold)
+			x += 3.5
 
 
 ## Processing progress, continuous between ticks: (total − ticks_left + tick fraction) / total
