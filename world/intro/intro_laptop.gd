@@ -40,8 +40,9 @@ const KB_UNITS := 15.0
 
 var _cols := 20
 var _rows := 12
-var _in_rows: Array[int] = []    # rows of the locked USB inputs (west side ports)
-var _out_rows: Array[int] = []   # rows of the contract drive (east side port)
+var _in_rows: Array[int] = []    # rows of the OPEN input ports (west rack)
+var _out_rows: Array[int] = []   # rows of the OPEN output ports (east rack)
+var _rack_rows: Array[int] = [1, 4, 7, 10]  # every port row of the side racks (SYSTEMS_EXPANSION §2.1)
 var _t := 0.0
 var _camera: Camera2D
 var _cam_from := {}
@@ -69,6 +70,9 @@ func setup(sim: Simulation, camera: Camera2D, hud: Control) -> void:
 			_in_rows.append(m.cell.y)
 		elif m.type == "usb_output":
 			_out_rows.append(m.cell.y)
+	var lab_def = load("res://game/lab/lab_def.gd")
+	if lab_def != null and "PORT_ROWS" in lab_def:
+		_rack_rows.assign(lab_def.PORT_ROWS)
 	_camera = camera
 	_cam_to = {"pos": camera.position, "zoom": camera.zoom.x}
 	# The rig re-applies its board fit every frame; hand the camera to the intro until done.
@@ -244,10 +248,13 @@ func _draw() -> void:
 		_style_rim.border_color = Color(Palette.MACHINE_FRAME, deck_a)
 		draw_style_box(_style_deck, deck)
 		draw_style_box(_style_rim, deck)
-		for row in _in_rows:
-			_draw_side_port(Vector2(-RIM, row * T + 14.0), deck_a)
-		for row in _out_rows:
-			_draw_side_port(Vector2(b.x + RIM - 16.0, row * T + 14.0), deck_a)
+		# Port racks: every rack row gets a port; open ports show an opening (their plugged module is
+		# drawn by the board views), sealed ones a capped port face.
+		for row in _rack_rows:
+			if row >= _rows:
+				continue
+			_draw_side_port(Vector2(-RIM, row * T + 14.0), deck_a, not _in_rows.has(row))
+			_draw_side_port(Vector2(b.x + RIM - 16.0, row * T + 14.0), deck_a, not _out_rows.has(row))
 	# Keyboard (realistic US layout scaled to the board width) + palm rest with the trackpad,
 	# all INSIDE the board rect. The covering dissolves in vertical strips and the keys by their
 	# centre x, left → right, so the factory emerges from under the keyboard.
@@ -342,10 +349,16 @@ func _draw_cap(slot: Rect2, legend: String, u: float, gap: float, a: float, smal
 
 
 ## A USB-A port opening on the deck side (port-face geometry, systems_v1.js portFace).
-func _draw_side_port(p: Vector2, a: float) -> void:
+func _draw_side_port(p: Vector2, a: float, sealed := false) -> void:
 	var frame := Rect2(p, Vector2(16.0, 36.0))
 	_draw_round_rect(frame, 2.0, Color(Palette.MACHINE_FRAME_HOVER, a), Color(Palette.MATERIAL_SILK, 0.45 * a), 1.0)
-	draw_rect(Rect2(p + Vector2(2.5, 2.5), Vector2(11.0, 31.0)), Color(Palette.MATERIAL_VENT, a))
+	if not sealed:
+		draw_rect(Rect2(p + Vector2(2.5, 2.5), Vector2(11.0, 31.0)), Color(Palette.MATERIAL_VENT, a))
+		return
+	# sealed: a cap plate with two screws (Penpot 15 / 02c sealed bay)
+	_draw_round_rect(Rect2(p + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Color(Palette.MATERIAL_PLATE, a), Color(Palette.MACHINE_FRAME, a), 1.0)
+	for sy in [5.0, 29.0]:
+		draw_circle(p + Vector2(8.0, sy + 2.0), 2.0, Color(Palette.MATERIAL_FRAME, a))
 
 
 func _draw_round_rect(r: Rect2, radius: float, fill: Color, stroke: Color, sw: float) -> void:
