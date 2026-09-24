@@ -16,6 +16,9 @@ const DIR_CTRL := "ctrl"
 const ROLE_DATA := "data"
 const ROLE_CONTROL := "control"
 const ROLE_FLAG := "flag"
+## Raw ports carry a RawValue, not a BitVector: they only connect to other raw ports
+## (docs/ARCHITECTURE.md §0 rule 7) and always have width 0.
+const ROLE_RAW := "raw"
 
 ## Timing profiles (docs/ARCHITECTURE.md §5): campaign boards give every machine a readable
 ## dwell ("campaign_ticks") and wires 2 slots per tile, so a value can be followed by eye at
@@ -145,6 +148,45 @@ static var DEFS := {
 		],
 		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 3, "min": 1, "max": 63}},
 	},
+	"number_encoder": {
+		"name": "Number Encoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"desc": "Turns a raw number into bits of the chosen width. A value that does not fit sets the overflow LED.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
+			_p("out", DIR_OUT, ROLE_DATA, "P:width", Vector2i(1, 0), Side.E, "OUT", true),
+		],
+		"params": {"width": {"label": "Width", "kind": "int", "default": 3, "min": 1, "max": 16}},
+	},
+	"char_encoder": {
+		"name": "Character Encoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"desc": "Turns a raw character into its charset code. 5 bits use TCL-5; an unencodable char is dropped.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
+			_p("out", DIR_OUT, ROLE_DATA, "P:width", Vector2i(1, 0), Side.E, "OUT", true),
+		],
+		"params": {"width": {"label": "Width", "kind": "int", "default": 5, "min": 5, "max": 8}},
+	},
+	"number_decoder": {
+		"name": "Number Decoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"desc": "Turns bits into a raw number, unsigned or signed.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),
+			_p("out", DIR_OUT, ROLE_RAW, 0, Vector2i(1, 0), Side.E, "RAW"),
+		],
+		"params": {
+			"width": {"label": "Width", "kind": "int", "default": 3, "min": 1, "max": 16},
+			"signed": {"label": "Signed", "kind": "enum", "default": "Unsigned", "options": ["Unsigned", "Signed"]},
+		},
+	},
+	"char_decoder": {
+		"name": "Character Decoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"desc": "Turns bits into a raw character using the charset of the width.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),
+			_p("out", DIR_OUT, ROLE_RAW, 0, Vector2i(1, 0), Side.E, "RAW"),
+		],
+		"params": {"width": {"label": "Width", "kind": "int", "default": 5, "min": 5, "max": 8}},
+	},
 	"demux": {
 		"name": "Demux", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_split",
 		"desc": "Sends each value to A when the select bit is 0, to B when it is 1.",
@@ -183,7 +225,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 static func ticks(type: String, campaign: bool) -> int:

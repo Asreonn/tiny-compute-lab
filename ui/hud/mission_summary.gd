@@ -174,7 +174,8 @@ func _refresh() -> void:
 		for mid in sm.sim.sorted_machine_ids():
 			var m: Machine = sm.sim.machines[mid]
 			if m.channel == 0 and m.type in ["output", "terminal_output"] and not m.received.is_empty():
-				got = HudKit.fmt(m.received[m.received.size() - 1].data)
+				var last: Packet = m.received[m.received.size() - 1]
+				got = last.raw.glyph() if last.is_raw() else HudKit.fmt(last.data)
 		var want := HudKit.fmt(sm.run.expected_bits[0][mini(done, sm.run.expected_bits[0].size() - 1)])
 		HudKit.set_text(_last, "Last: %s ✗   expected %s" % [got, want], Palette.STATE_ERROR)
 	else:

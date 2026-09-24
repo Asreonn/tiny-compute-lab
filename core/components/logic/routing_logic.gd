@@ -44,6 +44,7 @@ func _start_demux(m, sim) -> void:
 		return
 	var d: Packet = m.pop("in")
 	var sel: Packet = m.pop("sel")
+	d.merge_origins(sel)
 	var port := "b" if sel.data.as_bool() else "a"
 	var out := {}
 	out[port] = d

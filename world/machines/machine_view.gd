@@ -543,8 +543,8 @@ func _bin_value(_sim: Simulation) -> String:
 	elif run != null and machine.channel < run.last_ok.size():
 		var lo: Dictionary = run.last_ok[machine.channel]
 		wrong = int(lo.get("packet", -1)) == last.id and not bool(lo.get("ok", true))
-	_bin_color = Palette.STATE_ERROR if wrong else Palette.DATA_NUMBER
-	return ViewMode.format(last.data, resolve_view_mode())
+	_bin_color = Palette.STATE_ERROR if wrong else (Palette.FAMILY_IO if last.is_raw() else Palette.DATA_NUMBER)
+	return last.label(resolve_view_mode())
 
 
 func _area_state(running: bool) -> String:

@@ -63,9 +63,14 @@ func _on_hover(info: Dictionary) -> void:
 			if p == null:
 				return
 			title = "#%d" % p.id
-			big = HudKit.fmt(p.data)
-			sub = "%d-bit" % p.data.width
-			dot_col = Palette.datatype(p.data.width)
+			if p.is_raw():
+				big = p.raw.glyph()
+				sub = p.raw.kind_name()
+				dot_col = Palette.FAMILY_IO
+			else:
+				big = HudKit.fmt(p.data)
+				sub = "%d-bit" % p.data.width
+				dot_col = Palette.datatype(p.data.width)
 			sz = Vector2(120, 72)
 		_:
 			return

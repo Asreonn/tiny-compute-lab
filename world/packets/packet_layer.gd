@@ -351,7 +351,9 @@ func _draw() -> void:
 
 ## Sprite (tier + state) centred at pos, plus the close-tier value label.
 func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: Color, label := true) -> void:
-	var tex := Art.tex(Art.packet_file(p.data.width, _tier, state))
+	# Raw packets have no width; use the width-8 NUMBER chip as a stand-in until D4 draws RawTokens.
+	var w: int = 8 if p.is_raw() else p.data.width
+	var tex := Art.tex(Art.packet_file(w, _tier, state))
 	if tex == null:
 		return
 	var design := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
@@ -365,10 +367,12 @@ func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: C
 ## 1), centred on the chip. Labels longer than 5 characters go in a small tag 14 px above
 ## the packet instead (MACHINE_SCREEN fill, 1 px MATERIAL_FRAME stroke, radius 3).
 func _draw_label(p: Packet, pos: Vector2, size: Vector2) -> void:
-	var text := ViewMode.format(p.data, _view_mode())
-	if p.data.width <= 5:
+	var raw := p.is_raw()
+	var text := p.label(_view_mode()) if raw else ViewMode.format(p.data, _view_mode())
+	var pw: int = 8 if raw else p.data.width
+	if pw <= 5:
 		text = text.replace(" ", "")  # compact on the chip (10101 fits; the panels keep 1 0101)
-	var color := Palette.DATA_NUMBER if p.data.width > 1 else Palette.DATA_BOOLEAN
+	var color := Palette.FAMILY_IO if raw else (Palette.DATA_NUMBER if pw > 1 else Palette.DATA_BOOLEAN)
 	var f := TclTheme.font("ExtraBold")
 	var ascent := f.get_ascent(LABEL_SIZE)
 	var descent := f.get_descent(LABEL_SIZE)

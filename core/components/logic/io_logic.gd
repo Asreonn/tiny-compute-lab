@@ -17,18 +17,30 @@ func _start_input(m, sim) -> void:
 		return
 	if m.outq["out"] != null:
 		if m.strict:
-			var lost := Packet.new(sim.new_packet_id(), m.stream[m.emitted % m.stream.size()], sim.tick)
+			var lost := _make_packet(sim, m, m.stream[m.emitted % m.stream.size()])
 			lost.path.append(m.label)
 			m.emitted += 1
 			m.next_emit = sim.tick + m.interval
 			sim.note_overflow(m, lost)
 		return
-	var p := Packet.new(sim.new_packet_id(), m.stream[m.emitted % m.stream.size()], sim.tick)
+	var p := _make_packet(sim, m, m.stream[m.emitted % m.stream.size()])
 	p.path.append(m.label)
 	m.outq["out"] = p
 	m.emitted += 1
 	m.next_emit = sim.tick + m.interval
 	m.processed += 1
+
+
+## A source packet carrying the stream element (a BitVector or a RawValue) and stamped with
+## this socket's lineage: {machine id: {seq, value}} (docs/SYSTEMS_EXPANSION.md §3).
+func _make_packet(sim, m, value: Variant) -> Packet:
+	var p: Packet
+	if value is RawValue:
+		p = Packet.make_raw(sim.new_packet_id(), value, sim.tick)
+	else:
+		p = Packet.new(sim.new_packet_id(), value, sim.tick)
+	p.origins[m.id] = {"seq": m.emitted, "value": value}
+	return p
 
 
 func _start_output(m, sim) -> void:

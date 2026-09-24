@@ -28,6 +28,7 @@ func start(m, sim) -> void:
 			var d: Packet = m.pop("in")
 			var ctrl: Packet = m.pop("ctrl")
 			if ctrl.data.as_bool():
+				d.merge_origins(ctrl)
 				m.begin_job({"out": d}, d)
 			else:
 				m.begin_job({}, d)  # consumed and discarded after processing

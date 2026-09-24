@@ -319,9 +319,16 @@ func connect_error(a: int, pa: String, b: int, pb: String, ignore: Array = []) -
 		return "Wires start at an output port"
 	if gb["dir"] == Catalog.DIR_OUT:
 		return "Target must be an input or control port"
-	# "*" is the ONLY exception to the width-match rule (docs/ARCHITECTURE.md §4.3): an
-	# any-width sink (lab USB Output) accepts whatever the source carries.
-	if str(ma.port_width_spec(pa)) != "*" and str(mb.port_width_spec(pb)) != "*" and ga["width"] != gb["width"]:
+	# Raw links only join raw ports (docs/ARCHITECTURE.md §0 rule 7); a raw value can never
+	# enter a compute machine. "*" sinks (the lab USB Output) take raw or bits.
+	var raw_a: bool = ga["role"] == Catalog.ROLE_RAW
+	var raw_b: bool = gb["role"] == Catalog.ROLE_RAW
+	if raw_a or raw_b:
+		if raw_a and not raw_b and str(mb.port_width_spec(pb)) != "*":
+			return "Raw data must be encoded first"
+		if raw_b and not raw_a and str(ma.port_width_spec(pa)) != "*":
+			return "This input needs raw data (from a Decoder or USB module)"
+	elif str(ma.port_width_spec(pa)) != "*" and str(mb.port_width_spec(pb)) != "*" and ga["width"] != gb["width"]:
 		return "%d-bit output cannot connect to a %d-bit input. Use a width converter." % [ga["width"], gb["width"]]
 	var ca := connection_at_port(a, pa)
 	if ca != null and not ca.id in ignore:

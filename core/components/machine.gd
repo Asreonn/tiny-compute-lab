@@ -36,6 +36,7 @@ var counter := 0
 var delay_line: Array = []  # [[Packet, ready_tick], ...]
 var last_carry := 0  # Add: carry out of the most recent addition
 var carries := 0  # Add: total carry-outs this run
+var dropped := 0  # codec: values dropped this run (unencodable or of the wrong kind)
 
 # Input/Output machines are configured by the mission.
 var stream: Array = []  # input: Array[BitVector] to emit
@@ -102,10 +103,30 @@ func port_width_spec(port_id: String) -> Variant:
 	return pd["width"]
 
 
+## True when this machine's stream carries RawValues instead of BitVectors: a USB line with
+## a data module plugged in. It is what makes a raw source wireable to an Encoder
+## (docs/SYSTEMS_EXPANSION.md §1); bit streams keep their normal data port.
+func is_raw_source() -> bool:
+	return not stream.is_empty() and stream[0] is RawValue
+
+
+## Role of a port: the catalog's, except that a raw source exposes a raw output.
+func port_role(port_id: String) -> String:
+	var pd := Catalog.port_def(type, port_id)
+	if pd.is_empty():
+		return Catalog.ROLE_DATA
+	if pd.get("dir", "") == Catalog.DIR_OUT and is_raw_source():
+		return Catalog.ROLE_RAW
+	return pd.get("role", Catalog.ROLE_DATA)
+
+
 ## Effective width of a port: an explicit int, the instance width for "W",
 ## "P:<param>" (= the instance param value), "R:<param>" (= instance width minus that param)
 ## or "*" (= the connected source width, 0 while unconnected).
+## A raw port has width 0: raw links carry a semantic value, not a word.
 func port_width(port_id: String) -> int:
+	if port_role(port_id) == Catalog.ROLE_RAW:
+		return 0
 	var pd := Catalog.port_def(type, port_id)
 	if pd.is_empty():
 		return width
@@ -134,7 +155,7 @@ func port_geom(port_id: String) -> Dictionary:
 	var side := Catalog.rotate_side(pd["side"], rot)
 	return {
 		"cell": c, "side": side, "outside": c + Catalog.side_vec(side),
-		"width": port_width(port_id), "role": pd.get("role", Catalog.ROLE_DATA),
+		"width": port_width(port_id), "role": port_role(port_id),
 		"bus": bool(pd.get("bus", false)), "dir": pd["dir"],
 	}
 
@@ -161,6 +182,7 @@ func reset() -> void:
 	delay_line = []
 	last_carry = 0
 	carries = 0
+	dropped = 0
 	next_emit = 0
 	emitted = 0
 	received = []

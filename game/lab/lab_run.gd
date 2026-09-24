@@ -92,7 +92,7 @@ func reset(_sim: Simulation) -> void:
 func on_output(_sim: Simulation, m: Machine, p: Packet) -> void:
 	if m.type != LabDef.OUTPUT_TYPE:
 		return
-	var ok := p.data.equals(request_bits())
+	var ok := not p.is_raw() and p.data.equals(request_bits())
 	if ok:
 		delivered += 1
 	else:

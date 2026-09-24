@@ -29,6 +29,8 @@ static func _make(type: String) -> ComponentLogic:
 			return load("res://core/components/logic/routing_logic.gd").new()
 		"bit_splitter":
 			return load("res://core/components/logic/conversion_logic.gd").new()
+		"number_encoder", "char_encoder", "number_decoder", "char_decoder":
+			return load("res://core/components/logic/codec_logic.gd").new()
 		"buffer", "delay":
 			return load("res://core/components/logic/storage_logic.gd").new()
 	push_error("ComponentLogic.for_type: unknown machine type '%s'" % type)
