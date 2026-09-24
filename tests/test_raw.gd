@@ -61,7 +61,11 @@ static func _packet(t) -> void:
 	other.origins[7] = {"seq": 5, "value": RawValue.key(2)}
 	b.merge_origins(other)
 	t.check(b.origins.has(9) and b.origins.size() == 2, "merge_origins adds missing keys")
-	t.check(b.origins[7]["seq"] == 0, "merge_origins keeps this packet's entry on conflict")
+	t.check(b.origins[7]["seq"] == 5, "merge_origins keeps the newer entry (higher seq) on conflict")
+	var older := Packet.new(5, BitVector.of(0, 3), 0)
+	older.origins[7] = {"seq": 1, "value": RawValue.key(3)}
+	b.merge_origins(older)
+	t.check(b.origins[7]["seq"] == 5, "…and never replaces it with an older one")
 
 
 # --- Sources stamp lineage -------------------------------------------------------

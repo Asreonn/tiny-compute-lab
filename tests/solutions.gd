@@ -445,6 +445,40 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, s, "out", pc, "in")
 			_w(sim, pc, "out", rom2, "in")
 			_w(sim, rom2, "out", d, "in")
+		26:  # L27: fetch (PC → ROM), decode (bit 7 → ALU op, low 6 bits → operand), execute (ALU + ACC)
+			_lab_cpu(sim, s, d, "5 12 131 20 135 1 158 9", false)
+		27:  # L28: the same CPU; the decoder's second line (OUT) gates the accumulator to the drive
+			_lab_cpu(sim, s, d, "10 67 134 64 194 20 65 139", true)
+
+
+## The tiny accumulator CPU of L27 / L28.
+static func _lab_cpu(sim: Simulation, s: int, d: int, program: String, with_out: bool) -> void:
+	_lab_plug(sim, s, "bit")
+	var pc := _pw(sim, "program_counter", Vector2i(4, 1), 3)
+	var rom := _pw(sim, "rom", Vector2i(7, 1), 3, {"table": program, "out": 8})
+	var s1 := _pw(sim, "splitter", Vector2i(11, 1), 8, {"mode": "Duplicate"})
+	var dec := _pw(sim, "instruction_decoder", Vector2i(15, 0), 8)
+	var imm := _pw(sim, "bit_splitter", Vector2i(15, 3), 8, {"lo": 6})
+	var alu := _pw(sim, "alu", Vector2i(20, 2), 6, {"op0": "ADD", "op1": "SUB"})
+	var s2 := _pw(sim, "splitter", Vector2i(24, 2), 6, {"mode": "Duplicate"})
+	var acc := _pw(sim, "register", Vector2i(20, 6), 6, {"mode": "echo", "init": 0})
+	_w(sim, s, "out", pc, "in")
+	_w(sim, pc, "out", rom, "in")
+	_w(sim, rom, "out", s1, "in")
+	_w(sim, s1, "a", dec, "in")
+	_w(sim, s1, "b", imm, "in")
+	_w(sim, dec, "a", alu, "op")
+	_w(sim, imm, "lo", alu, "b")
+	_w(sim, acc, "out", alu, "a")
+	_w(sim, alu, "out", s2, "in")
+	_w(sim, s2, "b", acc, "in")
+	if with_out:
+		var g := _pw(sim, "gate", Vector2i(28, 1), 6)
+		_w(sim, dec, "b", g, "ctrl")
+		_w(sim, s2, "a", g, "in")
+		_w(sim, g, "out", d, "in")
+	else:
+		_w(sim, s2, "a", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

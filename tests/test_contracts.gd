@@ -14,6 +14,7 @@ static func run(t) -> void:
 	_paired(t)
 	_l13_needs_buffer(t)
 	_l20_multiplies_fail(t)
+	_cpu(t)
 
 
 # --- helpers --------------------------------------------------------------------
@@ -132,7 +133,7 @@ static func _describe(t) -> void:
 # --- the whole lab table --------------------------------------------------------
 
 static func _lab_levels(t) -> void:
-	t.check(LabDef.count() == 26, "the lab has 26 levels (got %d)" % LabDef.count())
+	t.check(LabDef.count() == 28, "the lab has 28 levels (got %d)" % LabDef.count())
 	for idx in range(LabDef.count()):
 		var sim := Simulation.new()
 		var run := LabRun.new()
@@ -271,4 +272,36 @@ static func _l20_multiplies_fail(t) -> void:
 	for i in 2000:
 		sim.step()
 	t.check(run.level == 19 and run.delivered >= 30 and run.rate() < 4.0, "…but make only %.1f/s: L20 stays open" % run.rate())
+
+
+## L27 / L28: the accumulator trace, and OUT really has to gate the output.
+static func _cpu(t) -> void:
+	var c := Contract.from_level(LabDef.level(26))
+	var want := [5, 17, 14, 34, 27, 28, 62, 7, 12]  # ADD 5, ADD 12, SUB 3, ADD 20, SUB 7, ADD 1, SUB 30, ADD 9, (again) ADD 5
+	var got := []
+	for s in want.size():
+		var p := Packet.new(1, BitVector.of(0, 6), 0)
+		p.origins = {1: {"seq": s, "value": BitVector.of(1, 1)}}
+		got.append((c.expected_for(p, [1]) as BitVector).unsigned())
+	t.check(got == want, "the CPU trace wraps at 6 bits and repeats the program (%s)" % str(got))
+	var c2 := Contract.from_level(LabDef.level(27))
+	var p2 := Packet.new(1, BitVector.of(0, 6), 0)
+	p2.origins = {1: {"seq": 0, "value": BitVector.of(1, 1)}}
+	t.check(c2.expected_for(p2, [1]) is String, "a non-OUT instruction must not reach the drive")
+	p2.origins = {1: {"seq": 1, "value": BitVector.of(1, 1)}}
+	t.check((c2.expected_for(p2, [1]) as BitVector).unsigned() == 13, "OUT after ADD 10, ADD 3 shows 13")
+	# the ungated L27 CPU on the L28 board keeps restarting its window
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = 27
+	run.build_board(sim)
+	Solutions.lab_solution(sim, 26)
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "rom":
+			m.params["table"] = "10 67 134 64 194 20 65 139"
+	sim.reset_run()
+	for i in 2500:
+		sim.step()
+	t.check(run.level == 27 and run.rejected > 0 and run.delivered < 12, "without the OUT gate L28 never completes (rejected %d, window %d)" % [run.rejected, run.delivered])
 

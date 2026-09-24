@@ -31,6 +31,9 @@ var count := 0
 var min_rate := 0.0
 ## Socket overruns allowed in the window. -1 = none.
 var max_lost := -1
+## Wrong values (rejected deliveries) allowed in the window: a filter that must really filter.
+## -1 = none.
+var max_rejected := -1
 ## Lab power demand allowed during the window (SYSTEMS_EXPANSION §3). 0 = none.
 var max_power := 0
 ## The heat stage no machine may reach during the window (ThermalGrid.Stage). -1 = none.
@@ -55,6 +58,7 @@ static func from_level(lv: Dictionary) -> Contract:
 	c.count = int(d.get("count", 0))
 	c.min_rate = float(d.get("min_rate", 0.0))
 	c.max_lost = int(d.get("max_lost", -1))
+	c.max_rejected = int(d.get("max_rejected", -1))
 	c.max_power = int(d.get("max_power", 0))
 	c.max_heat = ThermalGrid.STAGE_NAMES.find(str(d.get("max_heat", ""))) if d.has("max_heat") else -1
 	c.primary_socket = int(d.get("primary_socket", 0))
@@ -250,6 +254,8 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 			return BitVector.of(int(sv[_seq % sv.size()]), int(op.get("width", 8)))
 		"ram_program":
 			return _ram_program(op)
+		"cpu_trace":
+			return _cpu_trace(op)
 		"alu_src":
 			# paired: A (this value) with B from another stream, the operation picked by a bit stream
 			if not (v is BitVector) or not _pair_values.has(str(op.get("b", ""))) or not _pair_values.has(str(op.get("sel", ""))):
@@ -325,6 +331,32 @@ func _ram_program(op: Dictionary) -> Variant:
 	return BitVector.of(int(mem.get((cur >> alo) & ((1 << alen) - 1), 0)), vlen)
 
 
+## A tiny accumulator CPU (L27+): the n-th clock pulse runs instruction n % len of `program`.
+## Instruction = SUB bit | [OUT bit] | immediate; the accumulator starts at 0 and wraps at
+## `width`. Expected: the accumulator after this instruction, or DROP when the program has OUT
+## instructions and this is not one of them. O(program) via the per-cycle delta.
+func _cpu_trace(op: Dictionary) -> Variant:
+	var prog: Array = op.get("program", [])
+	if _seq < 0 or prog.is_empty():
+		return DROP
+	var sub_bit := int(op.get("sub_bit", 7))
+	var out_bit := int(op.get("out_bit", -1))
+	var imm_mask := (1 << int(op.get("imm_bits", 6))) - 1
+	var width := int(op.get("width", 6))
+	var n := prog.size()
+	var step := func(w: int) -> int: return -(w & imm_mask) if (w >> sub_bit) & 1 == 1 else (w & imm_mask)
+	var cycle := 0
+	for w in prog:
+		cycle += int(step.call(int(w)))
+	var acc := (_seq / n) * cycle
+	for j in (_seq % n) + 1:
+		acc += int(step.call(int(prog[j])))
+	var cur := int(prog[_seq % n])
+	if out_bit >= 0 and (cur >> out_bit) & 1 == 0:
+		return DROP  # no OUT: nothing may come out
+	return BitVector.of(posmod(acc, 1 << width), width)
+
+
 func _keep(v: Variant, op: Dictionary) -> bool:
 	var cmp := str(op.get("cmp", "="))
 	var k := int(op.get("k", 0))
@@ -356,6 +388,8 @@ func describe() -> String:
 		"filter":
 			if not _first_op("ram_program").is_empty():
 				return "run the memory program"
+			if not _first_op("cpu_trace").is_empty():
+				return "run the program · OUT only"
 			var ki := _first_op("keep_if")
 			var src := source_kind if source_kind != "" else "x"
 			if ki.is_empty():
@@ -385,6 +419,8 @@ func describe() -> String:
 				return "play the table in order"
 			if not _first_op("ram_program").is_empty():
 				return "run the memory program"
+			if not _first_op("cpu_trace").is_empty():
+				return "run the program (ACC)"
 			return "map x → %s (%s)" % [_expr(), _format_name()]
 
 

@@ -18,6 +18,7 @@ var level_completed_tick := -1
 var accepted_ticks: Array[int] = []
 ## Overruns since the window started (docs/SYSTEMS_EXPANSION.md §2, §3).
 var window_lost := 0
+var window_rejected := 0  # wrong deliveries in the window (max_rejected)
 var _window_warning := ""
 ## Desk zones (docs/SYSTEMS_EXPANSION.md §2.2): slot index -> module kind beside the laptop.
 ## Every owned device is in exactly one place: a desk slot or a port.
@@ -140,6 +141,7 @@ func reset(_sim: Simulation) -> void:
 	last_ok = [{}]
 	accepted_ticks.clear()
 	window_lost = 0
+	window_rejected = 0
 	_window_warning = ""
 	_io_warning = ""
 	_sync()
@@ -155,6 +157,11 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 		_window_warning = ""
 	else:
 		rejected += 1
+		var c := contract()
+		if c.max_rejected >= 0:
+			window_rejected += 1
+			if window_rejected > c.max_rejected:
+				_restart_window("A value that should not arrive reached the drive — the window restarted.")
 	_trim(sim.tick)
 	last_ok = [{"packet": p.id, "ok": ok}]
 	progress = [delivered]
@@ -201,6 +208,7 @@ func after_tick(sim: Simulation) -> void:
 func _restart_window(why: String) -> void:
 	delivered = 0
 	window_lost = 0
+	window_rejected = 0
 	accepted_ticks.clear()
 	_window_warning = why
 

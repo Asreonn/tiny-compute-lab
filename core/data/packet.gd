@@ -59,12 +59,16 @@ func derive_raw(new_id: int, new_raw: RawValue) -> Packet:
 
 
 ## Union of two lineage maps: keys already present keep THIS packet's entry.
+## Union of lineages. When both carry the same source, the newer value (higher seq) wins: a
+## result belongs to the latest value that went into it (an accumulator's output follows the
+## instruction just executed, not the first one).
 func merge_origins(other: Packet) -> void:
 	if other == null:
 		return
 	for k in other.origins:
-		if not origins.has(k):
-			origins[k] = (other.origins[k] as Dictionary).duplicate()
+		var e: Dictionary = other.origins[k]
+		if not origins.has(k) or int(e.get("seq", -1)) > int((origins[k] as Dictionary).get("seq", -1)):
+			origins[k] = e.duplicate()
 
 
 ## Outer dict + inner dicts are copied (shallowly); the values themselves are immutable.

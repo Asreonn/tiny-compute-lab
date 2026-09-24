@@ -244,6 +244,24 @@ static var LEVELS: Array = [
 		"unlocks": ["program_counter"],
 		"view": ViewMode.Mode.UDEC,
 	},
+	{
+		"id": "lab_l27", "title": "Fetch & Execute",
+		"brief": "A tiny CPU. Program: ADD 5, ADD 12, SUB 3, ADD 20, SUB 7, ADD 1, SUB 30, ADD 9 (ADD k = k, SUB k = 128 + k). Each clock pulse fetches the next instruction and runs it on a 6-bit accumulator; deliver the accumulator after every step.",
+		# fetch: clock → Program Counter → ROM; decode: Instruction Decoder (bit 7 = SUB) + the low
+		# 6 bits; execute: ALU on the accumulator, kept by an echo Register
+		"contract": {"kind": "map", "ops": [{"op": "cpu_trace", "program": [5, 12, 131, 20, 135, 1, 158, 9], "sub_bit": 7, "imm_bits": 6, "width": 6}], "count": 16, "accept_format": "bits", "accept_width": 6},
+		"streams": {"bit": {"values": ["1"], "width": 1, "interval": 36}},
+		"unlocks": [],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l28", "title": "Output Port",
+		"brief": "Bit 6 is now OUT: only OUT instructions show the accumulator. Program: ADD 10, ADD 3 OUT, SUB 6, ADD 0 OUT, SUB 2 OUT, ADD 20, ADD 1 OUT, SUB 11 (OUT adds 64).",
+		"contract": {"kind": "filter", "ops": [{"op": "cpu_trace", "program": [10, 67, 134, 64, 194, 20, 65, 139], "sub_bit": 7, "out_bit": 6, "imm_bits": 6, "width": 6}], "count": 12, "accept_format": "bits", "accept_width": 6, "max_rejected": 0},
+		"streams": {"bit": {"values": ["1"], "width": 1, "interval": 36}},
+		"unlocks": [],
+		"view": ViewMode.Mode.UDEC,
+	},
 ]
 
 
