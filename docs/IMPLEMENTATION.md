@@ -127,9 +127,61 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
   level-up and board-expansion reveal, HUD panel transitions.
 - **QoL and controls:**
   - Speed on number keys: `1` = 1×, `2` = 2×, `3` = 5×, `4` = 10×.
-  - Tool modes on `Q` / `W` / `E` / `R`: Q select, W wire, E delete, R rotate.
+  - Tools: `Q` select, `W` wire, `E` build the last component, `R` rotate the hovered/selected/ghost machine.
+    Delete moves to the quick action bar (`X`/`Del`). See the control map in `docs/SYSTEMS_EXPANSION.md §9`.
   - Smoother camera (inertia, zoom to cursor, edge pan), smoother drag/placement feel.
   - Copy/paste, undo/redo, multi-select, and similar conveniences.
+
+## Systems Expansion (production brief 2026-09-24): design locked, implementation plan
+
+**Documents:**
+- Game rules: `docs/SYSTEMS_EXPANSION.md`.
+- Visuals: `docs/STYLE_GUIDE.md §14`, `docs/VISUAL_SYSTEM.md §21`, `docs/MOTION_SYSTEM.md §8`.
+- Geometry: `design/reference/systems_v1.js`. Penpot pages 15–19.
+
+**Work split:**
+- **DS** implements scoped jobs: exact files, constraints, tests, acceptance criteria and non-goals.
+- **The orchestrator** reviews every diff, runs `make test` and the smoke/motion scripts, renders
+  screenshots against Penpot pages 15–19 and commits one checkpoint at a time.
+
+**DS model choice:**
+- `ds hard` for architecture: raw boundary, contracts, power/work units, thermal, undo, connected move.
+- `ds submit` for views, HUD and component batches.
+
+### Checkpoint D: USB, encoding, contracts
+| Job | Route | Scope |
+|---|---|---|
+| D1 | hard | **Raw boundary + lineage.**<br>• `core/data/raw_value.gd` (kind TEXT/NUMBER/KEY/SENSOR + value); `Packet.raw`.<br>• Port role `raw`, with raw ↔ raw only (`connect_error` reason).<br>• Encoder/Decoder logic (number/char; width param; TCL-5 ≤ 6 bits, ASCII ≥ 7; overflow flag).<br>• `Packet.origin` lineage: sources stamp it, single-input machines copy it, combining machines union it.<br>• Tests. |
+| D2 | submit | **USB sockets + data modules.**<br>• `usb_socket` fixed infrastructure with a `device` slot and a 2-slot FIFO (overrun counts as `lost`).<br>• Device registry (bit/number/text/key/sensor) whose streams are configured by the contract.<br>• `Simulation.insert_device / remove_device`.<br>• Tests. |
+| D3 | hard | **Contracts + contract drive + save v2.**<br>• `game/lab/contract.gd` kinds deliver/map/filter/paired; accept formats bits(w)/text/number.<br>• Constraints count/min_rate/max_power/max_heat/max_lost/max_latency, with soft window resets.<br>• `contract_drive` replaces `usb_output`; LabDef levels L1–L12.<br>• Save `version: 2` with a v1 migration + backup.<br>• Tests. |
+| D4 | submit | **Views.**<br>• Port face + data modules on the locked USB Input/Output (all socket/drive states).<br>• RawPort / RawToken / raw link rendering; Encoder/Decoder views.<br>• Device Tray popover; contract panel (constraints with pass/fail). |
+| D5 | submit | **VFX-ladder conformance.**<br>• Remove packet halos, the port halo and the comet glow; add the 1 px port contact ring (≤ 120 ms).<br>• Remove the StateLayer processing underglow.<br>• LED V2 states wired (throttling/overheated).<br>• `motion_check` still PASS. |
+
+### Checkpoint E: power and heat
+| Job | Route | Scope |
+|---|---|---|
+| E1 | hard | **Power + work units + clock.**<br>• Jobs cost `campaign_ticks × 12` work units; normal/fast/overclocked = 12/16/24 per tick.<br>• PSU fixed infrastructure with tiers 8/16/32/64; demand = Σ rated power × clock multiplier.<br>• Brownout = work × capacity/demand (integer); the progress ring stays smooth.<br>• Tests, with existing timings unchanged at normal clock. |
+| E2 | hard | **Thermal grid + cooling.**<br>• `core/thermal/thermal_grid.gd` (PackedInt32Array): generate/diffuse/dissipate.<br>• Stages with hysteresis; THROTTLING ×½, CRITICAL pause.<br>• Heatsink / blower / heat pipe / radiator simulation.<br>• Calibration tests (SYSTEMS_EXPANSION §5 targets). |
+| E3 | submit | **Views.**<br>• Resource indicators replace the stats silk; thermal strip; thermal family views (blower rotates).<br>• PSU gauge; thermal (`T`) and power (`P`) overlays; top-bar power chip. |
+
+### Checkpoint F: QoL interaction overhaul
+| Job | Route | Scope |
+|---|---|---|
+| F1 | submit | Hover card (180 ms, follows the pointer, hidden during drag/wire/place). |
+| F2 | submit | Quick action bar + duplicate (Ctrl+D, Alt+drag) + copy/paste settings; the Delete mode leaves the rail. |
+| F3 | submit | Smart wiring: drag from a port in Select mode, edge assist, body snap / candidate rings. |
+| F4 | hard | Connected move: live hologram reroute, atomic commit, snap back on failure (replaces the "Would cut the wire" refusal). |
+| F5 | hard | Undo/redo command history (place, delete, move, rotate, wire, rewire, param, device, duplicate, paste). |
+| F6 | submit | Camera: middle-drag / Space-drag pan with inertia, smooth zoom to cursor.<br>Hotkeys: `1`–`4`, Q/W/E/R, T/P, X/Del, Esc.<br>Palette QoL: search, favourites, recents, honest locks with requirements. |
+
+### Checkpoints G–J
+- **G:** remaining components in batches (Groups A–F of SYSTEMS_EXPANSION §11). Each ships with its
+  logic, ports/widths, power/cost/heat, its function-region visual, hover/Inspector content and tests.
+  Nothing appears in the palette before its group ships.
+- **H:** the progression table (SYSTEMS_EXPANSION §10), with the Two Sticks and BYTE milestones.
+  Every contract gets a reference solution and a solvability test.
+- **I:** VFX / shader / animation polish inside the ladder. Audio hooks (`AudioBus.event`).
+- **J:** full regression, a screenshot pass against pages 15–19, and a docs sweep.
 
 ## Status
 
@@ -143,4 +195,5 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 | Lab HUD: request panel, level banner, main menu (Lab + tutorial) | done |
 | Components: Add, Modulo, Bit Splitter, Demux (+ legacy machines) | done |
 | Checks | `make test` (246) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke}.gd` |
-| Next | USB Output Penpot design (needs Penpot + MCP plugin); more Lab levels with Compare/Gate/Demux routing, width conversion (Zero Extend/Truncate), 8-bit BYTE/ASCII, throughput goals; then the post-MVP polish phase |
+| Systems expansion design | **locked 2026-09-24** (Penpot pages 15–19, `systems_v1.js`, STYLE_GUIDE §14); Status LED V2 assets regenerated |
+| Next | Checkpoint D (USB, encoding, contracts) through scoped DS jobs D1–D5, then E (power/heat) and F (QoL) |

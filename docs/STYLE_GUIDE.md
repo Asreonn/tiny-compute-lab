@@ -6,6 +6,15 @@
 > Canonical since 2026-09-23 (V2.1 machines + Signal System V1). Penpot source of truth:
 > page **`12 Style Lock V1`**. Signal rules: page **`13 Signal System`**. Roadmap kit: page
 > **`14 Roadmap Kit`**. Token source: `design/tokens.json`. Detailed specs: `docs/VISUAL_SYSTEM.md`.
+>
+> **Systems Expansion lock (2026-09-24)** extends the style, it does not replace it. Penpot pages:
+> - **`15 Systems · Infrastructure`**: raw boundary, USB family, contract drive, PSU.
+> - **`16 Systems · Machines`**: resource indicators, Encoder/Decoder, thermal family, Status LED.
+> - **`17 Systems · VFX Language`**: the intensity ladder.
+> - **`18 Systems · Interaction`**
+> - **`19 Systems · Gameplay Mockups`**: 1:1 compositions.
+>
+> Implementation geometry: `design/reference/systems_v1.js`. §14 below is the summary.
 
 The style has been through one rejected pivot: the "V3 game-asset" experiment, with a unique mechanical
 silhouette per machine and chunky extruded bodies. It broke family cohesion. The lesson is built into the
@@ -38,6 +47,12 @@ real error. Interaction is shown outside the machine (brackets, badges); computa
 | Spacing | Machine-space grid XS 4 · S 8 · M 12 · L 16 (`tokens.json → machine-space`). |
 | Interaction | Hover = 2 px `state.hover` outline + 12 % pad tint. Selected = external ice brackets + solid frame + base highlight. Blocked/Error = external corner badge + outline. |
 | Motion | Tick-locked, one easing (cubic-out), no decorative loops; see `docs/MOTION_SYSTEM.md`. |
+| Effect intensity | The **VFX ladder** (§14.1): routine activity is nearly invisible; only critical states and contract completion are strong. No glow blobs, halos, bloom or body glow. |
+| Status LED | V2 lamp: a 6 px lamp in a dark well, no glow disc. Meaning is carried by colour AND form (ring = thermal, diamond = error). |
+| Raw data | IO green `family.io`: RawPort receptacle, pill RawToken with its glyph. Never enters a compute machine. |
+| USB | The locked USB Input/Output keep their look and carry a female USB-A **port face**. Devices are male **data modules**. |
+| Thermal | Copper, board-mounted hardware on a PCB footprint: no chassis, data ports or LED. A heat pipe is never styled like a wire. |
+| Power | Gold (`material.gold`): PSU gauge cells, power pips, the power tab. |
 
 ## 3. What may vary
 
@@ -48,12 +63,13 @@ real error. Interaction is shown outside the machine (brackets, badges); computa
 - **Accent hue** for a brand-new *top-level* family, only if it is clearly separated from the data and
   state colours (see §6). Prefer a sub-family (segmented tab) first.
 - **Silkscreen text**: short, ≤ 6 characters, 8 px, 55 % opacity, close zoom only.
-- **Machine stats silk** (explicit player request, 2026-09-24; an exception to "tertiary info belongs
-  in the inspector"):
-  - Player-placed machines show their tick cost and power as a silkscreen line: the HUD's latency
-    and power icons at 9 px + 8 px digits, 55 % silk, e.g. `◷4 ⚡1`.
-  - Position: right-aligned at (W − 24, H − 15), one S-gap clear of the corner screw.
-  - Visible at normal and close zoom, hidden at far zoom. Mission I/O does not show it.
+- **Resource indicators** (replace the 2026-09-24 `◷4 ⚡1` stats silk; there is no text on the chassis):
+  - **Clock:** one 5 px silk dot (α .7) per tick of job cost, up to 6, then a `+`.
+  - **Power:** one 3×8 gold pip per power unit, up to 4.
+  - **Clock mode:** 1 amber chevron = fast, 2 = overclocked, drawn before the dots.
+  - **Position:** M/L are right-aligned at (W − 20, H − 15). S uses the compact form at the top-right (58, 4).
+  - Normal and close zoom only. Exact numbers live in the hover card and the Inspector.
+  - Fixed infrastructure (USB, drive, PSU) shows none.
 
 ## 4. Line-weight scale
 
@@ -106,6 +122,13 @@ StateLayer (hover/selected/processing/blocked/error) is runtime-only, never bake
 
 \* concept slots on page `14`: not yet drawn as components.
 
+**Infrastructure** is not a machine family and has no FamilyTab hue:
+- **Power:** PSU, with a gold tab.
+- **Thermal:** heatsink, blower, heat pipe, radiator. These use a copper PCB footprint with no chassis.
+- **The USB port face and data modules.**
+
+Encoders and decoders belong to Conversion (segmented yellow).
+
 **New family?** First try to make it a sub-family (segmented parent tab). A new top-level hue must
 avoid cyan (174°), magenta (313°), amber (39°), red (354°) and green (140°), and stay at the existing
 saturation and lightness.
@@ -115,8 +138,9 @@ saturation and lightness.
 - A wire is an **embedded PCB trace**, not a pipe: trench edge, dark trench, thin core.
 - **Idle** wires are quiet: dim datatype core. Direction comes from the port chevrons and the teardrops,
   not from arrows along the wire.
-- **Active** (ActiveTransfer): core at 50 % datatype colour, plus a **comet** around each moving packet.
-  The bright head is at the packet and the tail fades behind it. The comet follows the chamfered path.
+- **Active** (ActiveTransfer): core at 50 % datatype colour, plus a short **brighter core segment**
+  (2.5 px, α .9, about 30 px) behind each moving packet, following the chamfered path. Since the
+  VFX ladder there is **no glow layer**: the old 10 px comet glow is retired.
 - **Selected**: 14 px ice halo, lit core, and ice flow chevrons every 48 px. Direction is shown on demand.
 - **Hover**: edge lifts to `state.hover`, core brightens to 80 %.
 - **Blocked**: amber edge + amber core; the waiting packet sits at the OUT port with a dashed amber queue ring.
@@ -131,9 +155,14 @@ saturation and lightness.
 
 - Lightweight: packets never out-rank machines. NUMBER capsule 24×16 (gold caps, core bar);
   BOOLEAN diamond 20×20 (TRUE = lit core, FALSE = hollow core).
-- **Travel**: a faint datatype halo (14 %). **Entering** a port: 60 % opacity, no halo, shrinks into the
-  socket. **Leaving**: brighter halo (32 %). **Inside a machine**: muted outline. **Queued/blocked at
-  output**: amber outline + dashed amber queue ring.
+- **Packets have no halos** (VFX ladder L1).
+  - **Travel:** the chip only.
+  - **Entering** a port: 60 % opacity; it shrinks into the socket while the port shows a 1 px contact
+    ring (≤ 120 ms).
+  - **Leaving:** the same contact ring on the OUT port.
+  - **Inside a machine:** not drawn. The machine's function region shows the work.
+  - **Queued/blocked at output:** amber outline + dashed amber queue ring.
+- **Raw tokens** (`family.io` pill, glyph inside) follow the same rules on raw links.
 - **Zoom**: Far = 7 px dot/diamond · Normal = chip without value · Close = value text (`42`, `TRUE`).
 
 ## 9. Width classes and buses (future-facing)
@@ -175,6 +204,10 @@ tooltips. Planned extensions, in the same components:
 - Micro-text on machines. Tertiary info (ticks, power, IDs) belongs in the inspector.
 - Colour as the only differentiator; red for anything that is not an error; constant idle animation.
 - Packets larger than ports, and packets floating off a trace.
+- Glow blobs, halos, bloom, thick glowing outlines and whole-body glow for routine work. Spending strong
+  effects on routine actions.
+- Consumer-gadget props: generic USB sticks, household fans, box-shaped "cooling machines".
+- Heat pipes that look like wires: teal/pink/green cores, ports, or packets on a heat pipe.
 
 ## 13. How to add a new component (checklist)
 
@@ -186,3 +219,95 @@ tooltips. Planned extensions, in the same components:
 6. Test it in the **gameplay reference board** (page `12`) at 1:1 next to existing machines. Never judge
    it on a documentation board alone.
 7. Add it to `docs/COMPONENT_ROADMAP.md` and export its assets (`assets/art`, `machine_layouts.json`).
+   Parts of the systems expansion are drawn procedurally from `design/reference/systems_v1.js`.
+8. Give it resource indicators (clock dots, power pips), and name the VFX-ladder level of every effect it uses.
+
+## 14. Systems Expansion (locked 2026-09-24)
+
+### 14.1 VFX intensity ladder (hard limits; Penpot page `17`)
+
+| Level | What | Limits |
+|---|---|---|
+| L0 idle | nothing | — |
+| L1 routine transfer | packet travel, 1 px port contact ring, brighter wire-core segment | ≤ 1 px ring / 2.5 px core, α ≤ .6, ≤ 120 ms |
+| L2 processing | the function region only (ring, lane, valve, bays, Bits strip) + LED | inside the ActivityArea, α ≤ .9 |
+| L3 selection | canonical brackets + 1.5 px outline, quick action bar | static |
+| L4 warning | amber LED, thermal strip, 1.5 px underline, pause badge | ≤ 2 px, slow pulse ≥ 1.2 s on the strip only |
+| L5 critical / complete | error, PSU overload, CRITICAL heat, contract complete | ≤ 2 px frame + badge, ≤ 2 pulses then steady |
+
+### 14.2 Status LED V2 (page `16` · `led_*.svg`)
+- Built from a 10 px dark well (`material.vent`, 0.75 px `material.frame` rim), a 6 px lamp and a 1.5 px
+  specular. There is no glow disc in any state.
+- States:
+
+| State | Lamp |
+|---|---|
+| Off | `machine.rail` |
+| Idle | `text.muted` |
+| Receiving | cyan |
+| Processing | blue |
+| OutputReady | green |
+| Waiting (`blocked`) | amber |
+| **Throttling** | amber + 1 px amber ring |
+| **Overheated** | red + 1 px red ring |
+| **Error** | red *diamond* |
+
+### 14.3 Raw boundary (page `15 / 01`)
+- **RawPort:** a USB-style receptacle (14×10) with a tongue on the copper pad.
+- **RawToken:** a `family.io` pill (Normal 20×12, Close 36×18) with its glyph. Queued = dashed ring;
+  accepted = thin green ring.
+- **Raw link:** the same PCB trench with an IO-green core (α .35).
+- Raw values never enter compute machines. Encoders and decoders are the boundary.
+
+### 14.4 USB family (page `15 / 02`, option C)
+- **Locked components:** USB Input (EdgeIn) and Output (EdgeOut) are unchanged, plus a female USB-A
+  **port face** (16×36): metal frame, dark opening, tongue with 4 gold contacts.
+- **Data modules** (96×56, male USB-A plug 22×28 with two square holes).
+  - The outer silhouette is the family key: Bit square · Number chamfered · Text rounded · Key notched ·
+    Sensor finned · Contract slanted and flipped.
+  - Each module has a key bar, a screen window with its glyph and a 10×3 data store (read cursor or
+    fill progress).
+  - Plugged in, the plug fills the port opening and the module sits flush at the board edge.
+- **Device Tray:** a world-anchored popover with module thumbnails, available/in-use/hover/locked rows
+  (locked rows state their unlock) and Unplug.
+
+### 14.5 Encoder / Decoder (page `16 / 06`)
+- M Module chassis with a segmented Conversion tab.
+- Layout: raw token slot (pill) → chevron → canonical `Bits` strip. The decoder mirrors it.
+- Silk `CHR`/`NUM`, plus a WidthTag on the bus side.
+
+### 14.6 Power (page `15 / 04`)
+- **PSU:** M Module chassis with a gold tab, `icon_power` and a gauge with one cell per power unit.
+- **Gauge colours:** gold, then amber at ≥ 75 %, then red plus an overflow chevron above 100 %.
+- Tiers: 8 · 16 · 32 · 64.
+
+### 14.7 Thermal family (page `16 / 07`)
+- **Board-level copper hardware on a PCB footprint** (`board.pad` fill, `material.copper-dim` outline,
+  silk corner marks): **no chassis, no data ports, no LED.**
+- **Heatsink:** copper spreader, 11 dense fins, 4 screws.
+- **Blower:** a volute housing with an 18-blade impeller (it rotates while running), an outlet with
+  hairline airflow, and a 3-pin gold power header.
+- **Heat pipe:** a routed copper conduit (12 px vent, 9 px copper-dim, 2.5 px copper, gold highlight)
+  with square thermal pads.
+- **Radiator:** an L edge panel with 26 fins between copper manifolds, inlets and brackets.
+- **Warmth:** only a faint amber gradient on fin tips or along copper. The thermal overlay carries the
+  full picture.
+- **Heat pipe ≠ data wire:**
+  - Copper only.
+  - A 9 px body and square pads, never ports.
+  - No packets or comets.
+  - Wires and heat pipes never share or cross a tile.
+
+### 14.8 Thermal strip
+A 2 px bar just inside the chassis top edge:
+- **NORMAL:** absent.
+- **WARM:** amber α .3.
+- **HOT:** amber.
+- **THROTTLING:** amber + LED Throttling + a ≥ 1.2 s pulse.
+- **CRITICAL:** red + a 1.5 px red frame + the canonical pause badge.
+
+The body is never tinted.
+
+### 14.9 Interaction and overlays (pages `18`, `19`)
+Hover card, quick action bar, smart-wire targets, connected-move hologram, palette QoL, and the thermal
+and power overlays. Exact numbers are in `docs/VISUAL_SYSTEM.md §21` and `systems_v1.js`.

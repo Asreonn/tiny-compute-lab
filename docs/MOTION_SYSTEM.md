@@ -12,14 +12,17 @@ judged in motion. Static render: `design/previews/ds_v2_motion.png`.
 
 ## 1. Rules
 
-1. **Simulation-locked.** All data motion (packets, sweeps, lane lights) is driven by the tick:
-   `1 tick = 100 ms` at 1×; 50 ms at 2×; 25 ms at 4×. Views interpolate between ticks with
-   `alpha = accumulator / tick_duration`.
+1. **Simulation-locked.** All data motion (packets, sweeps, lane lights) is driven by the tick.
+   - **Playback:** 1× = 10/3 ticks/s (300 ms per tick), then 2× / 5× / 10×, on keys `1`–`4`.
+   - Views interpolate between ticks with `alpha = accumulator / tick_duration`.
+   - Playback speed is never gameplay. Machine clock modes change *work per tick*, not the tick.
 2. **One easing.** Cubic-out (`Tween.TRANS_CUBIC, EASE_OUT`). No bounce, no overshoot, no elastic.
 3. **No decorative loops.** Idle machines are static. The only persistent loop allowed is the
    `RUNNING` badge pulse in the HUD.
 4. **Activity starts inside.** Processing is shown by the machine's ActivityArea, never by
-   scaling or shaking the whole machine.
+   scaling, shaking or glowing the whole machine.
+7. **VFX ladder.** Every effect names its level (L0–L5, `docs/STYLE_GUIDE.md §14.1`).
+   Routine transfer (L1) stays below α .6 and 120 ms. Only L5 may pulse strongly, at most twice.
 5. **Wires react locally.** Only the segment around a moving packet brightens; the rest of the wire
    stays at its quiet core.
 6. **Reduced motion.** When enabled, keep state changes (texture swaps, colours), drop pulses/sweeps.
@@ -31,7 +34,7 @@ judged in motion. Static render: `design/previews/ds_v2_motion.png`.
 | `motion.micro` | 100 ms | button press, toggle, port snap |
 | `motion.hover` | 140 ms | pad/StateLayer hover fade, tooltip fade |
 | `motion.select` | 150 ms | selection brackets draw-in |
-| `motion.port-pulse` | 160 ms | port Active flash on receive/send |
+| `motion.port-pulse` | 120 ms | port contact ring on receive/send (40 ms Contact α .8 → 40 ms Active α .55 → 40 ms fade) |
 | `motion.packet-enter` | 120 ms | packet shrinks into a port (Entering) |
 | `motion.panel` | 200 ms | inspector / mission panel slide |
 | `motion.complete` | 450 ms | mission complete sweep |
@@ -43,10 +46,10 @@ judged in motion. Static render: `design/previews/ds_v2_motion.png`.
 | # | Penpot frame | Godot |
 |---|---|---|
 | 1 | packet on input wire (Leaving), wire ActiveTransfer | PacketView lerps along wire arc-length; WireView pulse follows packet |
-| 2 | input port **Active**, LED Receiving, StateLayer Receiving | on `deliver` event: port texture → active for 160 ms, contact overlay alpha 1→0 over 160 ms |
+| 2 | input port contact ring, LED Receiving | on `deliver` event: 1 px contact ring for ≤ 120 ms (no halo, no StateLayer) |
 | 3 | ActivityArea **Die: Processing**, LED Processing | die cores light as `progress = (total − ticks_left + alpha) / total` (0–4 cores); area texture swap Idle→Processing |
 | 4 | Die **Done**, output port Active, LED OutputReady | on job complete: area → Done, output contact overlay on |
-| 5 | packet leaves on output wire | on `emit` event: packet spawns at output anchor, Leaving glow 120 ms |
+| 5 | packet leaves on output wire | on `emit` event: packet appears at the output anchor, OUT port contact ring ≤ 120 ms (no glow) |
 
 ### Buffer
 | # | Frame | Godot |
@@ -86,8 +89,8 @@ port and shrinks in (Entering, 120 ms).
 | any → Hover | 140 ms | InstallPad Hover + StateLayer Hover alpha 0→1 |
 | Hover → idle | 140 ms | alpha 1→0 |
 | any → Selected | 150 ms | external brackets + solid frame + base highlight alpha 0→1 (persistent, layered over runtime states) |
-| Idle → Receiving | 160 ms pulse | contact overlay flash, port Active |
-| → Processing | ticks × tick | ActivityArea progress; StateLayer Processing underglow alpha 0.6 |
+| Idle → Receiving | ≤ 120 ms | 1 px port contact ring, LED Receiving |
+| → Processing | ticks × tick | ActivityArea progress (ring / lanes / valve / bays), LED Processing; **no underglow** |
 | → OutputReady | 150 ms | output contacts on, LED green |
 | → Blocked | 150 ms | amber tag + outline; stays until emit succeeds |
 | → Error | 150 ms, then static | red outline + badge (only on mission failure path) |
@@ -114,3 +117,28 @@ NORMAL shows capsules, CLOSE > 1.35× shows value text. Cross-fade LOD swaps ove
   `packet_*_{state}.svg`, not new nodes.
 - `WireView` draws the channel procedurally (trench `material.vent` 8 px, edge `board.pad-edge` 10 px,
   core 2 px) and a pulse segment (±24 px along the arc) centred on each packet on that wire.
+
+## 8. Systems Expansion motion (locked 2026-09-24; Penpot pages `15`–`19`)
+
+All motion uses cubic-out unless stated. The effect level is given in brackets.
+
+| Event | Motion | Level |
+|---|---|---|
+| USB module plugged in | The module slides from 44 px out to flush over 180 ms, and the plug disappears into the port face. The port-face opening fills and a 1.5 px contact seam flashes (120 ms). The LED goes Idle. | L1 |
+| USB module removed | It slides 48 px out while fading to α .5 over 160 ms, then is removed. The opening goes dark. | L1 |
+| Hover over a socket | A ghost module outline and the port hover outline fade in over 140 ms. | L3 |
+| Source reads a value | The data-store cursor steps one block per value; the Feed area shows `Feeding`. | L1 |
+| Contract accepts | The seam flashes green (150 ms) and one more store block fills. | L1 |
+| Contract rejects | The seam and underline flash amber for 150 ms, once. | L4 |
+| Contract complete | The store turns green, then a 1.5 px green frame pulses twice (2 × 200 ms) and stays. | L5 |
+| Encoder working | The token dims to α .5 in the slot (absorbing) while the Bits strip is Active; the bits leave on the bus. | L2 |
+| Blower running | The impeller rotates at 1 turn/s (Running) or 2 turns/s (HighLoad). Hairline airflow is static. At Idle it stops, with a 400 ms ease-out. | L2 |
+| Thermal strip | Stage changes cross-fade over 200 ms. THROTTLING pulses the strip between α .35 and 1 over 1.2 s. CRITICAL is steady red, with the frame and badge pulsing twice. | L4 / L5 |
+| Heat-pipe flow | The warmth gradient follows the heat of the hot end (smoothed over 500 ms). No moving particles. | L2 |
+| PSU near capacity / overload | The gauge cell colour cross-fades over 200 ms. Overload pulses the overflow chevrons twice, then holds. | L4 / L5 |
+| Hover card | Appears after 180 ms (α 0→1, +4 px rise, 120 ms) and follows the pointer every frame. It hides instantly on drag, wire or place. | L3 |
+| Quick action bar | Fades in over 150 ms with the selection brackets. The Delete hover turns red instantly. | L3 |
+| Connected move | Wire holograms re-plan every frame while dragging. On release they commit (100 ms solidify); if a route fails, the machine snaps back over 180 ms. | L3 |
+| Overlays | `T`/`P` toggle with a 150 ms cross-fade; machines fade to α .55 underneath. | — |
+| Status LED | Instant texture swap (no fade). | per state |
+

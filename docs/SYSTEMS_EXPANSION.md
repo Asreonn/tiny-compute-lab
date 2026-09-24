@@ -1,9 +1,10 @@
 # Tiny Compute Lab — Systems Expansion (design)
 
-> Status: **DRAFT (Checkpoint A → B)**. The rules and numbers below are the game-design contract that
-> the Penpot boards (pages 15–18) draw and the DS jobs implement. At the design freeze (Checkpoint C)
-> this document is folded into `ARCHITECTURE.md`, `STYLE_GUIDE.md`, `VISUAL_SYSTEM.md`,
-> `MOTION_SYSTEM.md`, `COMPONENT_ROADMAP.md` and `IMPLEMENTATION.md`.
+> Status: **LOCKED 2026-09-24 (Checkpoint C)**. These are the game rules and numbers that the DS jobs
+> implement (plan: `docs/IMPLEMENTATION.md`, "Systems Expansion").
+> - Visual language: `docs/STYLE_GUIDE.md §14`, `docs/VISUAL_SYSTEM.md §21`, `docs/MOTION_SYSTEM.md §8`.
+> - Penpot pages 15–19; geometry in `design/reference/systems_v1.js`.
+> - Numbers marked as calibration targets are tuned by tests, not by eye.
 > Art direction: Style Lock V1 (`STYLE_GUIDE.md`) — **extended, never redrawn**.
 
 ## 0. Checkpoint A — audit (2026-09-24, HEAD 96b66d0)
@@ -36,7 +37,7 @@
 | A8 | Information needs a click (Inspector). There are no hover card, quick actions, duplicate, copy settings, undo, multi-select or palette search. | 22–31 |
 | A9 | Wiring must start in Wire mode. Moving a wired machine is refused. The camera has no inertia, zoom-to-cursor or middle-drag. | 26–28 |
 | A10 | Save `version: 1` has no migration path. | 49 |
-| A11 | Penpot MCP is unauthenticated in this session. Penpot work is blocked until it is reconnected. | 37 |
+| A11 | *(resolved)* The Penpot MCP was reconnected and the design phase completed. | 37 |
 
 ## 1. The three layers
 
@@ -56,31 +57,33 @@
     "Raw text must be encoded first".
 - **ViewMode is untouched.** A Viewer only changes presentation. An Encoder or Decoder is a real
   boundary transformation: raw → bits, or bits → raw.
-- **Bit Stick** is the exception that keeps the opening simple: a device that emits *already
+- **The Bit module** is the exception that keeps the opening simple: a device that emits *already
   encoded* 3-bit words (the "someone handed you raw bits" fantasy). Every later device emits raw values.
 
-## 2. USB sockets and devices (fixed infrastructure)
+## 2. USB sockets and data modules (fixed infrastructure)
 
 **Socket** (`usb_socket`, locked, never in the palette):
 - M chassis, on the west board edge.
-- One output port, which is `raw`, or `bits(w)` when a Bit Stick is inserted.
+- One output port, which is `raw`, or `bits(w)` when a Bit module is plugged in.
 - A **device slot**.
 
 **Device inventory:**
-- Devices are owned items, not machines.
-- The HUD **Device tray** (opened by clicking a socket) lists the owned devices. Insert one with a
-  click; the socket shows the stick physically seated.
+- Devices are owned **data modules**: male USB-A plug, 96×56, each family with its own silhouette.
+  They are items, not machines.
+- The socket is the locked USB Input with a female USB-A port face.
+- The HUD **Device Tray** (opened by clicking a socket) lists the owned modules. Plug one in with a
+  click; the module sits flush in the port.
 - Insert and remove are edits: they are undoable and saved.
 - Removing a device leaves the socket's wire in place, with no data flowing.
 
 | Device | Emits | Stream (configured by the current contract) | Unlock |
 |---|---|---|---|
-| Bit Stick | bits(3) (bits(5) later) | fixed or seeded word list | start |
-| Number Stick | NUMBER raw | seeded ints in a range | L5 |
-| Text Stick | TEXT raw | a phrase, looped | L6 |
-| Key Stick | KEY raw (int) | constant, or changing every k values | L12 |
-| Sensor Stick | SENSOR raw (int) | seeded noisy readings | L9 |
-| File Stick | *(future)* | byte stream | post-MVP |
+| Bit module | bits(3) (bits(5) later) | fixed or seeded word list | start |
+| Number module | NUMBER raw | seeded ints in a range | L5 |
+| Text module | TEXT raw | a phrase, looped | L6 |
+| Key module | KEY raw (int) | constant, or changing every k values | L12 |
+| Sensor module | SENSOR raw (int) | seeded noisy readings | L9 |
+| File module | *(future)* | byte stream | post-MVP |
 
 **Socket rules:**
 - **The stream belongs to the contract.** The contract says what each device type carries. The
@@ -97,7 +100,9 @@
 ## 3. Contract Drive and contracts
 
 **Contract Drive** (`contract_drive`, replaces `usb_output`, locked, east board edge):
-- The current job is a USB drive seated in it.
+- It is the locked Output with a female port face on its east edge.
+- The current job is a slanted, flipped data module plugged into it. Its 10×3 store fills with
+  accepted values.
 - Its input port accepts `*`: the raw kinds or bits of any width. Validation decides what counts.
 - It shows a **write LED**, an accepted flash (green) and a rejected flash (amber).
 - Rejection is never fatal.
@@ -222,43 +227,22 @@ Nothing is ever destroyed.
 | Character Decoder | bits(w) → raw TEXT | width | |
 | Viewers (Bin/Dec/Hex/Char) | bits(w) → bits(w) | — | pass-through, 0 power, 1 tick; the readout shows the last value in its mode |
 
-## 8. Visual language additions (drawn in Penpot, pages 15–18)
+## 8. Visual language (locked; see `docs/STYLE_GUIDE.md §14`)
 
-**ResourceIndicators** replace the stats silk text (A3).
-- They sit in the chassis's bottom-right silk zone and are drawn in silk ink.
-- **Power pips** ▮▮▯▯ show rated power 0–4+.
-- **Clock segments** ◔◔◔▯ show the job cost in ticks, as quarters of 4, then as a filled row.
-- Exact numbers appear only in the hover card and the Inspector.
+The final look is drawn on Penpot pages 15–19 and specified in `STYLE_GUIDE §14` (summary),
+`VISUAL_SYSTEM §21` (Godot mapping) and `MOTION_SYSTEM §8` (motion), with exact geometry in
+`design/reference/systems_v1.js`. Key decisions:
 
-**Thermal strip:**
-- A 2 px bar along the chassis's top edge (N). It is invisible when NORMAL and faint when WARM.
-- HOT is amber. THROTTLING is amber plus a slow pulse. CRITICAL is red and blinks.
-- The body is never tinted.
-
-**Function-specific processing** replaces body glow (A6):
-
-| Family | Processing visual |
-|---|---|
-| Add/Modulo | keep the ring |
-| Splitter/Demux | the in-lane plus the chosen out-lane light up |
-| Merger | the converging lanes light up |
-| Gate | the blade opens or closes |
-| Buffer | the bays fill |
-| Register | a latch pulse |
-| Encoder | the raw token is absorbed and bit cells scan in |
-| Decoder | the bit cells scan, then the token appears |
-| USB socket | the port LED only |
-| Contract Drive | the write LED plus an accept/reject flash |
-
-Idle is quiet. Selection is a restrained outline. Amber means warning; red means real errors only.
-
-**Raw links** use the same PCB trace, with a *token* packet: a rounded capsule carrying the glyph
-(`H`, `42`, `K5`) instead of bit chips. They are visually distinct but in the same family.
-
-**Overlays** are HUD toggles, at most one at a time, and the normal board stays clean:
-- **Thermal:** a heat-map on the board tiles, using the palette's cool → amber → red ramp, plus
-  cooling radii.
-- **Power:** a PSU gauge, a demand badge on each machine, and overload highlights.
+- **Resource indicators:** clock dots and power pips replace the stats silk text.
+- **Status LED V2:** a lamp in a well with no glow disc. Throttling = amber + ring, Overheated = red +
+  ring, Error = red diamond.
+- **Thermal strip:** a 2 px bar inside the top edge; the body is never tinted.
+- **VFX ladder L0–L5:** function-specific processing, and no glow blobs, halos or body glow.
+- **Raw data:** IO green, with a RawPort receptacle and a pill RawToken.
+- **USB (option C):** a port face on the locked IO, with male data modules.
+- **Thermal family:** copper board-level hardware on a PCB footprint (no chassis or ports). Heat pipes
+  never look like, share tiles with or cross data wires.
+- **Overlays:** thermal tile heat map and power; at most one at a time.
 
 ## 9. Interaction overhaul (Group F QoL)
 
@@ -339,18 +323,18 @@ Each level adds exactly one architectural demand, and every level reuses the fac
 
 | L | Title | Contract | New demand | Unlocks / rewards |
 |---|---|---|---|---|
-| 1 | First Contact | deliver 10 × `010` (Bit Stick 3-bit) | wires | — |
+| 1 | First Contact | deliver 10 × `010` (Bit module, 3-bit) | wires | — |
 | 2 | Plus Two | deliver 20 × `100` | a constant transform | Add |
 | 3 | Over the Top | deliver 20 × `001` | overflow | — |
 | 4 | Moving Target | map: in + 3 (3-bit), varying stick | real transform, no constants | — |
-| 5 | Numbers | map: enc3(n) + 1, Number Stick | encoding and width choice | Number Stick, Number Encoder/Decoder |
-| 6 | Letters | map text: Caesar +3 (no wrap), Text Stick → TEXT | encode → compute → decode | Text Stick, Char Encoder/Decoder, Char Viewer |
+| 5 | Numbers | map: enc3(n) + 1, Number module | encoding and width choice | Number module, Number Encoder/Decoder |
+| 6 | Letters | map text: Caesar +3 (no wrap), Text module → TEXT | encode → compute → decode | Text module, Char Encoder/Decoder, Char Viewer |
 | 7 | Past Z | map text: Caesar +3 with wrap | modulo arithmetic | Modulo |
 | 8 | Payload | map: low 3 bits of tagged 5-bit words | bit fields | Bit Splitter |
-| 9 | Sorting | filter: sensor > 4 | predicate + gating | Sensor Stick, Compare, Gate |
+| 9 | Sorting | filter: sensor > 4 | predicate + gating | Sensor module, Compare, Gate |
 | 10 | Burst | map, bursty stick, `max_lost` 0 | buffering | Buffer, Delay |
 | 11 | Rush Hour | map ×3 via Multiply, `min_rate` 4/s | parallelism | Multiply, Splitter, Merger |
-| 12 | **Two Sticks** | paired: text + constant key, Caesar | second stream | **Socket 2**, Key Stick, 2-input Add |
+| 12 | **Two Sticks** | paired: text + constant key, Caesar | second stream | **Socket 2**, Key module, 2-input Add |
 | 13 | Changing Key | paired, key changes every 8 | synchronisation | Counter |
 | 14 | Mixed Traffic | map by tag: two transforms, merged | routing | Demux, Mux, Conditional Router |
 | 15 | Wider | map: 3-bit n → 5-bit n×5 | width conversion | Zero/Sign Extend, Truncate |
@@ -398,7 +382,7 @@ Cooling machines and clock modes live in the layout.
 
 The migration `1 → 2` does the following:
 - Maps the lab level index.
-- Converts the placed `usb_input` machines at source cells into socket 1, with a Bit Stick
+- Converts the placed `usb_input` machines at source cells into socket 1, with a Bit module
   inserted. Extra L4–L6 inputs become sockets only if the new level has unlocked them; otherwise
   their wires are dropped with a notice.
 - Converts `usb_output` to the Contract Drive.

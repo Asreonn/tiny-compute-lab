@@ -514,12 +514,22 @@
   "pad": 4,
   "w": 12
  },
+ "machine/led_overheated.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
  "machine/led_processing.svg": {
   "h": 12,
   "pad": 4,
   "w": 12
  },
  "machine/led_receiving.svg": {
+  "h": 12,
+  "pad": 4,
+  "w": 12
+ },
+ "machine/led_throttling.svg": {
   "h": 12,
   "pad": 4,
   "w": 12

@@ -19,6 +19,20 @@
    (BYTE) is a later progression milestone.**
 6. **Boolean/control is not a separate type.** It is a width-1 BitVector used as a control signal
    (Compare output, Gate enable).
+7. **Raw values exist only at the peripheral boundary** (systems expansion, locked 2026-09-24).
+   - A `RawValue` (`TEXT | NUMBER | KEY | SENSOR`) may travel only on raw links, between USB sockets,
+     Encoder inputs, Decoder outputs and the Contract Drive.
+   - No compute machine ever receives or produces one. Rule 1 therefore holds for the whole compute
+     fabric.
+   - Encoders and Decoders are the only raw ↔ BitVector conversions. Viewers stay pure presentation
+     (rule 2).
+8. **Everything stays deterministic and integer.**
+   - Machine work: 12 units per tick at the normal clock.
+   - Brownout scaling uses floor division.
+   - The thermal grid is a `PackedInt32Array` updated in ascending cell order with double buffering.
+   - Source streams are seeded by the contract.
+   - Packet `origin` lineage is plain data copied or unioned by the machines.
+   - Rules and numbers: `docs/SYSTEMS_EXPANSION.md`.
 
 ## 1. What this looks like in play
 

@@ -130,10 +130,10 @@ Packets are lightweight *data chips*, never larger than a port. Values are never
 
 | State | Meaning | Treatment |
 |---|---|---|
-| Normal | travelling on a wire | faint datatype halo (14 %), 1.8 px outline, core bar (NUMBER) / lit core (BOOLEAN) |
-| Entering | docking into an IN socket | 60 % opacity, no halo; Godot shrinks it into the port over 120 ms |
-| Processing | held inside a machine | muted outline, no halo |
-| Leaving | just emitted from an OUT socket | bright halo (32 %) |
+| Normal | travelling on a wire | **no halo** (VFX ladder L1): 1.5 px outline, core bar (NUMBER) / lit core (BOOLEAN) |
+| Entering | docking into an IN socket | 60 % opacity; shrinks into the port over 120 ms while the port shows its 1 px contact ring |
+| Processing | held inside a machine | **not drawn**: the function region shows the work (values vanish at the input, reappear at the output) |
+| Leaving | just emitted from an OUT socket | no halo; the OUT port shows the 1 px contact ring (≤ 120 ms) |
 | Queued | waiting at a blocked output | amber outline + dashed amber queue ring |
 | Error | on the failure path | red |
 
@@ -149,14 +149,14 @@ orthogonal on tile centres with **45° chamfers** (14 px; clamped to half the se
 Anatomy, bottom → top: `select-halo` (14 px, selected only) · **teardrop** (PCB landing that widens the
 trace into the port's contact pad; start 6 px, end 20 px from the anchor; half-width 8 → 5) ·
 `trench-edge` 10 px `board.pad-edge` · `trench` 8 px `material.vent` · `core` 2.5 px ·
-`comet` (glow 10 px @20 %, tail 3 px @35 %, head 3.5 px) · `flow-chevrons` (selected only).
+`active segment` (2.5 px core at α .9, ~30 px behind each packet; the old 10 px comet glow is retired by the VFX ladder) · `flow-chevrons` (selected only).
 
 | State | Edge | Core | Extra |
 |---|---|---|---|
 | Idle | pad-edge | datatype-dim 2.5 | quiet; direction from port chevrons + teardrops |
 | Hover | `state.hover` 75 % | datatype 80 % | |
 | Selected | pad-edge + ice halo | datatype 3 | ice flow chevrons every 48 px |
-| ActiveTransfer | pad-edge | datatype 50 % | **comet** at each packet: bright head at the packet, fading tail, follows the path |
+| ActiveTransfer | pad-edge | datatype 50 % | brighter core segment behind each packet (no glow), follows the path |
 | Blocked | amber 70 % | amber 3 | queued packet at the OUT port |
 | Error | red 80 % | red 3 | |
 | ConnectionPreview | — (no trench) | dashed `state.build` | drag-head dot |
@@ -186,11 +186,11 @@ value right-aligned. Examples: `0000 1011` · `11` · `−5` · `0x0B` · `'K'` 
 
 | State | Where it shows | Treatment |
 |---|---|---|
-| Idle | — | nothing moves; LED dim |
+| Idle | — | nothing moves; LED Idle (dim lamp, no glow) |
 | Hover | InstallPad Hover + StateLayer Hover | 2 px `state.hover` outline + 12 % pad tint; temporary |
 | Selected | InstallPad Selected + StateLayer Selected | **outside** the footprint: 14×3 px ice corner brackets (5 px out), solid 1.5 px frame, 10 % base highlight; persistent and layered over any runtime state |
 | Receiving | input side contacts + input port Active + LED | cyan contacts flash |
-| Processing | **ActivityArea** (die/dial/coil/…) + LED; StateLayer only a faint underglow | internal activity |
+| Processing | **ActivityArea** (die/dial/coil/…) + progress ring + LED Processing | internal activity only; **no StateLayer underglow, no body glow** |
 | OutputReady | output side contacts + output port Active + LED green | |
 | Blocked | amber 18 px pause badge **outside** the top-right corner + solid amber outline + output port Blocked + LED amber | "I have data but cannot send it" — never a red wash |
 | Error | red outline + ! badge (same external corner slot as Blocked) + LED red | only for real errors (mission failure path) |
@@ -285,7 +285,7 @@ halos/shadows); place a sprite at `origin - pad`. SVGs contain **no dynamic text
 | FamilyTab | `machine/tab_{family}.svg` | `Body/FamilyTab` |
 | ActivityArea | `machine/area_{kind}_{state}.svg` | `Body/Activity` (texture swap per state; Die/Dial progress tweened) |
 | MiniDisplay | `machine/display_w{28,36,44}.svg` + Label | `Content/Display` + `Content/Value` |
-| StatusLED | `machine/led_{state}.svg` | `Content/LED` |
+| StatusLED | `machine/led_{state}.svg` (V2: off, idle, receiving, processing, outputready, blocked, throttling, overheated, error) | `Content/LED` |
 | StateLayer | `machine/state_{state}_{size}.svg` | `Body/StateLayer/<state>` alpha-tweened |
 | Port | `port/port_{dir}_{type}_{state}.svg` | `PortView` (texture swap + pulse) |
 | Packet | `packet/packet_{type}_{close,normal,far}_{state}.svg` + Label (close) | `PacketView` (LOD by camera zoom) |
@@ -345,3 +345,57 @@ Known gaps: Penpot's plugin API cannot rename the file ("New File 1"); rename it
 BOOLEAN FALSE packet is described (hollow diamond) but not a separate variant — Godot draws it by
 swapping the core fill. Mission-select and result *screens* are composed from V2 components but no
 full-screen V2 mock was produced (by request, the focus was the shared system).
+
+## 21. Systems Expansion (locked 2026-09-24)
+
+Penpot pages:
+- `15 Systems · Infrastructure`
+- `16 Systems · Machines`
+- `17 Systems · VFX Language`
+- `18 Systems · Interaction`
+- `19 Systems · Gameplay Mockups`
+
+Geometry reference: `design/reference/systems_v1.js`, which is the Penpot drawer source. It stays
+recoverable from the file's shared plugin data `tcl/lib…lib7`. The summary is `docs/STYLE_GUIDE.md §14`.
+Game rules: `docs/SYSTEMS_EXPANSION.md`.
+
+### 21.1 Godot mapping
+
+| Element | Asset / renderer | Notes |
+|---|---|---|
+| Status LED V2 | `machine/led_{state}.svg` (9 states, regenerated from the V2 geometry) | `throttling`, `overheated` new; no glow disc |
+| Port contact (L1) | procedural ring on `PortView` (1 px, 20 px Ø, ≤ 120 ms: Contact α .8 → Active α .55 → off) | replaces the port halo |
+| Resource indicators | procedural (`RI` / `RIs`) on `MachineView` | replaces the stats silk text |
+| RawPort / RawToken / raw link | procedural (`rawPort`, `rawToken`, wire renderer with `family.io` core) | raw ports connect only to raw ports |
+| USB port face, data modules | procedural (`portFace`, `dataModule`, `modPath`, `malePlug`) layered on the locked USB Input / Output sprites | glyph and data store are runtime (cursor / fill) |
+| Contract drive states | the locked Output sprite + `portFace(flip)` + flipped job module | accepted / rejected seams are 1.5 px lines |
+| Encoder / Decoder | existing shell/tab/Bits/LED/WidthTag/BusPort sprites + procedural token slot + RawPort | Conversion tab |
+| PSU + gauge | shell/tab sprites + procedural `gauge` | gold → amber → red |
+| Thermal family | procedural (`footprint`, `heatsink`, `blower`, `heatPipe`, `radiator`) | blower impeller rotates while running (§ MOTION) |
+| Thermal strip | procedural 2 px bar on `MachineView` | never tints the body |
+| Thermal / power overlay | procedural board layer (one per frame, visible tiles only) | at most one overlay at a time |
+| Hover card, quick bar, device tray | HUD `Control`s built from `HudKit` panel primitives | panel = `surface.panel`, border-strong, r8, tooltip shadow |
+
+### 21.2 Overlay colours
+
+**Thermal tiles:** `rect(x*64+2, y*64+2, 60, 60, r4)`.
+
+| Stage | Colour | α |
+|---|---|---|
+| WARM | `state.blocked` | .12 |
+| HOT | `state.blocked` | .26 |
+| THROTTLING | `state.blocked` | .42 |
+| CRITICAL | `state.error` | .38 |
+
+- Machines are drawn at α .55 above the tiles.
+- **Cooling coverage:** a Chebyshev square with a 1 px dashed `material.copper` outline (α .7) and a
+  9 px label.
+- **Heat-pipe flow:** 6×10 `material.gold` chevrons.
+- **Legend:** a 264×64 panel at the top right.
+
+**Power overlay:**
+- The PSU gauge sits in the legend.
+- Each machine shows a demand chip (its power pips on `surface.sunken`).
+- Overload: the gauge turns red with overflow chevrons. The brownout is global, so no machine is
+  marked individually.
+
