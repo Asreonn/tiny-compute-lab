@@ -30,6 +30,10 @@ static func layout(type: String) -> Dictionary:
 		return m[type]
 	if type == "usb_input":
 		return l.get("roadmap", {}).get("USBInput", {})
+	if type == "bit_splitter":
+		# The Bit Splitter wears the roadmap BusSplitter kit (its width tags show the
+		# current per-port widths at runtime, see MachineView._build_width_tags).
+		return l.get("roadmap", {}).get("BusSplitter", {})
 	if type == "usb_output":
 		# Reuses the Output composition (EdgeOut-M) with USB silk and no Bin area yet
 		# (docs/IMPLEMENTATION.md "Lab mode"); LabRun validates the width + bits itself.

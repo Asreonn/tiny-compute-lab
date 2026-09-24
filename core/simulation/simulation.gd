@@ -560,7 +560,9 @@ func step() -> void:
 				m.sent_ports.append(port)
 				events.append({"kind": "emit", "packet": p.id, "machine": id, "port": port})
 				activity = true
-			else:
+			elif c != null:
+				# BLOCKED means congestion: a wire exists but its entry is full. An output with
+				# no wire is simply waiting (OUTPUT_READY), not blocked.
 				blocked_now[id] = true
 	# 6. start
 	for id in mids:

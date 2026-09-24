@@ -46,6 +46,14 @@ var _port_bus := {}  # port id -> bool
 var _port_dir := {}  # port id -> "in"/"out"/"ctrl"
 var _port_w := {}  # port id -> int
 var _tag_values: Array = []  # width shown by each width tag (upright text)
+var _tag_ports: Array = []  # tag i -> port id whose CURRENT width it shows ("" = layout/instance width)
+var _tag_fallback: Array = []  # tag i -> layout width used when there is no port mapping
+## Expansion reveal: newly added locked USB Input machines pulse their hover overlay for
+## REVEAL_DURATION after a lab level-up (2 fade-in/out pulses). Set by World, read only.
+var reveal_active := false
+var reveal_start := -1.0
+const REVEAL_DURATION := 2.5
+const REVEAL_PULSES := 2.0
 var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
 var _progress: ProcessProgress
@@ -145,19 +153,29 @@ func _build() -> void:
 
 func _build_width_tags(ly: Dictionary) -> void:
 	_tag_values.clear()
+	_tag_ports.clear()
+	_tag_fallback.clear()
 	var tags: Array = ly.get("width_tags", [])
 	if tags == null:
 		tags = []
 	if machine.type == "output":
 		# The Output wears one tag of its width, one S-gap right of its family tab (16..40).
 		tags = [{"width": str(machine.width), "pos": [48.0, 4.0]}]
+	var cports: Array = machine.ports()
 	var i := 0
 	for tag in tags:
 		if not (tag is Dictionary):
 			continue
 		var w: int = int(tag["width"])
+		var port_id := ""
 		if machine.type == "usb_input":
 			w = machine.width  # the roadmap tag is a placeholder for the instance width
+		elif machine.type == "bit_splitter" and i < cports.size():
+			# The BusSplitter kit's tags sit at ports in / hi / lo; tag i shows the CURRENT
+			# width of port i (machine.port_width), refreshed on param changes — not the
+			# layout's placeholder numbers.
+			port_id = str(cports[i]["id"])
+			w = machine.port_width(port_id)
 		var pos := _v(tag.get("pos", [0, 0]))
 		var chip_w := 14.0
 		var rel := Art.widthtag_file(w)
@@ -177,12 +195,25 @@ func _build_width_tags(ly: Dictionary) -> void:
 			c.name = "WidthTag%d" % i
 			body.add_child(c)
 		_tag_values.append(w)
+		_tag_ports.append(port_id)
+		_tag_fallback.append(int(tag["width"]))
 		_text_specs.append({
 			"key": "tag%d" % i, "pos": Vector2(pos.x + 0.0, pos.y + 1.0),
 			"width": chip_w, "size": 7.5, "align": HORIZONTAL_ALIGNMENT_CENTER,
 			"color": Palette.DATA_NUMBER, "text": "",
 		})
 		i += 1
+
+
+## Current value of width tag i: the live port width when mapped, the instance width for
+## USB I/O, otherwise the layout's placeholder.
+func _tag_width(i: int) -> int:
+	var pid: String = _tag_ports[i]
+	if pid != "":
+		return machine.port_width(pid)
+	if machine.type in ["usb_input", "output"]:
+		return machine.width
+	return _tag_fallback[i]
 
 
 func _build_ports(ly: Dictionary) -> void:
@@ -390,6 +421,16 @@ func refresh(delta: float) -> void:
 	for k in want:
 		var o: Sprite2D = _overlays[k]
 		o.modulate.a = move_toward(o.modulate.a, want[k], delta / OVERLAY_TWEEN)
+	# Expansion reveal: newly added locked USB Inputs pulse their hover overlay for 2.5 s
+	# (2 fade-in/out pulses). Overrides the tween while active.
+	if reveal_active:
+		var elapsed := (Time.get_ticks_msec() / 1000.0) - reveal_start
+		if elapsed < REVEAL_DURATION:
+			var ph := elapsed / REVEAL_DURATION * REVEAL_PULSES
+			_overlays["hover"].modulate.a = absf(sin(PI * ph))
+		else:
+			reveal_active = false
+			_overlays["hover"].modulate.a = 0.0
 	# Ports: connected / active / idle from SimulationManager.sim
 	for pid in _port_nodes:
 		var st := _port_state(pid, running)
@@ -414,6 +455,7 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 	vals["silk"] = _silk_text(sim)
 	vals["bin"] = _bin_value(sim)
 	for i in _tag_values.size():
+		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
 		if t["key"] == "dial" or t["key"] == "stats":
@@ -526,6 +568,18 @@ func _area_state(running: bool) -> String:
 					if run.progress[m.channel] >= run.def.outputs[m.channel]["expected"].size():
 						return "ok"
 			return "Idle"
+		"Split":
+			# SplitWedge (bit_splitter / demux): Idle; LaneA while a job routed to the first
+			# output (hi / a) is running or just emitted; LaneB for the second (lo / b);
+			# bit_splitter sends to BOTH outputs, so it uses Dup. The classic splitter stays Dup.
+			var split_on := running and st in [Machine.State.PROCESSING, Machine.State.RECEIVING, Machine.State.OUTPUT_READY]
+			if not split_on:
+				return _area_idle
+			if m.type == "demux":
+				if m.job.has("b") or (m.outq.has("b") and m.outq["b"] != null):
+					return "laneb"
+				return "lanea"
+			return "dup"
 		_:
 			if not busy:
 				return _area_idle
@@ -533,7 +587,6 @@ func _area_state(running: bool) -> String:
 				"Die": return "processing"
 				"Counter": return "tick"
 				"Valve": return "open"
-				"Split": return "dup"
 				"Merge": return "lanea"
 				_:
 					return "active"

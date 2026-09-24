@@ -9,6 +9,9 @@ extends Node2D
 const T := Palette.TILE  # 64
 const DECAL_ALPHA := 0.35  # BoardDecal opacity cap (VISUAL_SYSTEM §16: stays below player wires)
 const VOID_MARGIN := 4000.0  # BG_VOID backdrop drawn around the board rect
+const REVEAL_DURATION := 2.5  # s, lab-expansion build reveal (fade out)
+const REVEAL_TINT := 0.10  # STATE_BUILD tint on newly added tiles
+const REVEAL_BORDER := 0.40  # STATE_BUILD border alpha on the new-area edge
 const DECAL_FILES := [
 	"board/decal_zone.svg",
 	"board/decal_tracebundle.svg",
@@ -17,6 +20,11 @@ const DECAL_FILES := [
 	"board/decal_mounthole.svg",
 	"board/decal_silkmark.svg",
 ]
+
+## Lab-expansion reveal state (views only READ the sim; the animation clock is local).
+var _prev_size := Vector2i.ZERO
+var _reveal_old := Vector2i.ZERO
+var _reveal_start := -1.0
 
 ## Draws from SimulationManager.sim; deterministic per mission, decals never sit under a
 ## machine that is on the board at layout time.
@@ -38,7 +46,49 @@ func _draw() -> void:
 		draw_line(Vector2(0.0, y), Vector2(board.size.x, y), c, 1.0)
 	# 2 px zone edge border
 	draw_rect(board, Palette.BOARD_ZONE_EDGE, false, 2.0)
+	_draw_reveal(sim, size, board)
 	_draw_decals(sim, size, board)
+
+
+## Lab-expansion reveal: when the board grows (level-up), newly added tiles get a STATE_BUILD
+## tint + a 1 px border along the new area's edge, both fading out over REVEAL_DURATION.
+## The clock is local to this view; it only reads the simulation's size.
+func _draw_reveal(_sim, size: Vector2i, _board: Rect2) -> void:
+	if _reveal_start < 0.0:
+		return
+	var elapsed := (Time.get_ticks_msec() / 1000.0) - _reveal_start
+	if elapsed >= REVEAL_DURATION:
+		_reveal_start = -1.0
+		return
+	var a := 1.0 - elapsed / REVEAL_DURATION
+	var old := Vector2(_reveal_old) * T
+	# New tiles form the right strip and the bottom strip beyond the old board.
+	if size.x > _reveal_old.x:
+		var x := float(_reveal_old.x) * T
+		draw_rect(Rect2(Vector2(x, 0.0), Vector2(size.x * T - x, size.y * T)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
+	if size.y > _reveal_old.y:
+		var y := float(_reveal_old.y) * T
+		draw_rect(Rect2(Vector2(0.0, y), Vector2(old.x, size.y * T - y)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
+	# 1 px STATE_BUILD border along the new area's inner edge (the L-shape between old/new).
+	var border := Color(Palette.STATE_BUILD, REVEAL_BORDER * a)
+	if size.x > _reveal_old.x:
+		draw_line(Vector2(old.x, 0.0), Vector2(old.x, size.y * T), border, 1.0)
+	if size.y > _reveal_old.y:
+		draw_line(Vector2(0.0, old.y), Vector2(old.x, old.y), border, 1.0)
+
+
+func _process(_delta: float) -> void:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return
+	# Detect a board-size growth (lab level-up) and start the reveal for the new region.
+	if sim.size != _prev_size:
+		if sim.size.x > _prev_size.x or sim.size.y > _prev_size.y:
+			_reveal_old = _prev_size
+			_reveal_start = Time.get_ticks_msec() / 1000.0
+		_prev_size = sim.size
+	if _reveal_start >= 0.0:
+		queue_redraw()  # drive the fade
 
 
 ## Mission-id-seeded scatter of 3-5 sparse decals on empty tiles.

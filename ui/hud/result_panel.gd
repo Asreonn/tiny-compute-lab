@@ -28,6 +28,8 @@ func hide_panel() -> void:
 
 
 func _show(status: int) -> void:
+	if get_node("/root/SimulationManager").in_lab:
+		return
 	hide_panel()
 	var sm := get_node("/root/SimulationManager")
 	visible = true
@@ -64,6 +66,12 @@ func _button(x: float, text: String, primary: bool, action: Callable) -> void:
 	HudKit.hit(_panel, p, Vector2(104, 32), action)
 
 
+func _open_menu() -> void:
+	var m := get_tree().get_first_node_in_group("main_menu")
+	if m:
+		m.open()
+
+
 func _pass(sm: Node) -> void:
 	var sim: Simulation = sm.sim
 	HudKit.label(_panel, "PASS", Vector2(24, 20), 20, HudKit.W_XBOLD, Palette.STATE_VALID)
@@ -89,6 +97,7 @@ func _pass(sm: Node) -> void:
 		_button(140, "RETRY", false, func(): sm.reset_run())
 	else:
 		_button(24, "RETRY", true, func(): sm.reset_run())
+	_button(256, "MENU", false, _open_menu)
 
 
 func _fail(sm: Node) -> void:
@@ -110,3 +119,4 @@ func _fail(sm: Node) -> void:
 		HudKit.label(_panel, "Path  " + " → ".join(path), Vector2(24, 150), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY, 330)
 		HudKit.label(_panel, "Highlighted on the board.", Vector2(24, 172), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED)
 	_button(24, "FIX & RETRY", true, func(): sm.reset_run())
+	_button(256, "MENU", false, _open_menu)

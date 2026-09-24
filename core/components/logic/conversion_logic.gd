@@ -12,5 +12,12 @@ func start(m, sim) -> void:
 	var p: Packet = m.pop("in")
 	var x: BitVector = p.data
 	var w := x.width
-	var lo := clampi(int(m.params.get("lo", 3)), 1, w - 1)
-	m.begin_job({"hi": p.derive(sim.new_packet_id(), x.slice(lo, w - lo)), "lo": p.derive(sim.new_packet_id(), x.slice(0, lo))}, p)
+	var lo := clampi(int(m.params.get("lo", 3)), 1, maxi(w - 1, 1))
+	# Only wired outputs produce a part: unused bits are dropped instead of jamming the
+	# splitter (keeping just the payload must not need a dummy wire for the tag).
+	var results := {}
+	if sim.output_connected(m, "hi"):
+		results["hi"] = p.derive(sim.new_packet_id(), x.slice(lo, w - lo))
+	if sim.output_connected(m, "lo"):
+		results["lo"] = p.derive(sim.new_packet_id(), x.slice(0, lo))
+	m.begin_job(results, p)

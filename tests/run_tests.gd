@@ -358,7 +358,12 @@ func test_splitter_and_demux() -> void:
 	# bit splitter port widths: hi = W - lo = 2, lo = lo = 3 for W=5, lo=3
 	var bs := sim.place("bit_splitter", Vector2i(2, 2), 0, {"lo": 3}, 5)
 	check(bs.port_width("in") == 5 and bs.port_width("hi") == 2 and bs.port_width("lo") == 3, "splitter port widths resolve to 5/2/3, got %d/%d/%d" % [bs.port_width("in"), bs.port_width("hi"), bs.port_width("lo")])
-	# 10101 through the splitter -> hi 10 (2-bit), lo 101 (3-bit); call the logic directly
+	# 10101 through the splitter -> hi 10 (2-bit), lo 101 (3-bit); call the logic directly.
+	# Only wired outputs produce a part, so wire both to any-width sinks first.
+	var sink_hi := sim.place("usb_output", Vector2i(8, 1), 0, {}, 5)
+	var sink_lo := sim.place("usb_output", Vector2i(8, 5), 0, {}, 5)
+	sim.connect_ports(bs.id, "hi", sink_hi.id, "in")
+	sim.connect_ports(bs.id, "lo", sink_lo.id, "in")
 	var p := Packet.new(sim.new_packet_id(), BitVector.from_bin("10101"), sim.tick)
 	bs.inq["in"].append(p)
 	ComponentLogic.for_type("bit_splitter").start(bs, sim)
@@ -367,6 +372,22 @@ func test_splitter_and_demux() -> void:
 	var hi: BitVector = bs.outq["hi"].data
 	var lo: BitVector = bs.outq["lo"].data
 	check(hi.equals(BitVector.of(2, 2)) and lo.equals(BitVector.of(5, 3)), "10101 -> hi 10 (2-bit) and lo 101 (3-bit), got %s / %s" % [hi, lo])
+	# only the payload wired: the splitter keeps processing (the unused tag is dropped)
+	var sim3 := Simulation.new()
+	sim3.size = Vector2i(16, 10)
+	sim3.default_width = 5
+	sim3.campaign_timing = true
+	var src3 := sim3.place("usb_input", Vector2i(0, 2), 0, {}, 5)
+	src3.stream = [BitVector.from_bin("10101")]
+	src3.loop = true
+	src3.interval = 2
+	var bs3 := sim3.place("bit_splitter", Vector2i(4, 2), 0, {"lo": 3}, 5)
+	var out3 := sim3.place("usb_output", Vector2i(10, 3), 0, {}, 3)
+	sim3.connect_ports(src3.id, "out", bs3.id, "in")
+	sim3.connect_ports(bs3.id, "lo", out3.id, "in")
+	for i in 120:
+		sim3.step()
+	check(out3.received.size() >= 5 and out3.received[0].data.equals(BitVector.from_bin("101")), "splitter with only LO wired keeps delivering 101 (got %d)" % out3.received.size())
 	# set_param(lo) refused while a width-dependent port is wired; applied when unwired
 	var sim2 := Simulation.new()
 	sim2.size = Vector2i(16, 10)

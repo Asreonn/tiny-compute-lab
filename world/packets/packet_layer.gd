@@ -366,6 +366,8 @@ func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: C
 ## the packet instead (MACHINE_SCREEN fill, 1 px MATERIAL_FRAME stroke, radius 3).
 func _draw_label(p: Packet, pos: Vector2, size: Vector2) -> void:
 	var text := ViewMode.format(p.data, _view_mode())
+	if p.data.width <= 5:
+		text = text.replace(" ", "")  # compact on the chip (10101 fits; the panels keep 1 0101)
 	var color := Palette.DATA_NUMBER if p.data.width > 1 else Palette.DATA_BOOLEAN
 	var f := TclTheme.font("ExtraBold")
 	var ascent := f.get_ascent(LABEL_SIZE)

@@ -3,9 +3,15 @@ extends Control
 ## except over its panels. Builds the panels and binds them to the World's ToolController.
 
 var tools: Node
+var _menu: Control
 var _toast: Panel
 var _toast_label: Label
 var _toast_t := 0.0
+var _banner: Panel
+var _banner_label: Label
+var _banner_sub: Label
+var _banner_t := 0.0
+var _lab_last_tick := -1
 
 
 func _ready() -> void:
@@ -20,14 +26,16 @@ func _ready() -> void:
 	_panel("res://ui/hud/mission_summary.gd")
 	var tooltip := _panel("res://ui/hud/tooltip.gd")
 	_panel("res://ui/hud/result_panel.gd")
+	_menu = _panel("res://ui/hud/main_menu.gd")
 	rail.tools = tools
 	palette.tools = tools
 	if tools:
 		inspector.bind_tools(tools)
 		tooltip.bind_tools(tools)
 		tools.notice.connect(_notice)
-	top.menu_pressed.connect(func(): _notice("Menu: coming with the mission select screen", "info"))
+	top.menu_pressed.connect(open_menu)
 	_build_toast()
+	_build_banner()
 
 
 func _panel(path: String) -> Control:
@@ -50,6 +58,46 @@ func _build_toast() -> void:
 	_toast.visible = false
 
 
+## Level-complete banner: centred, non-modal, auto-hides after 3 s (STATE_VALID stroke).
+func _build_banner() -> void:
+	var holder := Control.new()
+	holder.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(holder)
+	move_child(holder, _menu.get_index())  # notifications stay BELOW modals (menu, result)
+	_banner = HudKit.box(holder, Vector2(-210, -112), Vector2(420, 64), Palette.SURFACE_RAISED, Palette.STATE_VALID, 1.5, 8)
+	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner_label = HudKit.label(_banner, "", Vector2(0, 12), 14, HudKit.W_XBOLD, Palette.STATE_VALID, 420, HORIZONTAL_ALIGNMENT_CENTER)
+	_banner_sub = HudKit.label(_banner, "", Vector2(0, 38), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY, 420, HORIZONTAL_ALIGNMENT_CENTER)
+	_banner.visible = false
+
+
+func _show_level_banner() -> void:
+	var sm := get_node("/root/SimulationManager")
+	if sm.lab_run == null:
+		return
+	var lvl: int = sm.lab_run.level
+	var lv: Dictionary = LabDef.level(lvl)
+	HudKit.set_text(_banner_label, "LEVEL %d COMPLETE" % lvl, Palette.STATE_VALID)
+	var unlocked := ""
+	var names := PackedStringArray()
+	for t in lv.get("unlocks", []):
+		names.append(str(Catalog.def(t)["name"]))
+	if not names.is_empty():
+		unlocked = " · unlocked: " + ", ".join(names)
+	HudKit.set_text(_banner_sub, "Next: %s%s" % [sm.lab_run.title(), unlocked], Palette.TEXT_SECONDARY)
+	_banner.visible = true
+	_banner_t = 3.0
+
+
+func open_menu() -> void:
+	if _banner != null:
+		_banner.visible = false  # a notification never covers the menu
+		_banner_t = 0.0
+	if _menu:
+		_menu.open()
+
+
 func _notice(text: String, kind: String) -> void:
 	var err := kind == "error"
 	HudKit.restyle(_toast, Palette.SURFACE_RAISED, Palette.STATE_ERROR if err else Palette.SURFACE_BORDER, 1, 6)
@@ -63,3 +111,16 @@ func _process(delta: float) -> void:
 		_toast_t -= delta
 		if _toast_t <= 0.0:
 			_toast.visible = false
+	if _banner_t > 0.0:
+		_banner_t -= delta
+		if _banner_t <= 0.0:
+			_banner.visible = false
+	var sm := get_node("/root/SimulationManager")
+	if sm.in_lab and sm.lab_run != null:
+		var lct: int = sm.lab_run.level_completed_tick
+		if lct >= 0 and lct != _lab_last_tick:
+			_lab_last_tick = lct
+			_show_level_banner()
+			var lvl: int = sm.lab_run.level
+			if lvl > 0 and LabDef.size_for(lvl) > LabDef.size_for(lvl - 1):
+				_notice("The lab expanded", "info")

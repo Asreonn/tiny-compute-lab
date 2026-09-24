@@ -38,6 +38,7 @@ func _ready() -> void:
 	_mission_title = HudKit.label(pill, "", Vector2(40, 9), 12, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 128)
 	_mission_formula = HudKit.label(pill, "", Vector2(170, 10), 11, HudKit.W_XBOLD, Palette.DATA_NUMBER, 96)
 	HudKit.icon(pill, "icon_chevron_down", Vector2(272, 10), 16, Palette.TEXT_SECONDARY)
+	HudKit.hit(self, Vector2(58, 8), Vector2(300, 36), func(): menu_pressed.emit(), "Open menu")
 
 	# state badge 700,10 120×32
 	_state_box = HudKit.box(self, Vector2(700, 10), Vector2(120, 32), Palette.SURFACE_SUNKEN, Palette.STATE_BUILD, 1.5, 16)
@@ -97,7 +98,18 @@ func _mgr() -> Node:
 
 
 func _refresh_mission() -> void:
-	var d: MissionDef = _mgr().mission
+	var sm := _mgr()
+	if sm.in_lab and sm.lab_run != null:
+		var lr: LabRun = sm.lab_run
+		_mission_idx.text = "L%d" % (lr.level + 1)
+		_mission_title.text = lr.title()
+		_mission_formula.text = "→ %d × %s" % [lr.request_count(), HudKit.fmt(lr.request_bits())]
+		var twl := minf(TclTheme.font(HudKit.W_XBOLD).get_string_size(lr.title(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 128.0)
+		_mission_title.size.x = twl
+		_mission_formula.position.x = 40.0 + twl + 12.0
+		_mission_formula.size.x = 264.0 - _mission_formula.position.x
+		return
+	var d: MissionDef = sm.mission
 	if d == null:
 		return
 	_mission_idx.text = "%02d" % (d.index + 1)

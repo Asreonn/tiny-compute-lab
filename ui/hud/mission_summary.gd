@@ -12,6 +12,7 @@ var _out_cells := []  # [Panel, Label]
 var _track_fill: Panel
 var _progress: Label
 var _last: Label  # "Last: , ✗  expected C" or the stall warning
+var _rejected: Label
 
 
 func _ready() -> void:
@@ -31,8 +32,12 @@ func _rebuild() -> void:
 	if _root:
 		_root.queue_free()
 	_out_cells.clear()
-	var d: MissionDef = _mgr().mission
+	var sm := _mgr()
+	var d: MissionDef = sm.mission
 	if d == null:
+		return
+	if sm.in_lab and sm.lab_run != null:
+		_lab_rebuild(sm)
 		return
 	var h := H if _expanded else 36.0
 	var w := W if _expanded else 300.0
@@ -96,9 +101,50 @@ func _toggle() -> void:
 	_rebuild()
 
 
+## Lab layout: same 320-wide panel, but a request box instead of input/output cell rows.
+func _lab_rebuild(sm: Node) -> void:
+	var lr: LabRun = sm.lab_run
+	var lvl: int = lr.level
+	var h := 248.0
+	offset_left = 16
+	offset_top = -16 - h
+	offset_right = 16 + 320.0
+	offset_bottom = -16
+	_root = HudKit.box(self, Vector2.ZERO, Vector2(320.0, h), Palette.SURFACE_PANEL, Palette.SURFACE_BORDER, 1, 10)
+	HudKit.label(_root, "L%d · %s" % [lvl + 1, lr.title()], Vector2(18, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 260)
+	var brief := HudKit.label(_root, lr_brief(lr), Vector2(18, 40), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
+	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	brief.custom_minimum_size = Vector2(284, 0)
+	brief.size = Vector2(284, 26)
+	# request box
+	var fbox := HudKit.box(_root, Vector2(18, 72), Vector2(284, 44), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 6)
+	HudKit.label(fbox, "DELIVER", Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
+	var want: BitVector = lr.request_bits()
+	var value_text := HudKit.fmt(want)
+	var chip_w := TclTheme.font(HudKit.W_XBOLD).get_string_size(value_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	HudKit.label(fbox, value_text, Vector2(64, 3), 18, HudKit.W_XBOLD, Palette.DATA_NUMBER)
+	HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(64 + chip_w + 10, 12), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
+	HudKit.label(fbox, "%d-bit" % want.width, Vector2(284 - 42, 12), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 38, HORIZONTAL_ALIGNMENT_RIGHT)
+	# progress track + delivered
+	HudKit.box(_root, Vector2(18, 176), Vector2(284, 4), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 2)
+	_track_fill = HudKit.box(_root, Vector2(18, 176), Vector2(0, 4), Palette.STATE_VALID, Color(0, 0, 0, 0), 0, 2)
+	_progress = HudKit.label(_root, "", Vector2(18, 188), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
+	_rejected = HudKit.label(_root, "", Vector2(18, 208), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 284)
+	_last = HudKit.label(_root, "", Vector2(18, 224), 10, HudKit.W_MEDIUM, Palette.STATE_BLOCKED, 284)
+	_refresh()
+
+
+func lr_brief(lr: LabRun) -> String:
+	var lv: Dictionary = LabDef.level(lr.level)
+	return str(lv.get("brief", ""))
+
+
 func _refresh() -> void:
 	var sm := _mgr()
 	if sm.run == null or not _expanded or _progress == null:
+		return
+	if sm.in_lab and sm.lab_run != null:
+		_lab_refresh(sm)
 		return
 	var d: MissionDef = sm.mission
 	var done: int = sm.run.progress[0] if not sm.run.progress.is_empty() else 0
@@ -133,3 +179,19 @@ func _refresh() -> void:
 		HudKit.set_text(_last, "Last: %s ✗   expected %s" % [got, want], Palette.STATE_ERROR)
 	else:
 		HudKit.set_text(_last, "", Palette.TEXT_MUTED)
+
+
+func _lab_refresh(sm: Node) -> void:
+	var lr: LabRun = sm.lab_run
+	var total := maxi(lr.request_count(), 1)
+	var done := clampi(lr.delivered, 0, lr.request_count())
+	_track_fill.size = Vector2(284.0 * done / total, 4)
+	_progress.text = "%d / %d" % [lr.delivered, lr.request_count()]
+	if lr.rejected > 0:
+		HudKit.set_text(_rejected, "Rejected: %d" % lr.rejected, Palette.TEXT_MUTED)
+	else:
+		HudKit.set_text(_rejected, "", Palette.TEXT_MUTED)
+	if lr.warning != "":
+		HudKit.set_text(_last, "⚠ " + lr.warning, Palette.STATE_BLOCKED)
+	else:
+		HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
