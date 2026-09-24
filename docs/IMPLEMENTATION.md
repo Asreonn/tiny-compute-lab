@@ -116,6 +116,21 @@ missions (a1…b3) stay only as the **Tutorial**.
 - The ten legacy missions are redesigned on explicit widths.
 - Until then they remain mechanics regression tests only.
 
+## Post-MVP polish phase (player request, 2026-09-24)
+Starts once the MVP content is complete. Everything must stay inside the canonical style (Style Lock V1).
+- **VFX and shaders** in the design language:
+  - trace glow and comet shaders
+  - holographic placement and wire previews
+  - processing / level-complete / USB delivery effects
+  - subtle board ambience
+- **Animations:** machine place/remove (build and removal bars), port pulses, LED transitions,
+  level-up and board-expansion reveal, HUD panel transitions.
+- **QoL and controls:**
+  - Speed on number keys: `1` = 1×, `2` = 2×, `3` = 5×, `4` = 10×.
+  - Tool modes on `Q` / `W` / `E` / `R`: Q select, W wire, E delete, R rotate.
+  - Smoother camera (inertia, zoom to cursor, edge pan), smoother drag/placement feel.
+  - Copy/paste, undo/redo, multi-select, and similar conveniences.
+
 ## Status
 
 | Item | State |
