@@ -362,9 +362,11 @@ The final look is drawn on Penpot pages 15–19 and specified in `STYLE_GUIDE §
   (the same rule as live edit today), so determinism holds.
 - Keys: `Ctrl+Z` undoes; `Ctrl+Y` or `Ctrl+Shift+Z` redoes.
 
-**Multi-select** (after the single-object UX is stable):
-- Box select with a left-drag on an empty board.
-- A group can be moved, duplicated or deleted.
+**Multi-select** (as built):
+- Box select with a left-drag on an empty board (every player machine the marquee touches).
+- A group can be moved (drag a member; hologram routes, all or nothing), duplicated (Alt+drag or
+  Ctrl+D — the wires between its members are copied too) or deleted (X / Del); the quick bar has
+  a group mode. Each is one undo step.
 
 **Palette:**
 - Search, favourites, recently used and category filters.
@@ -417,15 +419,21 @@ Each level adds exactly one architectural demand, and every level reuses the fac
 | 19 | XOR Cipher | paired: ASCII ⊕ a changing key, delivered as raw bytes | bitwise logic | Shift L/R |
 | 20 | Cheap Multiply | map × 4, `min_rate` 4/s, `max_power` 6 | shifts beat Multiply | — |
 | 21 | Datacenter | map × 3, `min_rate` 8/s, `max_heat` HOT | a thermal redesign (Radiators fit the PSU, Blowers do not) | Heat Pipe, Radiator; reward: High-Capacity PSU (64) |
-| 22+ | Register, Memory, ALU … | running sums, ROM lookup, programmable | memory and compute (Groups E–F) | Register, Register Bank, ROM, RAM, ALU, PC, Instruction Decoder |
+| 22 | Running Sum | map: the running total (5-bit), one value per 36 ticks | memory (a feedback loop) | Register |
+| 23 | Lookup | map: a 3-bit substitution table | table memory | ROM (typed table) |
+| 24 | Calculator | paired over three sticks: number ± key, the bit stick picks ADD / SUB | control-selected compute | ALU |
+| 25 | Tiny Memory | filter: run WE / address / value instructions on RAM, deliver the reads | programmable memory | RAM, Register Bank, Instruction Decoder |
+| 26 | Playback | map: the n-th clock pulse plays note n of a table | sequencing | Program Counter |
+| 27+ | a tiny CPU (fetch → decode → execute) | — | — | Free Build until then |
 
 - **Migration:** the saved Lab levels L1–L3 keep their index. Saved L4–L6 map to the new L6, L7
   and L8, which cover the same content. See §12.
-- **As built (2026-09-25):** L12–L21 are implemented; each level's demand is proven by a test
+- **As built (2026-09-25):** L12–L26 are implemented; each level's demand is proven by a test
   that the naive layout fails (L13 unbuffered, L16/L20 Multiplies, L17 uncooled or at the normal
   clock, L21 Blower-cooled). Rewards are level data (`reward: {psu_tier}`) and a board never has
   less than the levels earned. After L21 the Lab is a **Free Build** (the last contract keeps
-  judging) until L22+ arrive. The PSU is the laptop's adapter lying on the desk under the output
+  judging) after L26. History-dependent contracts (running sum, memory program, playback) are
+  judged from the origin's `seq` and the level's stream (O(cycle) via periodicity). The PSU is the laptop's adapter lying on the desk under the output
   mat (not a grid tile, so no save can collide with it).
 - **Tuning:** every contract has a reference solution in `tests/solutions.gd`. A test proves each
   one is solvable with *only* the machines unlocked by then, and inside the board area.
@@ -434,6 +442,8 @@ Each level adds exactly one architectural demand, and every level reuses the fac
 
 Each component needs simulation behaviour, port and width rules, power, cost, heat, a visual state
 with its function-specific processing visual, hover and Inspector content, and tests.
+
+All groups below are implemented (2026-09-25).
 
 | Group | Components |
 |---|---|

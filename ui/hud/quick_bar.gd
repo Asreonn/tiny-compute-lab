@@ -140,9 +140,10 @@ func _draw() -> void:
 		var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 12.0
 		var b2 := _button_rect(_hover)
 		var tip := Rect2(b2.get_center().x - w * 0.5, SIZE.y + 4, w, 18)
+		var danger_tip := _hover == acts.size() - 1  # Delete: the label turns red too (Penpot 18)
 		SystemsDraw.rrect(self, tip, 4.0, Palette.SURFACE_RAISED)
-		SystemsDraw.rrect_outline(self, tip, 4.0, Palette.SURFACE_BORDER, 1.0)
-		draw_string(f, tip.position + Vector2(6, 13), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.TEXT_PRIMARY)
+		SystemsDraw.rrect_outline(self, tip, 4.0, Color(Palette.STATE_ERROR, 0.6) if danger_tip else Palette.SURFACE_BORDER, 1.0)
+		draw_string(f, tip.position + Vector2(6, 13), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.STATE_ERROR if danger_tip else Palette.TEXT_PRIMARY)
 
 
 ## 16 px action glyphs: the canonical icons where they exist, simple strokes otherwise.

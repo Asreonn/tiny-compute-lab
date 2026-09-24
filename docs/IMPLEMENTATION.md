@@ -189,10 +189,12 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 |---|---|
 | Core: BitVector / ViewMode / Charset; explicit widths; deterministic sim | done |
 | Tutorial missions a1, a2 (3-bit), b1–b3 (5-bit characters, Caesar) | done |
-| Views: machines from Penpot exports, Signal V1 wires, continuous packet motion, progress ring, resource indicators, MSDF text | done |
-| Checkpoint D: raw boundary, USB sockets + data modules, codecs, contracts, port racks, desk zones, levels L1–L11, save v2, laptop intro | done |
+| Title screen on the laptop lid (Continue / Tutorial / Settings / New Lab / Quit), GameSettings | done |
+| Checkpoint D: raw boundary, USB sockets + data modules, codecs, contracts, port racks, desk zones, save v2, laptop intro | done |
 | Checkpoint E: work units + clock modes, PSU + brownout (from L16), thermal grid + cooling family (from L17), heat strip / LEDs, T / P overlays | done |
-| Checkpoint F: undo/redo, hotkeys + camera, hover card, quick action bar, duplicate, copy/paste settings, smart wiring, connected move, palette QoL | done (multi-select pending) |
-| Checkpoints G/H: Adder, Mux, Conditional Router, Zero/Sign Extend, Truncate, AND/OR/XOR/NOT, Bus Combiner, Shift L/R; Lab levels L12–L21 (Two Sticks, Changing Key, Mixed Traffic, Wider, Power Cap, Heat, BYTE, XOR Cipher, Cheap Multiply, Datacenter), PSU on the desk, level rewards, Free Build | done (Groups E–F: Register, RAM/ROM, ALU… with L22+) |
-| Checks | `make test` (693) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke,desk_smoke}.gd`; visual: `tools/{systems_shot,qol_shot,lab_shot}.gd` |
-| Next | I (polish, audio hooks), multi-select, L22+ (memory and compute groups), J (regression + screenshot pass) |
+| Checkpoint F: undo/redo, hotkeys + camera, hover card, quick action bar, duplicate, copy/paste settings, smart wiring, connected move, palette QoL, multi-select | done |
+| Checkpoints G/H: every component group (A–G) and Lab levels L1–L26, rewards, PSU on the desk, Free Build after L26 | done |
+| Checkpoint I: AudioBus cues, success sweep, PSU overload pulse | done |
+| Checkpoint J: `make check` (tests + smokes), screenshot pass against Penpot 18/19 (hover card, quick bar, thermal overlay aligned), docs | done |
+| Checks | `make check` = `make test` (736) + `make smoke` (8 headless smokes); visual: `tools/{lab_shot,systems_shot,qol_shot,title_shot}.gd` |
+| Next | L27+ (a tiny CPU: fetch → decode → execute), more tutorial missions for the late machines |

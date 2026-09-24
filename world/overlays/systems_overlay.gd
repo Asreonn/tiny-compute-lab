@@ -70,7 +70,7 @@ func _draw_thermal(sim: Simulation) -> void:
 		var a := (m.cell - Vector2i(r, r)).clamp(Vector2i.ZERO, sim.size)
 		var b := (m.cell + Catalog.size_of(m.type, m.rot) + Vector2i(r, r)).clamp(Vector2i.ZERO, sim.size)
 		var rect := Rect2(Vector2(a) * T + Vector2(1, 1), Vector2(b - a) * T - Vector2(2, 2))
-		SystemsDraw.rrect_dashed(self, rect, 4.0, Color(Palette.MATERIAL_COPPER, 0.7), 1.0, 4.0, 3.0)
+		SystemsDraw.rrect_dashed(self, rect, 4.0, Color(Palette.MATERIAL_COPPER, 0.7), 1.0, 10.0, 6.0)  # Penpot 19 C′
 		draw_string(font, rect.position + Vector2(6, 13), str(COVER_LABEL[m.type]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(Palette.MATERIAL_COPPER, 0.9))
 	_draw_pipe_flow(sim, th)
 

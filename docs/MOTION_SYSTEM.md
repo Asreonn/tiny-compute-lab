@@ -169,6 +169,12 @@ UI motion is cubic-out, short, and never bouncy. Nothing in the HUD glows. Every
 
 ## 10. Intro: the laptop (Penpot page `20 Intro · Laptop`)
 
+**Title screen (main menu, 2026-09-25).** On launch the intro holds on its first frame with the
+camera framing the lid; the title menu lives on the laptop's screen (Continue / Tutorial /
+Settings / New Lab / Quit as tiles, sub-pages swap in place, ← → Enter Esc). Continue releases the
+intro from there — the dive to the keyboard is the start of the game. Settings → Intro: Skipped
+jumps straight to the end state. The in-game menu returns to the title.
+
 About 5 s, played on game launch only (not on every board load). Any click or key skips to the end state.
 
 | t | Beat |
