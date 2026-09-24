@@ -44,6 +44,11 @@ var _in_rows: Array[int] = []    # rows of the OPEN input ports (west rack)
 var _out_rows: Array[int] = []   # rows of the OPEN output ports (east rack)
 var _rack_rows: Array[int] = [1, 4, 7, 10]  # every port row of the side racks (SYSTEMS_EXPANSION §2.1)
 var _t := 0.0
+## Title screen: the intro waits on its first frame, the camera framing the lid screen where the
+## title menu lives (ui/menu/title_screen.gd); release() starts the sequence from there.
+var hold := false
+var menu_layout := false  # title near the top of the screen, tiles below (set by a held start)
+var skip_dive := false  # release() jumps straight to the game (Settings → Intro: Skipped)
 var _camera: Camera2D
 var _cam_from := {}
 var _cam_to := {}
@@ -82,6 +87,12 @@ func setup(sim: Simulation, camera: Camera2D, hud: Control) -> void:
 	var r := _laptop_rect()
 	var z := minf(vs.x / r.size.x, vs.y / r.size.y) * 0.9
 	_cam_from = {"pos": r.get_center(), "zoom": z}
+	if hold:
+		# frame the lid screen: the title menu fills it; the dive to the keyboard starts from here
+		menu_layout = true
+		var scr := screen_rect()
+		var zh := minf(vs.x * 0.9 / scr.size.x, vs.y * 0.62 / scr.size.y)
+		_cam_from = {"pos": scr.get_center() + Vector2(0, scr.size.y * 0.12), "zoom": zh}
 	_hud = hud
 	_font = TclTheme.font("ExtraBold")
 	_style_deck.draw_center = false
@@ -121,8 +132,33 @@ func _laptop_rect() -> Rect2:
 
 # ------------------------------------------------------------------ timeline
 
+## The lid's screen in world space (at rest, before it slides away).
+func screen_rect() -> Rect2:
+	var b := _board_size()
+	var lh := _lid_height()
+	var lid := Rect2(Vector2(-RIM * 0.6, -RIM - lh), Vector2(b.x + RIM * 1.2, lh - 8.0))
+	var scr := lid.grow(-32.0)
+	scr.size.y -= 24.0
+	return scr
+
+
+## Title screen → play: run the sequence from the held first frame.
+func release() -> void:
+	hold = false
+	if skip_dive:
+		_finish()
+
+
+## Jump to the end state now (the title screen's Tutorial path).
+func skip() -> void:
+	_finish()
+
+
 func _process(delta: float) -> void:
 	if _done:
+		return
+	if hold:
+		_apply_camera(0.0)
 		return
 	_t += delta
 	_apply_camera(_t)
@@ -135,8 +171,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _done:
-		return
+	if _done or hold:
+		return  # while held, the keys belong to the title menu
 	var skip: bool = (event is InputEventKey and event.pressed) or (event is InputEventMouseButton and event.pressed)
 	if skip:
 		get_viewport().set_input_as_handled()
@@ -273,12 +309,20 @@ func _draw() -> void:
 		var text := "TINY COMPUTE LAB"
 		var tw := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var base := scr.get_center() + Vector2(-tw / 2.0, fs * 0.3)
+		if menu_layout:
+			# the title menu's layout: a larger title in the upper part, the tiles below it
+			fs = int(clampf(scr.size.y * 0.12, 18.0, 110.0))
+			tw = _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			base = Vector2(scr.get_center().x - tw / 2.0, scr.position.y + scr.size.y * 0.2 + fs * 0.35)
 		draw_string(_font, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(Palette.DATA_NUMBER, lid_a))
 		# boot bar fills during the approach
 		var bw := tw * 0.5
 		var bar := Rect2(scr.get_center() + Vector2(-bw / 2.0, fs * 0.9), Vector2(bw, 4.0))
-		draw_rect(bar, Color(Palette.MACHINE_RAIL, lid_a))
-		draw_rect(Rect2(bar.position, Vector2(bw * clampf(_t / 1.6, 0.0, 1.0), 4.0)), Color(Palette.DATA_NUMBER, 0.7 * lid_a))
+		if menu_layout:
+			bar = Rect2(Vector2(scr.get_center().x - bw / 2.0, base.y + fs * 0.45), Vector2(bw, 4.0))
+		if not hold:
+			draw_rect(bar, Color(Palette.MACHINE_RAIL, lid_a))
+			draw_rect(Rect2(bar.position, Vector2(bw * clampf(_t / 1.6, 0.0, 1.0), 4.0)), Color(Palette.DATA_NUMBER, 0.7 * lid_a))
 		var hinge := Rect2(Vector2(b.x / 2.0 - 60.0, lid.end.y - 20.0), Vector2(120.0, 6.0))
 		draw_rect(hinge, Color(Palette.MACHINE_RAIL, lid_a))
 

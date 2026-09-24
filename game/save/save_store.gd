@@ -176,15 +176,29 @@ static func save_lab(lab: Dictionary) -> void:
 	_save(data)
 
 
-## Player preferences that are not progress: {favourites: [types], recents: [types]}.
+## Player preferences that are not progress: {favourites, recents, volume, reduced_motion,
+## fullscreen, intro}.
 static func load_prefs() -> Dictionary:
 	var p = _load().get("prefs", {})
 	return p if typeof(p) == TYPE_DICTIONARY else {}
 
 
+## Merges `prefs` into the stored preferences (other keys, e.g. settings, are kept).
 static func save_prefs(prefs: Dictionary) -> void:
 	var data := _load()
-	data["prefs"] = prefs
+	var cur = data.get("prefs", {})
+	if typeof(cur) != TYPE_DICTIONARY:
+		cur = {}
+	for k in prefs:
+		cur[k] = prefs[k]
+	data["prefs"] = cur
+	_save(data)
+
+
+## New Lab: forget the Lab (level, factory, desk, PSU); tutorial results and prefs stay.
+static func reset_lab() -> void:
+	var data := _load()
+	data["lab"] = {}
 	_save(data)
 
 

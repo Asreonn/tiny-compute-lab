@@ -66,6 +66,12 @@ func _build() -> void:
 	_lab_card()
 	HudKit.label(_panel, "TUTORIAL", Vector2(24, 172), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
 	_grid()
+	# back to the title screen (the laptop's lid): settings, New Lab, Quit live there
+	var tb := HudKit.box(_panel, Vector2(24, 18), Vector2(116, 28), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER, 1, 6)
+	HudKit.icon(tb, "icon_chevron_left", Vector2(6, 6), 16, Palette.TEXT_SECONDARY)
+	HudKit.label(tb, "Title screen", Vector2(26, 7), 10, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
+	var hb := HudKit.hit(_panel, Vector2(24, 18), Vector2(116, 28), _to_title, "Back to the title screen")
+	HudKit.card_hover(tb, hb, Palette.SURFACE_BORDER)
 
 
 func _lab_card() -> void:
@@ -127,3 +133,11 @@ func _card(pos: Vector2, d: MissionDef, idx: int) -> void:
 	card.set_meta("on_click", cb)
 	HudKit.hit(card, Vector2.ZERO, Vector2(CARD_W, CARD_H), cb, d.title)
 	HudKit.card_entrance(card, idx)
+
+
+func _to_title() -> void:
+	close()
+	var main := get_tree().current_scene
+	if main != null and main.has_method("restart"):
+		main.restart(false)
+
