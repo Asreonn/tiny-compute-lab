@@ -469,3 +469,20 @@ func desk_from_dict(d: Dictionary, sim: Simulation) -> void:
 	sync_desk(sim)
 	new_devices = PackedStringArray()  # restoring a save is not a level-up
 
+
+# ------------------------------------------------------------------ HUD helpers
+
+## The module kind the current contract reads from (its primary stream), "" if none.
+func needed_module() -> String:
+	return contract().source_kind
+
+
+## True when some open input port has `kind` plugged in.
+func module_plugged(sim: Simulation, kind: String) -> bool:
+	return _plugged(sim, "in").has(kind)
+
+
+## True when the Job drive sits in an output port.
+func job_plugged(sim: Simulation) -> bool:
+	return _job_drive(sim) != null
+

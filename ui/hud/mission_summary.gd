@@ -13,6 +13,8 @@ var _track_fill: Panel
 var _progress: Label
 var _last: Label  # "Last: , ✗  expected C" or the stall warning
 var _rejected: Label
+## Lab contract rows (NEEDS / OUTPUT / RATE / LOST), refreshed every frame in _lab_refresh.
+var _rows: Array = []  # [key, Label]
 var _last_done := -1  # for the delivered-count roll
 
 
@@ -119,15 +121,34 @@ func _lab_rebuild(sm: Node) -> void:
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	brief.custom_minimum_size = Vector2(284, 0)
 	brief.size = Vector2(284, 26)
-	# request box
+	# request box: deliver contracts keep the big value chip; transforms show the contract text
 	var fbox := HudKit.box(_root, Vector2(18, 72), Vector2(284, 44), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 6)
-	HudKit.label(fbox, "DELIVER", Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
-	var want: BitVector = lr.request_bits()
-	var value_text := HudKit.fmt(want)
-	var chip_w := TclTheme.font(HudKit.W_XBOLD).get_string_size(value_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	HudKit.label(fbox, value_text, Vector2(64, 3), 18, HudKit.W_XBOLD, Palette.DATA_NUMBER)
-	HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(64 + chip_w + 10, 12), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
-	HudKit.label(fbox, "%d-bit" % want.width, Vector2(284 - 42, 12), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 38, HORIZONTAL_ALIGNMENT_RIGHT)
+	var c := lr.contract()
+	if c.kind == "deliver":
+		HudKit.label(fbox, "DELIVER", Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
+		var want: BitVector = lr.request_bits()
+		var value_text := HudKit.fmt(want)
+		var chip_w := TclTheme.font(HudKit.W_XBOLD).get_string_size(value_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		HudKit.label(fbox, value_text, Vector2(64, 3), 18, HudKit.W_XBOLD, Palette.DATA_NUMBER)
+		HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(64 + chip_w + 10, 12), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
+		HudKit.label(fbox, "%d-bit" % want.width, Vector2(284 - 42, 12), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 38, HORIZONTAL_ALIGNMENT_RIGHT)
+	else:
+		HudKit.label(fbox, c.kind.to_upper(), Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
+		var txt := lr.request_label()
+		var col := Palette.FAMILY_IO if c.accept_format != "bits" else Palette.DATA_NUMBER
+		HudKit.label(fbox, txt, Vector2(12, 21), 12, HudKit.W_XBOLD, col, 214)
+		HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(284 - 58, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 50, HORIZONTAL_ALIGNMENT_RIGHT)
+	# contract rows
+	_rows.clear()
+	var keys := ["needs", "output"]
+	if c.min_rate > 0.0:
+		keys.append("rate")
+	if c.max_lost >= 0:
+		keys.append("lost")
+	for i in keys.size():
+		var y := 122.0 + i * 13.0
+		HudKit.label(_root, keys[i].to_upper(), Vector2(18, y), 9, HudKit.W_XBOLD, Palette.TEXT_MUTED, 60)
+		_rows.append([keys[i], HudKit.label(_root, "", Vector2(78, y), 10, HudKit.W_BOLD, Palette.TEXT_SECONDARY, 224)])
 	# progress track + delivered
 	HudKit.box(_root, Vector2(18, 176), Vector2(284, 4), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 2)
 	_track_fill = HudKit.box(_root, Vector2(18, 176), Vector2(0, 4), Palette.STATE_VALID, Color(0, 0, 0, 0), 0, 2)
@@ -201,6 +222,7 @@ func _roll_done(done: int, total: int) -> void:
 
 func _lab_refresh(sm: Node) -> void:
 	var lr: LabRun = sm.lab_run
+	_refresh_rows(sm, lr)
 	var total := maxi(lr.request_count(), 1)
 	var done := clampi(lr.delivered, 0, lr.request_count())
 	HudKit.progress_bar(_track_fill, 284.0 * done / total)
@@ -213,3 +235,33 @@ func _lab_refresh(sm: Node) -> void:
 		HudKit.set_text(_last, "⚠ " + lr.warning, Palette.STATE_BLOCKED)
 	else:
 		HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
+
+
+## NEEDS / OUTPUT / RATE / LOST rows: what the contract requires right now, in plain words.
+func _refresh_rows(sm: Node, lr: LabRun) -> void:
+	var c := lr.contract()
+	for r in _rows:
+		var key: String = r[0]
+		var l: Label = r[1]
+		match key:
+			"needs":
+				var kind := lr.needed_module()
+				var name := Devices.display_name(kind) if Devices.has(kind) else kind
+				if kind == "":
+					HudKit.set_text(l, "—", Palette.TEXT_MUTED)
+				elif lr.module_plugged(sm.sim, kind):
+					HudKit.set_text(l, "✓ %s plugged in" % name, Palette.STATE_VALID)
+				else:
+					HudKit.set_text(l, "Plug the %s into a USB port" % name, Palette.STATE_BLOCKED)
+			"output":
+				if lr.job_plugged(sm.sim):
+					HudKit.set_text(l, "✓ Job drive plugged in", Palette.STATE_VALID)
+				else:
+					HudKit.set_text(l, "Plug the Job drive into an output port", Palette.STATE_BLOCKED)
+			"rate":
+				var ok := lr.rate() >= c.min_rate
+				HudKit.set_text(l, "%.1f / %.1f values/s" % [lr.rate(), c.min_rate], Palette.STATE_VALID if ok else Palette.TEXT_SECONDARY)
+			"lost":
+				var bad := lr.window_lost > c.max_lost
+				HudKit.set_text(l, "%d / %d lost" % [lr.window_lost, c.max_lost], Palette.STATE_BLOCKED if bad else Palette.TEXT_SECONDARY)
+
