@@ -237,6 +237,18 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 			"width": 54.0, "size": 10.0, "align": HORIZONTAL_ALIGNMENT_RIGHT,
 			"color": col, "text": "",
 		})
+	# Machine stats silk (player request 2026-09-24; STYLE_GUIDE §3 exception): tick cost and
+	# power as silkscreen (8 px, 55 % silk) in the bottom-right corner zone, right-aligned at
+	# (W − 24, H − 15) — one S-gap clear of the chassis corner screw — on player machines only
+	# (mission I/O is fixed and costs nothing).
+	if not machine.locked:
+		var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
+		_text_specs.append({
+			"key": "stats", "pos": _upright(Vector2(base.x - 24.0, base.y - 15.0), off, rot),
+			"width": 0.0, "size": 8.0, "align": HORIZONTAL_ALIGNMENT_RIGHT,
+			"color": Color(Palette.MATERIAL_SILK, SILK_ALPHA), "text": "",
+			"ticks": machine.processing_ticks(), "power": machine.power(),
+		})
 	# Dial operator text (roadmap kit, e.g. Modulo "%"): Penpot draws it 18/800 centred in the
 	# 40 px dial at (area.x, area.y + 9).
 	if ly.get("dial_text", null) is String and not area.is_empty():
@@ -404,8 +416,8 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 	for i in _tag_values.size():
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
-		if t["key"] == "dial":
-			continue  # static operator text
+		if t["key"] == "dial" or t["key"] == "stats":
+			continue  # static text
 		var txt: String = vals.get(t["key"], "")
 		t["text"] = txt
 		if t["key"] == "bin":
@@ -549,7 +561,13 @@ class UprightText extends Node2D:
 		if mv == null:
 			return
 		var f := TclTheme.font("ExtraBold")
+		var cam := get_viewport().get_camera_2d()
+		var far := cam != null and cam.zoom.x < Palette.ZOOM_FAR_BELOW
 		for t in mv._text_specs:
+			if t["key"] == "stats":
+				if not far:
+					_draw_stats(f, t)
+				continue
 			var txt: String = t.get("text", "")
 			if txt == "":
 				continue
@@ -558,6 +576,26 @@ class UprightText extends Node2D:
 				var h: float = f.get_ascent(t["size"]) + f.get_descent(t["size"])
 				base.y = t["pos"].y + (float(t["height"]) - h) / 2.0 + f.get_ascent(t["size"])
 			draw_string(f, base, txt, t["align"], t["width"], t["size"], t["color"])
+
+	## "[clock] 4  [power] 1" right-aligned at pos (top of the text box): the HUD's own
+	## latency/power icons at 9 px, tinted like the silk text.
+	func _draw_stats(f: Font, t: Dictionary) -> void:
+		var size := int(t["size"])
+		var col: Color = t["color"]
+		var asc := f.get_ascent(size)
+		var items := [["icon_latency", str(t["ticks"])], ["icon_power", str(t["power"])]]
+		var x: float = t["pos"].x
+		var y: float = t["pos"].y
+		for k in range(items.size() - 1, -1, -1):
+			var txt: String = items[k][1]
+			var w := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			x -= w
+			draw_string(f, Vector2(x, y + asc), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+			x -= 10.0
+			var tex := Art.icon(items[k][0])
+			if tex != null:
+				draw_texture_rect(tex, Rect2(Vector2(x, y + 0.5), Vector2(9, 9)), false, col)
+			x -= 6.0
 
 
 ## Processing progress, continuous between ticks: (total − ticks_left + tick fraction) / total

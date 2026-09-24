@@ -53,6 +53,7 @@ func _run() -> void:
 	var worst_kind := ""
 	var core_ticks := {}
 	var max_progress := 0.0
+	var inside_drawn := 0
 	for tick in TICKS:
 		sm._do_step()
 		if sm.run.status != MissionRun.Status.RUNNING:
@@ -69,6 +70,9 @@ func _run() -> void:
 						var mv: Dictionary = layer._moves.get(pid, {})
 						worst_kind = "%s -> %s (%s)" % [mv.get("from_k", "?"), str(mv.get("to", {}).get("k", "?")), mv.get("state", "?")]
 				last[pid] = pos[pid]
+			var job: Dictionary = sm.sim.machines[add_id].job
+			if not job.is_empty() and pos.has(job["input"].id) and s > 0:
+				inside_drawn += 1  # a value being processed must not be drawn inside the machine
 			add_view._update_progress()
 			if add_view._progress._p > max_progress:
 				max_progress = add_view._progress._p
@@ -81,7 +85,8 @@ func _run() -> void:
 		dwell = maxi(dwell, core_ticks[pid])
 	print("motion: worst transition " + worst_kind)
 	print("motion: worst step %.1f px (packet #%d), max Add dwell %d ticks, max progress %.2f, status %s" % [worst, worst_id, dwell, max_progress, MissionRun.Status.keys()[sm.run.status]])
-	var ok: bool = worst <= MAX_STEP and dwell >= MIN_DWELL and max_progress >= 0.999 and sm.run.status == MissionRun.Status.PASS
+	print("motion: samples drawing a value inside the Add while processing: %d" % inside_drawn)
+	var ok: bool = inside_drawn == 0 and worst <= MAX_STEP and dwell >= MIN_DWELL and max_progress >= 0.999 and sm.run.status == MissionRun.Status.PASS
 	if ok:
 		print("MOTION PASS")
 		quit(0)

@@ -48,6 +48,12 @@ real error. Interaction is shown outside the machine (brackets, badges); computa
 - **Accent hue** for a brand-new *top-level* family, only if it is clearly separated from the data and
   state colours (see §6). Prefer a sub-family (segmented tab) first.
 - **Silkscreen text**: short, ≤ 6 characters, 8 px, 55 % opacity, close zoom only.
+- **Machine stats silk** (explicit player request, 2026-09-24; an exception to "tertiary info belongs
+  in the inspector"):
+  - Player-placed machines show their tick cost and power as a silkscreen line: the HUD's latency
+    and power icons at 9 px + 8 px digits, 55 % silk, e.g. `◷4 ⚡1`.
+  - Position: right-aligned at (W − 24, H − 15), one S-gap clear of the corner screw.
+  - Visible at normal and close zoom, hidden at far zoom. Mission I/O does not show it.
 
 ## 4. Line-weight scale
 

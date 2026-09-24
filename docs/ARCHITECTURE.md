@@ -195,7 +195,7 @@ between ticks using `SimulationManager.alpha`, for animation only.
   - `tools/motion_check.gd` fails if any sample moves more than 5 px per 1/10 tick.
 - **Processing progress** = `(total − ticks_left + tick fraction) / total`, drawn as ActivityArea progress (a ring on Dial areas).
 - **Playback speed:** 1× = 10/3 ticks/s (the former 1× is now 3×); speeds 1× / 2× / 5× / 10×.
-- **While a machine processes**, the value passes *through* it as a ghost (the canonical `processing` packet variant, faded, no label), from its input to its output over the job duration. It emerges transformed.
+- **While a machine processes, its value is not drawn.** It fades into the input port; when the job finishes, the transformed result appears at the output port and leaves. The ActivityArea progress shows the work in between. `tools/motion_check.gd` asserts that a value in a job is never drawn.
 - **Wires are never silently deleted.** A placement, move or rotation that would leave a wire unroutable is refused with a reason.
 - **The wire tool is WYSIWYG.** The live preview is the router's path, and release commits exactly those tiles.
 - **Rewiring (QoL):** dragging from an already-wired output, or onto an already-wired input, is allowed. The wires that would be replaced are shown faded and removed only when the new connection commits (`Simulation.rewire`, atomic). Cancelling or an invalid drop leaves them untouched.

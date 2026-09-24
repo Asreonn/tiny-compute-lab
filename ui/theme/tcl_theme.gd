@@ -17,6 +17,9 @@ static func font(weight: String = "Medium") -> Font:
 		f.load_dynamic_font(FONT_DIR + "JetBrainsMono-%s.ttf" % weight)
 		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
 		f.hinting = TextServer.HINTING_LIGHT
+		# MSDF: glyphs stay crisp at any camera zoom (machine text is drawn in world space)
+		f.multichannel_signed_distance_field = true
+		f.msdf_pixel_range = 8
 		fonts[weight] = f
 	return fonts[weight]
 

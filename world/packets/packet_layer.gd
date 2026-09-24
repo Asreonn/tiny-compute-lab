@@ -6,19 +6,18 @@ extends Node2D
 ##   wire   — slot i of n on a connection path: arc = L·(i+1)/(n+1) (anchors at 0 and L,
 ##            so every step along a wire covers the same distance → constant velocity)
 ##   dock   — waiting in an input queue, just inside the input port
-##   core   — the job input being processed (the machine's ActivityArea centre)
 ##   out    — result waiting in an output slot (docked at the output port)
 ##   queued — output blocked: held PKT_QUEUE_OFFSET outside the output port
 ## Between two ticks a packet moves from its previous location to its current one along a
 ## transition polyline built from the real geometry (sub-path of the wire incl. every
 ## chamfered corner, → port anchor → core …), at a constant speed: t = tick fraction.
-## Derived packets (a machine's result) start at that machine's core, so a value visibly
-## enters, stays inside while processing, and leaves transformed.
+## Values are never drawn inside a machine: a value fades into the input port, and when the
+## job finishes the transformed result appears at the output port and leaves. The machine's
+## ActivityArea progress shows the work in between.
 
 const T := Palette.TILE
 const QUEUE_STACK := 6.0  # px between packets stacked inside an input queue
 const DOCK_IN := 10.0  # px a docked packet sits inside its port
-const GHOST_ALPHA := 0.35  # a value passing through a machine while it is processed
 const EXIT_IN := 12.0  # px inside the output port where a finished value waits to leave
 const LONG_LABEL := 5  # labels longer than this flip into a small tag above the packet
 const LABEL_SIZE := 9  # close-tier packet value font size
@@ -96,15 +95,23 @@ func _capture() -> void:
 		if now.has(pid):
 			continue
 		var prev: Dictionary = _loc[pid]
-		var mid := _consumer(sim, pid)
-		if mid < 0 or prev.get("packet") == null:
+		if prev.get("packet") == null:
 			continue
-		var into_pos := _core(mid)
+		var mid := _consumer(sim, pid)
+		var into_pos: Vector2
 		if prev["k"] == "wire" and sim.connections.has(int(prev["conn"])):
-			# consumed straight off a wire (sink): settle just inside the input port
+			# taken straight off a wire (a job started / a sink consumed it): into the port
 			var c: Connection = sim.connections[int(prev["conn"])]
-			if sim.machines.has(c.to_id):
-				into_pos = _dock(sim.machines[c.to_id], c.to_port, EXIT_IN)
+			if not sim.machines.has(c.to_id):
+				continue
+			mid = c.to_id
+			into_pos = _dock(sim.machines[c.to_id], c.to_port, DOCK_IN)
+		elif prev["k"] == "dock":
+			into_pos = prev["pos"]  # a queued value taken into a job: vanish where it waited
+		elif mid >= 0:
+			into_pos = _core(mid)
+		else:
+			continue
 		var into := {"k": "core", "pos": into_pos, "packet": prev["packet"], "machine": mid}
 		var mv := _transition(prev, into)
 		mv["fade"] = true
@@ -142,22 +149,8 @@ func _locations(sim: Simulation) -> Dictionary:
 			for p in m.inq[port]:
 				out[p.id] = {"k": "dock", "pos": _dock(m, port, DOCK_IN + float(j) * QUEUE_STACK), "packet": p, "machine": mid}
 				j += 1
-		if not m.job.is_empty() and m.job.get("input", null) != null:
-			# Processing: the value passes THROUGH the machine as a ghost, from just inside its
-			# input port to just inside the output it will leave from, over the job duration
-			# (position = processing progress). It emerges transformed at that output.
-			var jp: Packet = m.job["input"]
-			var left := int(m.job.get("ticks_left", 0))
-			var total := maxi(int(m.job.get("total", 1)), 1)
-			var in_port := _input_port_of(m, jp)
-			var res: Dictionary = m.job.get("results", {})
-			var a := _dock(m, in_port, DOCK_IN) if in_port != "" else _core(mid)
-			var b := _dock(m, str(res.keys()[0]), EXIT_IN) if not res.is_empty() else _core(mid)
-			var k := float(total - left) / float(maxi(total - 1, 1))
-			out[jp.id] = {"k": "core", "pos": a.lerp(b, clampf(k, 0.0, 1.0)), "packet": jp, "machine": mid, "ghost": true}
-		for i in m.delay_line.size():
-			var dp: Packet = m.delay_line[i][0]
-			out[dp.id] = {"k": "core", "pos": _core(mid), "packet": dp, "machine": mid}
+		# A job's value is NOT drawn: it disappeared into the input port and reappears,
+		# transformed, at the output when the job finishes (the ActivityArea shows the work).
 		for port in m.outq:
 			var op: Packet = m.outq[port]
 			if op == null:
@@ -177,11 +170,11 @@ func _spawn(sim: Simulation, cur: Dictionary) -> Dictionary:
 		if int(e.get("packet", -1)) == p.id and str(e.get("kind", "")) == "emit":
 			var mid := int(e.get("machine", -1))
 			if sim.machines.has(mid):
-				# emerges just inside the port it leaves from (where the ghost ended), fading
-				# back to solid on its way onto the wire
+				# a job result appears just inside the port it leaves from and fades in on its
+				# way onto the wire (the value itself was never drawn inside the machine)
 				var src: Machine = sim.machines[mid]
 				var from_job: bool = not src.inq.is_empty()  # machines with inputs emit job results; sources do not
-				return {"k": "core", "pos": _dock(src, str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid, "ghost": from_job}
+				return {"k": "core", "pos": _dock(src, str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid, "appear": from_job}
 	if cur.has("port") and sim.machines.has(int(cur["machine"])):
 		# a fresh value in an output slot (sources): appears just inside that port
 		return {"k": "core", "pos": _dock(sim.machines[int(cur["machine"])], str(cur["port"]), EXIT_IN), "packet": p, "machine": cur["machine"]}
@@ -218,7 +211,7 @@ func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 			"queued": state = "queued"
 	if poly.is_empty():
 		poly.append(_point(b))
-	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "from_ghost": a.get("ghost", false)}
+	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "appear": a.get("appear", false)}
 
 
 func _point(loc: Dictionary) -> Vector2:
@@ -347,21 +340,12 @@ func _draw() -> void:
 		elif state == "entering":
 			mod = Color(1, 1, 1, lerpf(1.0, Palette.PKT_ENTERING_OPACITY, t))
 		elif state == "processing":
-			mod = Color(1, 1, 1, GHOST_ALPHA)
+			mod = Color(1, 1, 1, 0.6)
 		var label := true
-		var to_ghost: bool = mv["to"].get("ghost", false)
-		var from_ghost: bool = mv.get("from_ghost", false)
-		if to_ghost or from_ghost:
-			# inside the machine: a ghost (canonical "processing" variant, faded, no label);
-			# fades in on entry and back to solid as the result leaves
-			var ga := GHOST_ALPHA
-			if to_ghost and not from_ghost:
-				ga = lerpf(1.0, GHOST_ALPHA, t)
-			elif from_ghost and not to_ghost:
-				ga = lerpf(GHOST_ALPHA, 1.0, t)
-			state = "processing" if ga < 0.99 else state
-			mod = Color(1, 1, 1, ga)
-			label = ga >= 0.99
+		if mv.get("appear", false):
+			# a machine's result: appears at the output port as it leaves
+			mod = Color(1, 1, 1, t)
+			scale_k = lerpf(0.6, 1.0, t)
 		_draw_packet(mv["packet"], pos, state, scale_k, mod, label)
 
 
