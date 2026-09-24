@@ -407,20 +407,26 @@ Each level adds exactly one architectural demand, and every level reuses the fac
 | 9 | Sorting | filter: sensor > 4 | predicate + gating | Sensor module, Compare, Gate |
 | 10 | Burst | map, bursty stick, `max_lost` 0 | buffering | Buffer, Delay |
 | 11 | Rush Hour | map ×3 via Multiply, `min_rate` 4/s | parallelism | Multiply, Splitter, Merger |
-| 12 | **Two Sticks** | paired: text + constant key, Caesar | second stream | **Socket 2**, Key module, 2-input Add |
-| 13 | Changing Key | paired, key changes every 8 | synchronisation | Counter |
-| 14 | Mixed Traffic | map by tag: two transforms, merged | routing | Demux, Mux, Conditional Router |
-| 15 | Wider | map: 3-bit n → 5-bit n×5 | width conversion | Zero/Sign Extend, Truncate |
-| 16 | Power Cap | map, `min_rate` 5/s, `max_power` 8 | efficiency | Improved Adapter (16), clock modes |
-| 17 | Heat | map, `min_rate` 8/s, `max_heat` THROTTLING | cooling layout | Heatsink, Fan |
-| 18 | **BYTE** | map text: 8-bit ASCII lower → upper | 8-bit buses | **8-bit**, Bus Splitter/Combiner, AND/OR/XOR/NOT, Socket 3, Desktop PSU (32) |
-| 19 | XOR Cipher | paired: ASCII ⊕ key | bitwise logic | Shift L/R |
-| 20 | Cheap Multiply | map ×4, `max_power` 12 | shifts beat Multiply | — |
-| 21 | Datacenter | map, `min_rate` 12/s, `max_heat` HOT | a thermal redesign | Heat Pipe, Radiator, High-Capacity PSU (64) |
+| 12 | **Two Sticks** | paired: text + constant key (5), Caesar with wrap | second stream | **Socket 2**, Key module, Adder (2-input) |
+| 13 | Changing Key | paired, key changes every 8; text in bursts of 36, `max_lost` 0 | synchronisation (a lost letter shifts every later pair) | Counter |
+| 14 | Mixed Traffic | map by tag: bit 4 set → payload + 1, else payload × 2, merged | routing | Demux, Mux, Conditional Router |
+| 15 | Wider | map: 3-bit n → 5-bit n × 5 | width conversion | Zero/Sign Extend, Truncate |
+| 16 | Power Cap | map × 2, `min_rate` 4/s, `max_power` 8 | efficiency (Adder doublers beat Multiply) | reward: Improved Adapter (16), clock modes |
+| 17 | Heat | map + 1, `min_rate` 8/s, `max_heat` THROTTLING | overclocking + cooling layout | Heatsink, Blower |
+| 18 | **BYTE** | paired: 8-bit ASCII AND the key-stick mask 0xDF (lower → upper) | 8-bit buses, bitwise logic | **8-bit**, AND/OR/XOR/NOT, Bus Combiner, Socket 3; reward: Desktop PSU (32) |
+| 19 | XOR Cipher | paired: ASCII ⊕ a changing key, delivered as raw bytes | bitwise logic | Shift L/R |
+| 20 | Cheap Multiply | map × 4, `min_rate` 4/s, `max_power` 6 | shifts beat Multiply | — |
+| 21 | Datacenter | map × 3, `min_rate` 8/s, `max_heat` HOT | a thermal redesign (Radiators fit the PSU, Blowers do not) | Heat Pipe, Radiator; reward: High-Capacity PSU (64) |
 | 22+ | Register, Memory, ALU … | running sums, ROM lookup, programmable | memory and compute (Groups E–F) | Register, Register Bank, ROM, RAM, ALU, PC, Instruction Decoder |
 
 - **Migration:** the saved Lab levels L1–L3 keep their index. Saved L4–L6 map to the new L6, L7
   and L8, which cover the same content. See §12.
+- **As built (2026-09-25):** L12–L21 are implemented; each level's demand is proven by a test
+  that the naive layout fails (L13 unbuffered, L16/L20 Multiplies, L17 uncooled or at the normal
+  clock, L21 Blower-cooled). Rewards are level data (`reward: {psu_tier}`) and a board never has
+  less than the levels earned. After L21 the Lab is a **Free Build** (the last contract keeps
+  judging) until L22+ arrive. The PSU is the laptop's adapter lying on the desk under the output
+  mat (not a grid tile, so no save can collide with it).
 - **Tuning:** every contract has a reference solution in `tests/solutions.gd`. A test proves each
   one is solvable with *only* the machines unlocked by then, and inside the board area.
 

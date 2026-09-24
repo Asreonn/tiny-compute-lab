@@ -193,5 +193,6 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 | Checkpoint D: raw boundary, USB sockets + data modules, codecs, contracts, port racks, desk zones, levels L1–L11, save v2, laptop intro | done |
 | Checkpoint E: work units + clock modes, PSU + brownout (from L16), thermal grid + cooling family (from L17), heat strip / LEDs, T / P overlays | done |
 | Checkpoint F: undo/redo, hotkeys + camera, hover card, quick action bar, duplicate, copy/paste settings, smart wiring, connected move, palette QoL | done (multi-select pending) |
-| Checks | `make test` (612) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke,desk_smoke}.gd`; visual: `tools/{systems_shot,qol_shot,lab_shot}.gd` |
-| Next | G (component groups) and H (progression L12–L21: Two Sticks, Power Cap, Heat, BYTE) |
+| Checkpoints G/H: Adder, Mux, Conditional Router, Zero/Sign Extend, Truncate, AND/OR/XOR/NOT, Bus Combiner, Shift L/R; Lab levels L12–L21 (Two Sticks, Changing Key, Mixed Traffic, Wider, Power Cap, Heat, BYTE, XOR Cipher, Cheap Multiply, Datacenter), PSU on the desk, level rewards, Free Build | done (Groups E–F: Register, RAM/ROM, ALU… with L22+) |
+| Checks | `make test` (693) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke,desk_smoke}.gd`; visual: `tools/{systems_shot,qol_shot,lab_shot}.gd` |
+| Next | I (polish, audio hooks), multi-select, L22+ (memory and compute groups), J (regression + screenshot pass) |
