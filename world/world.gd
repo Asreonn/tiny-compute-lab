@@ -14,6 +14,8 @@ extends Node2D
 ## The tool layer (Slice A5a): added as the last child so it receives unhandled input
 ## before the CameraRig (RMB never pans while a tool drag is active).
 var tools: ToolController
+var _fit_sim: Simulation = null
+var _fit_size := Vector2i.ZERO
 
 
 func _ready() -> void:
@@ -46,8 +48,12 @@ func _rebuild(_def: Variant = null) -> void:
 		cv.packet_positions = packet_layer.comet_arcs.bind(id)
 		wire_layer.add_child(cv)
 	board_view.redraw()
-	var rect := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
-	camera_rig.fit_board(rect)
+	# Refit the camera only for a new board or a board-size change (lab expansion) — never on
+	# ordinary edits, so the player's pan/zoom survives placing machines and wires.
+	if sim != _fit_sim or sim.size != _fit_size:
+		_fit_sim = sim
+		_fit_size = sim.size
+		camera_rig.fit_board(Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T))
 
 
 func _process(delta: float) -> void:
