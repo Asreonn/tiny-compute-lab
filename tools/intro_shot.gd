@@ -17,7 +17,7 @@ func _initialize() -> void:
 		_times.append(float(args[i]))
 	if _times.is_empty():
 		_times = [0.0, 1.0, 1.8, 2.6, 3.6]
-	SaveStore.set_path("user://intro_shot_save.json")
+	SaveStore.use_file("user://intro_shot_save.json")
 	SaveStore.clear()
 	root.size = Vector2i(1600, 900)
 	root.add_child(load("res://main.tscn").instantiate())

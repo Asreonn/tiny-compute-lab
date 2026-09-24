@@ -7,11 +7,14 @@ var passes := 0
 
 
 func _init() -> void:
+	# Never touch the player's real save (user://tcl_save.json), whatever a test forgets.
+	SaveStore.use_file("user://test_save.json")
 	BitVectorTests.run(self)
 	SignalGeomTests.run(self)
 	RawTests.run(self)
 	UsbTests.run(self)
 	ContractTests.run(self)
+	SaveStoreTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()
@@ -425,7 +428,7 @@ func test_splitter_and_demux() -> void:
 	check(db.outq["b"] != null and db.outq["b"].data.equals(BitVector.of(9, 5)), "demux sel=1 sends the value to b")
 
 func test_save_layout_reloads_and_passes() -> void:
-	SaveStore.set_path("user://test_save.json")
+	SaveStore.use_file("user://test_save.json")
 	SaveStore.clear()
 	var r := run_mission("a1_plus_two")
 	var sim: Simulation = r["sim"]
@@ -444,7 +447,7 @@ func test_save_layout_reloads_and_passes() -> void:
 
 
 func test_save_record_result_keeps_best() -> void:
-	SaveStore.set_path("user://test_save.json")
+	SaveStore.use_file("user://test_save.json")
 	SaveStore.clear()
 	check(SaveStore.stars("a1_plus_two") == 0, "missing result should read 0 stars")
 	SaveStore.record_result("a1_plus_two", 1, 6.0)
@@ -456,7 +459,7 @@ func test_save_record_result_keeps_best() -> void:
 
 
 func test_save_unlock_chain() -> void:
-	SaveStore.set_path("user://test_save.json")
+	SaveStore.use_file("user://test_save.json")
 	SaveStore.clear()
 	check(SaveStore.unlocked("a1_plus_two"), "first campaign mission is always unlocked")
 	check(not SaveStore.unlocked("a2_wrap"), "next campaign mission should start locked")
@@ -498,7 +501,7 @@ func _lab_log(ticks: int) -> String:
 
 
 func test_lab_mode() -> void:
-	SaveStore.set_path("user://test_save.json")
+	SaveStore.use_file("user://test_save.json")
 	SaveStore.clear()
 	# --- L1: the socket wired straight to the Contract Drive ---
 	var sim := Simulation.new()

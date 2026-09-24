@@ -11,7 +11,7 @@ var _sm
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	_prefix = args[0] if args.size() > 0 else "/tmp/hud_motion"
-	SaveStore.set_path("user://hud_motion_save.json")
+	SaveStore.use_file("user://hud_motion_save.json")
 	SaveStore.clear()
 	root.size = Vector2i(1600, 900)
 	root.add_child(load("res://main.tscn").instantiate())

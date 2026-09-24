@@ -67,7 +67,7 @@ func _process(_delta: float) -> bool:
 func _load_and_build() -> void:
 	# Isolate the shot: never load or pollute the real player save (the autoload
 	# autosaves the reference solution while we build it).
-	SaveStore.set_path("user://shot_save.json")
+	SaveStore.use_file("user://shot_save.json")
 	SaveStore.clear()
 	var manager := root.get_node("/root/SimulationManager")
 	manager.load_mission(_mission)

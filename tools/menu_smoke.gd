@@ -12,7 +12,7 @@ var _fail := ""
 
 
 func _initialize() -> void:
-	SaveStore.set_path("user://menu_smoke_save.json")
+	SaveStore.use_file("user://menu_smoke_save.json")
 	SaveStore.clear()
 	root.add_child(load("res://main.tscn").instantiate())
 

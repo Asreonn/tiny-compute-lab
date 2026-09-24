@@ -17,7 +17,7 @@ var _mv: GDScript  # MachineView, loaded at runtime: it needs the SimulationMana
 
 
 func _initialize() -> void:
-	SaveStore.set_path("user://tools_smoke_save.json")
+	SaveStore.use_file("user://tools_smoke_save.json")
 	SaveStore.clear()
 	root.add_child(load("res://main.tscn").instantiate())
 

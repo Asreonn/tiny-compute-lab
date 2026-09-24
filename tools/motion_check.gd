@@ -17,7 +17,7 @@ var _done := false
 
 
 func _initialize() -> void:
-	SaveStore.set_path("user://motion_check_save.json")
+	SaveStore.use_file("user://motion_check_save.json")
 	SaveStore.clear()
 	root.add_child(load("res://main.tscn").instantiate())
 
