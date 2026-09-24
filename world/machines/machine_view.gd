@@ -48,6 +48,8 @@ var _port_w := {}  # port id -> int
 var _tag_values: Array = []  # width shown by each width tag (upright text)
 var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
+var _progress: ProcessProgress
+const DONE_HOLD := 0.25  # fraction of a tick a finished job shows 100 % before the next fills
 
 
 func setup(m: Machine, as_ghost := false) -> MachineView:
@@ -127,6 +129,14 @@ func _build() -> void:
 		_overlays[overlay] = s
 		body.add_child(s)
 	# 12 upright text layer
+	# 12a processing progress (ActivityArea progress, docs/MOTION_SYSTEM.md): rotates with the body
+	_progress = ProcessProgress.new()
+	_progress.name = "ProcessProgress"
+	_progress.center = core_local()
+	_progress.dial = _area_kind == "Dial"
+	var asz := Art.area_size(_area_kind)
+	_progress.area_rect = Rect2(_progress.center - asz * 0.5, asz) if asz != Vector2.ZERO else Rect2()
+	body.add_child(_progress)
 	text_layer = UprightText.new()
 	text_layer.name = "UprightText"
 	add_child(text_layer)
@@ -300,6 +310,25 @@ static func _mode_from_name(s: String) -> int:
 	return ViewMode.Mode.BIN
 
 
+## World centre of the machine's function region (ActivityArea): where a job's packet sits
+## while it is processed (PacketLayer) and where the progress indicator draws.
+func core_world() -> Vector2:
+	return body.to_global(core_local())
+
+
+## Body-local centre of the ActivityArea (layout pos + area size / 2), or the chassis centre.
+func core_local() -> Vector2:
+	var ly := Art.layout(machine.type)
+	var area: Dictionary = _entry(ly, "area")
+	if area.is_empty() and ly.get("areas", null) is Array and not (ly["areas"] as Array).is_empty():
+		area = (ly["areas"] as Array)[0]
+	var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
+	if area.is_empty():
+		return base * 0.5
+	var sz := Art.area_size(str(area.get("kind", "")))
+	return _v(area.get("pos", [0, 0])) + sz * 0.5
+
+
 static func _v(a: Array) -> Vector2:
 	return Vector2(a[0], a[1])
 
@@ -325,6 +354,7 @@ func refresh(delta: float) -> void:
 	var m := machine
 	var sim := SimulationManager.sim
 	var running := SimulationManager.running
+	_update_progress()
 	# LED from machine state
 	var led_name: String = MACHINE_STATE_LED[m.state]
 	if _led != null and led_name != _led_rel:
@@ -528,3 +558,65 @@ class UprightText extends Node2D:
 				var h: float = f.get_ascent(t["size"]) + f.get_descent(t["size"])
 				base.y = t["pos"].y + (float(t["height"]) - h) / 2.0 + f.get_ascent(t["size"])
 			draw_string(f, base, txt, t["align"], t["width"], t["size"], t["color"])
+
+
+## Processing progress, continuous between ticks: (total − ticks_left + tick fraction) / total
+## while a job runs; 100% held through the completing tick, then faded out.
+func _update_progress() -> void:
+	if _progress == null or ghost:
+		return
+	var m := machine
+	var sim := SimulationManager.sim
+	var t: float = clampf(SimulationManager.alpha, 0.0, 1.0) if SimulationManager.running else 1.0
+	var p := -1.0
+	var alpha := 1.0
+	var completed_now := false
+	if sim != null:
+		for e in sim.events:
+			if str(e.get("kind", "")) == "complete" and int(e.get("machine", -1)) == m.id:
+				completed_now = true
+	if completed_now and t < DONE_HOLD:
+		p = 1.0  # a job finished this tick: show it complete before the next one fills
+	elif not m.job.is_empty():
+		var total := maxf(float(m.job.get("total", 1)), 1.0)
+		var left := float(m.job.get("ticks_left", total))
+		p = clampf((total - left + t) / total, 0.0, 1.0)
+	elif completed_now:
+		p = 1.0
+		alpha = 1.0 - t  # nothing queued: full, fading out towards the next tick
+	_progress.set_progress(p, alpha)
+
+
+## ActivityArea progress indicator (canonical: "Die/Dial progress tweened"). Dial areas get an
+## arc filling clockwise from 12 o'clock around the dial ring; other areas a 2 px fill line
+## along the inside bottom edge of the area. DATA_NUMBER on a MATERIAL_VENT track.
+class ProcessProgress extends Node2D:
+	const RING_R := 17.0
+	const RING_W := 2.5
+	var center := Vector2.ZERO
+	var dial := false
+	var area_rect := Rect2()
+	var _p := -1.0
+	var _a := 1.0
+
+	func set_progress(p: float, a: float) -> void:
+		if absf(p - _p) > 0.001 or absf(a - _a) > 0.01:
+			_p = p
+			_a = a
+			queue_redraw()
+
+	func _draw() -> void:
+		if _p < 0.0:
+			return
+		var fill := Color(Palette.DATA_NUMBER, _a)
+		if dial:
+			draw_arc(center, RING_R, 0.0, TAU, 48, Color(Palette.MATERIAL_VENT, 0.9 * _a), RING_W, true)
+			if _p > 0.0:
+				draw_arc(center, RING_R, -PI / 2.0, -PI / 2.0 + TAU * _p, maxi(4, int(48 * _p)), fill, RING_W, true)
+		elif area_rect.size.x > 0.0:
+			var y := area_rect.end.y - 3.0
+			var x0 := area_rect.position.x + 4.0
+			var w := area_rect.size.x - 8.0
+			draw_line(Vector2(x0, y), Vector2(x0 + w, y), Color(Palette.MATERIAL_VENT, 0.9 * _a), 2.0, true)
+			draw_line(Vector2(x0, y), Vector2(x0 + w * _p, y), fill, 2.0, true)
+

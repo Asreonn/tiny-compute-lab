@@ -35,6 +35,7 @@ func build_board(sim: Simulation) -> void:
 	sim.clear()
 	sim.size = def.board_size
 	sim.default_width = def.default_width
+	sim.campaign_timing = not def.legacy
 	sim.mission = self
 	for i in def.inputs.size():
 		var d: Dictionary = def.inputs[i]

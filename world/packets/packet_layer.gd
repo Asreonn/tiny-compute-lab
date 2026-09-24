@@ -1,22 +1,24 @@
 class_name PacketLayer
 extends Node2D
-## Slice A4b item 4: draws every packet visible in the simulation each frame and feeds
-## interpolated arc positions into each ConnectionView.packet_positions so the wire comets
-## follow the packets. Read-only over the Simulation: on-wire positions come from
-## Connection.slots, transitions from Simulation.events (emit/deliver), the input/output
-## queues from Machine.inq/outq. Everything is tick-locked to SimulationManager.alpha with
-## a single cubic-out easing (docs/MOTION_SYSTEM.md §1).
+## Packets as continuous motion over a discrete simulation (docs/MOTION_SYSTEM.md §1).
 ##
-## Drawing rules (docs/STYLE_GUIDE.md §8, docs/VISUAL_SYSTEM.md §10):
-##   wire packet (state "normal") / "leaving" at the output anchor · "entering" shrinks
-##   1 -> 0.6 at PKT_ENTERING_OPACITY · input-queue chips stacked 6 px inside the port ·
-##   blocked output held PKT_QUEUE_OFFSET along the outgoing wire · a job's input packet is
-##   NOT drawn (the activity area shows the work). The sprite tier (far|normal|close)
-##   follows CameraRig.zoom_tier_changed.
+## Every tick each visible packet gets a LOGICAL location:
+##   wire   — slot i of n on a connection path: arc = L·(i+1)/(n+1) (anchors at 0 and L,
+##            so every step along a wire covers the same distance → constant velocity)
+##   dock   — waiting in an input queue, just inside the input port
+##   core   — the job input being processed (the machine's ActivityArea centre)
+##   out    — result waiting in an output slot (docked at the output port)
+##   queued — output blocked: held PKT_QUEUE_OFFSET outside the output port
+## Between two ticks a packet moves from its previous location to its current one along a
+## transition polyline built from the real geometry (sub-path of the wire incl. every
+## chamfered corner, → port anchor → core …), at a constant speed: t = tick fraction.
+## Derived packets (a machine's result) start at that machine's core, so a value visibly
+## enters, stays inside while processing, and leaves transformed.
 
 const T := Palette.TILE
 const QUEUE_STACK := 6.0  # px between packets stacked inside an input queue
-const ENTER_MIN_SCALE := 0.6  # entering packets shrink 1 -> 0.6 into the socket
+const DOCK_IN := 10.0  # px a docked packet sits inside its port
+const EXIT_IN := 12.0  # px inside the output port where a finished value waits to leave
 const LONG_LABEL := 5  # labels longer than this flip into a small tag above the packet
 const LABEL_SIZE := 9  # close-tier packet value font size
 const TAG_ABOVE := 14.0  # tag offset above the packet centre
@@ -25,8 +27,9 @@ const TAG_PAD := 3.0  # horizontal padding inside the tag
 const TAG_ROW_PAD := 1.0  # vertical padding inside the tag
 
 var _tier := "normal"  # CameraRig zoom tier ("far" | "normal" | "close")
-var _last_tick := -1  # last simulation tick whose arc positions we captured
-var _positions := {}  # packet id -> {conn: int, prev: float, cur: float} arc px on the path
+var _last_tick := -1  # simulation tick whose transitions are cached
+var _loc := {}  # packet id -> logical location {k, pos, conn, arc} (current tick)
+var _moves := {}  # packet id -> {packet, poly: PackedVector2Array, state, conn, arc0, arc1, fade}
 var _paths := {}  # connection id -> PackedVector2Array (simplified + chamfered draw path)
 var _tag_style: StyleBoxFlat = null
 
@@ -51,236 +54,318 @@ func _on_tier(tier: String) -> void:
 		queue_redraw()
 
 
-## Layout edits replace wires/queues wholesale: drop every cached position and path.
+## Layout edits replace wires/queues wholesale: drop every cached location and path.
 func _on_board_reset(_v: Variant = null) -> void:
 	_paths.clear()
-	_positions.clear()
+	_loc.clear()
+	_moves.clear()
 	_last_tick = -1
 
 
 func _process(_delta: float) -> void:
-	_ensure_intervals()
+	_capture()
 	queue_redraw()
 
 
-## Capture the tick boundary: store prev/cur arc positions for every packet currently on a
-## wire. prev is where the packet was one tick ago (its last captured cur), the output
-## anchor (0.0) for packets emitted this tick, or the next slot behind it on a fresh board.
-func _ensure_intervals() -> void:
+## Visual tick fraction: continuous while running; a paused board shows its current state.
+static func frac() -> float:
+	return clampf(SimulationManager.alpha, 0.0, 1.0) if SimulationManager.running else 1.0
+
+
+# ------------------------------------------------------------------ tick capture
+
+## On a new tick: compute every packet's logical location and the transition polyline from
+## its previous location.
+func _capture() -> void:
 	var sim := SimulationManager.sim
 	if sim == null or sim.tick == _last_tick:
 		return
+	if sim.tick < _last_tick or sim.tick == 0:
+		_loc.clear()
 	_last_tick = sim.tick
-	var emitted := {}
+	var now := _locations(sim)  # id -> {k, pos, conn, arc, packet, machine}
+	var moves := {}
+	for pid in now:
+		var cur: Dictionary = now[pid]
+		var prev: Dictionary = _loc.get(pid, _spawn(sim, cur))
+		moves[pid] = _transition(prev, cur)
+	# packets that left the board this tick (consumed by a sink, discarded): glide into the
+	# machine core and fade.
+	for pid in _loc:
+		if now.has(pid):
+			continue
+		var prev: Dictionary = _loc[pid]
+		var mid := _consumer(sim, pid)
+		if mid < 0 or prev.get("packet") == null:
+			continue
+		var into_pos := _core(mid)
+		if prev["k"] == "wire" and sim.connections.has(int(prev["conn"])):
+			# consumed straight off a wire (sink): settle just inside the input port
+			var c: Connection = sim.connections[int(prev["conn"])]
+			if sim.machines.has(c.to_id):
+				into_pos = _dock(sim.machines[c.to_id], c.to_port, EXIT_IN)
+		var into := {"k": "core", "pos": into_pos, "packet": prev["packet"], "machine": mid}
+		var mv := _transition(prev, into)
+		mv["fade"] = true
+		moves[pid] = mv
+	_loc = now
+	_moves = moves
+
+
+## Where a packet that disappeared this tick went (deliver/output/discard events).
+func _consumer(sim: Simulation, pid: int) -> int:
 	for e in sim.events:
-		if str(e.get("kind", "")) == "emit":
-			emitted[int(e.get("packet", -1))] = true
-	var old := _positions
-	var fresh := {}
+		if int(e.get("packet", -1)) == pid and str(e.get("kind", "")) in ["deliver", "output", "discard"]:
+			return int(e.get("machine", -1))
+	return -1
+
+
+## Logical locations of every packet visible on the board at the current tick.
+func _locations(sim: Simulation) -> Dictionary:
+	var out := {}
 	for cid in sim.sorted_connection_ids():
 		var c: Connection = sim.connections[cid]
-		if not _paths.has(cid):
-			_paths[cid] = _build_path(c)
-		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
+		var path := _path(cid)
 		if path.size() < 2:
 			continue
 		var n: int = c.slots.size()
+		var plen := SignalGeom.poly_len(path)
 		for i in n:
 			var p: Packet = c.slots[i]
-			if p == null:
+			if p != null:
+				out[p.id] = {"k": "wire", "conn": cid, "arc": plen * float(i + 1) / float(n + 1), "packet": p}
+	for mid in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[mid]
+		for port in m.inq:
+			var j := 0
+			for p in m.inq[port]:
+				out[p.id] = {"k": "dock", "pos": _dock(m, port, DOCK_IN + float(j) * QUEUE_STACK), "packet": p, "machine": mid}
+				j += 1
+		if not m.job.is_empty() and m.job.get("input", null) != null:
+			# In the core while processing; over the job's last two ticks the value glides
+			# toward the output port it will leave from, so exiting never needs a long hop.
+			var jp: Packet = m.job["input"]
+			var left := int(m.job.get("ticks_left", 0))
+			var pos := _core(mid)
+			var res: Dictionary = m.job.get("results", {})
+			var total := int(m.job.get("total", 1))
+			if left >= total and total >= 3:
+				# started this tick: dock at the input first; it moves into the core next tick
+				var in_port := _input_port_of(m, jp)
+				if in_port != "":
+					pos = _dock(m, in_port, DOCK_IN)
+			elif left <= 2 and not res.is_empty():
+				var exit_pos := _dock(m, str(res.keys()[0]), EXIT_IN)
+				pos = pos.lerp(exit_pos, 0.5 if left == 2 else 1.0)
+			out[jp.id] = {"k": "core", "pos": pos, "packet": jp, "machine": mid, "glide": left <= 2}
+		for i in m.delay_line.size():
+			var dp: Packet = m.delay_line[i][0]
+			out[dp.id] = {"k": "core", "pos": _core(mid), "packet": dp, "machine": mid}
+		for port in m.outq:
+			var op: Packet = m.outq[port]
+			if op == null:
 				continue
-			var cur := _slot_arc(path, c.cells, i)
-			var prev := cur
-			if emitted.has(p.id):
-				prev = 0.0
-			elif old.has(p.id) and int(old[p.id]["conn"]) == cid:
-				prev = float(old[p.id]["cur"])
-			elif i + 1 < n:
-				prev = _slot_arc(path, c.cells, i + 1)
-			fresh[p.id] = {"conn": cid, "prev": prev, "cur": cur}
-	_positions = fresh
+			if m.state == Machine.State.BLOCKED:
+				out[op.id] = {"k": "queued", "pos": _dock(m, port, -float(Palette.PKT_QUEUE_OFFSET)), "packet": op, "machine": mid, "port": port}
+			else:
+				out[op.id] = {"k": "out", "pos": _dock(m, port, DOCK_IN), "packet": op, "machine": mid, "port": port}
+	return out
 
 
-## Comet-head arc lengths (px along the chamfered path) for every packet on `conn_id`, using
-## the same tick-locked interpolation the packet sprites use. Wired into each
-## ConnectionView.packet_positions so comets follow the packets.
-func comet_arcs(conn_id: int) -> Array:
-	_ensure_intervals()
+## Where a packet first seen this tick comes from: a machine's result appears at that
+## machine's core; a fresh source packet at the source core; anything else where it is.
+func _spawn(sim: Simulation, cur: Dictionary) -> Dictionary:
+	var p: Packet = cur["packet"]
+	for e in sim.events:
+		if int(e.get("packet", -1)) == p.id and str(e.get("kind", "")) == "emit":
+			var mid := int(e.get("machine", -1))
+			if sim.machines.has(mid):
+				# emerges just inside the port it leaves from (where the job input glided to)
+				return {"k": "core", "pos": _dock(sim.machines[mid], str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid}
+	if cur.has("port") and sim.machines.has(int(cur["machine"])):
+		# a fresh value in an output slot (sources): appears just inside that port
+		return {"k": "core", "pos": _dock(sim.machines[int(cur["machine"])], str(cur["port"]), EXIT_IN), "packet": p, "machine": cur["machine"]}
+	if cur.has("machine"):
+		return {"k": "core", "pos": _core(int(cur["machine"])), "packet": p, "machine": cur["machine"]}
+	return cur
+
+
+## Transition polyline from one logical location to the next, along the real geometry.
+func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
+	var poly := PackedVector2Array()
+	var state := "normal"
+	var ka: String = a["k"]
+	var kb: String = b["k"]
+	if ka == "wire" and kb == "wire" and a["conn"] == b["conn"]:
+		poly = SignalGeom.sub_poly_arc(_path(int(a["conn"])), float(a["arc"]), float(b["arc"]))
+	elif ka == "wire":
+		# leaving the wire into a port: rest of the wire to its end anchor, then inside
+		var path := _path(int(a["conn"]))
+		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), SignalGeom.poly_len(path))
+		poly.append(b["pos"])
+		state = "entering"
+	elif kb == "wire":
+		# undocking onto a wire: from inside the port to the anchor, then along the wire
+		var path := _path(int(b["conn"]))
+		poly.append(a["pos"])
+		poly.append_array(SignalGeom.sub_poly_arc(path, 0.0, float(b["arc"])))
+		state = "leaving"
+	else:
+		poly.append(a["pos"])
+		poly.append(b["pos"])
+		match kb:
+			"core": state = "processing"
+			"queued": state = "queued"
+	if poly.is_empty():
+		poly.append(_point(b))
+	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "from_glide": a.get("glide", false) and kb != "wire"}
+
+
+func _point(loc: Dictionary) -> Vector2:
+	if loc["k"] == "wire":
+		var path := _path(int(loc["conn"]))
+		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
+		return SignalGeom.sample(path, clampf(float(loc["arc"]) / plen, 0.0, 1.0))[0]
+	return loc["pos"]
+
+
+## Constant-speed position along a transition at tick fraction t.
+static func _along(poly: PackedVector2Array, t: float) -> Vector2:
+	if poly.size() == 1:
+		return poly[0]
+	return SignalGeom.sample(poly, clampf(t, 0.0, 1.0))[0]
+
+
+# ------------------------------------------------------------------ geometry helpers
+
+func _path(cid: int) -> PackedVector2Array:
+	if not _paths.has(cid):
+		var sim := SimulationManager.sim
+		if sim == null or not sim.connections.has(cid):
+			return PackedVector2Array()
+		_paths[cid] = _build_path(sim.connections[cid])
+	return _paths[cid]
+
+
+## The input port a job's packet arrived through (the last machine on its path), or "".
+func _input_port_of(m: Machine, p: Packet) -> String:
 	var sim := SimulationManager.sim
-	if sim == null or not _paths.has(conn_id):
-		return []
-	var path: PackedVector2Array = _paths[conn_id]
+	for port in m.inq:
+		var c: Connection = sim.connection_at_port(m.id, port)
+		if c != null and _loc.has(p.id) and _loc[p.id].get("conn", -1) == c.id:
+			return port
+	for port in m.inq:
+		return port
+	return ""
+
+
+## A point `inset` px inside (negative: outside) the machine along a port's axis.
+func _dock(m: Machine, port: String, inset: float) -> Vector2:
+	var inward := -Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
+	return MachineView.port_world(m, port) + inward * inset
+
+
+## World centre of a machine's function region (ActivityArea), or its footprint centre.
+func _core(mid: int) -> Vector2:
+	var mv := get_parent().get_node_or_null("MachineLayer/Machine_%d" % mid) as MachineView
+	if mv != null:
+		return mv.core_world()
+	var sim := SimulationManager.sim
+	if sim != null and sim.machines.has(mid):
+		var m: Machine = sim.machines[mid]
+		return (Vector2(m.cell) + Vector2(Catalog.size_of(m.type, m.rot)) * 0.5) * T
+	return Vector2.ZERO
+
+
+## Same draw path as ConnectionView: [port anchor] + tile centres + [anchor], simplified and
+## chamfered (bus 18, trace 14) with the Signal System V1 geometry.
+func _build_path(c: Connection) -> PackedVector2Array:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(c.from_id) or not sim.machines.has(c.to_id):
+		return PackedVector2Array()
+	var fm: Machine = sim.machines[c.from_id]
+	var tm: Machine = sim.machines[c.to_id]
+	var pts := PackedVector2Array()
+	pts.append(MachineView.port_world(fm, c.from_port))
+	for cell in c.cells:
+		pts.append(Vector2(cell) * T + Vector2.ONE * (T * 0.5))
+	pts.append(MachineView.port_world(tm, c.to_port))
+	var raw := SignalGeom.simplify(pts)
+	var bus := bool(fm.port_geom(c.from_port).get("bus", false)) and bool(tm.port_geom(c.to_port).get("bus", false))
+	return SignalGeom.chamfer(raw, Palette.SIG_BUS_CHAMFER if bus else Palette.SIG_CHAMFER)
+
+
+# ------------------------------------------------------------------ queries
+
+## Comet-head arc lengths (px along the connection path) for packets travelling on
+## `conn_id`, from the same interpolation the sprites use (ConnectionView.packet_positions).
+func comet_arcs(conn_id: int) -> Array:
+	_capture()
+	var out: Array = []
+	var t := frac()
+	var path := _path(conn_id)
 	var plen := SignalGeom.poly_len(path)
 	if plen <= 0.0:
-		return []
-	var a := _ease(SimulationManager.alpha)
-	var out: Array = []
-	for pid in _positions:
-		var rec: Dictionary = _positions[pid]
-		if int(rec["conn"]) != conn_id:
+		return out
+	for pid in _moves:
+		var mv: Dictionary = _moves[pid]
+		var to: Dictionary = mv["to"]
+		if to["k"] != "wire" or int(to["conn"]) != conn_id:
 			continue
-		out.append(clampf(lerpf(rec["prev"], rec["cur"], a), 0.0, plen))
+		out.append(SignalGeom.project(path, _along(mv["poly"], t)) * plen)
 	return out
 
 
-## World positions of every packet the layer currently draws, packet id -> Vector2.
-## This is the same position math as _draw (tick-locked interpolation), exposed for the
-## tools' hit testing (packet = within 10 px of its drawn position).
+## World positions of every drawn packet, packet id -> Vector2 (tools' hit testing).
 func drawn_packet_positions() -> Dictionary:
-	var sim := SimulationManager.sim
-	if sim == null:
-		return {}
-	_ensure_intervals()
-	var a := _ease(SimulationManager.alpha)
-	var delivering := {}
-	for e in sim.events:
-		var kind := str(e.get("kind", ""))
-		if kind == "deliver":
-			delivering[int(e.get("packet", -1))] = e
+	_capture()
 	var out := {}
-	# 1. on-wire packets
-	for cid in sim.sorted_connection_ids():
-		var c: Connection = sim.connections[cid]
-		if not _paths.has(cid):
-			_paths[cid] = _build_path(c)
-		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
-		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
-		if path.size() < 2 or plen <= 0.0:
-			continue
-		for i in c.slots.size():
-			var p: Packet = c.slots[i]
-			if p == null:
-				continue
-			var arc: float = _slot_arc(path, c.cells, i)
-			if _positions.has(p.id):
-				arc = lerpf(_positions[p.id]["prev"], _positions[p.id]["cur"], a)
-			out[p.id] = SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
-	# 2. entering (this tick's delivered packets gliding into the socket)
-	for pid in delivering:
-		var e: Dictionary = delivering[pid]
-		var mid := int(e.get("machine", -1))
-		var port := str(e.get("port", ""))
-		if not sim.machines.has(mid):
-			continue
-		var m: Machine = sim.machines[mid]
-		var p: Packet = _in_queue(m, pid)
-		if p == null:
-			continue
-		var from := _wire_head_pos(sim, m, port)
-		out[pid] = from.lerp(MachineView.port_world(m, port), a)
-	# 3. machine queues (stacked inputs; blocked outputs held on the wire)
-	for mid in sim.sorted_machine_ids():
-		var m: Machine = sim.machines[mid]
-		for port in m.inq:
-			var queue: Array = m.inq[port]
-			if queue.is_empty():
-				continue
-			var anchor := MachineView.port_world(m, port)
-			var inward := -Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
-			var j := 0
-			for p in queue:
-				if delivering.has(p.id):
-					continue
-				out[p.id] = anchor + inward * (float(j) * QUEUE_STACK)
-				j += 1
-		if m.state != Machine.State.BLOCKED:
-			continue
-		for port in m.outq:
-			var p: Packet = m.outq[port]
-			if p == null:
-				continue
-			var anchor := MachineView.port_world(m, port)
-			var outward := Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
-			out[p.id] = anchor + outward * float(Palette.PKT_QUEUE_OFFSET)
+	var t := frac()
+	for pid in _moves:
+		if not _moves[pid].get("fade", false):
+			out[pid] = _along(_moves[pid]["poly"], t)
 	return out
 
 
-# ------------------------------------------------------------------ per frame draw
+# ------------------------------------------------------------------ drawing
 
 func _draw() -> void:
-	var sim := SimulationManager.sim
-	if sim == null:
+	if SimulationManager.sim == null:
 		return
-	_ensure_intervals()
-	var a := _ease(SimulationManager.alpha)
-	var emitted := {}
-	var delivering := {}
-	for e in sim.events:
-		var kind := str(e.get("kind", ""))
-		if kind == "emit":
-			emitted[int(e.get("packet", -1))] = true
-		elif kind == "deliver":
-			delivering[int(e.get("packet", -1))] = e
-	# 1. on-wire packets ("normal" travelling, "leaving" just after emit)
-	for cid in sim.sorted_connection_ids():
-		var c: Connection = sim.connections[cid]
-		if not _paths.has(cid):
-			_paths[cid] = _build_path(c)
-		var path: PackedVector2Array = _paths.get(cid, PackedVector2Array())
-		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
-		if path.size() < 2 or plen <= 0.0:
-			continue
-		for i in c.slots.size():
-			var p: Packet = c.slots[i]
-			if p == null:
-				continue
-			var arc: float = _slot_arc(path, c.cells, i)
-			if _positions.has(p.id):
-				arc = lerpf(_positions[p.id]["prev"], _positions[p.id]["cur"], a)
-			var pos: Vector2 = SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
-			_draw_packet(p, pos, "leaving" if emitted.has(p.id) else "normal", 1.0, Color.WHITE)
-	# 2. entering: this tick's delivered packets glide from the wire head slot to the input
-	#    anchor, shrinking into the socket at PKT_ENTERING_OPACITY (tick-locked)
-	for pid in delivering:
-		var e: Dictionary = delivering[pid]
-		var mid := int(e.get("machine", -1))
-		var port := str(e.get("port", ""))
-		if not sim.machines.has(mid):
-			continue
-		var m: Machine = sim.machines[mid]
-		var p: Packet = _in_queue(m, pid)
-		if p == null:
-			continue
-		var from := _wire_head_pos(sim, m, port)
-		var to := MachineView.port_world(m, port)
-		var pos := from.lerp(to, a)
-		_draw_packet(p, pos, "entering", lerpf(1.0, ENTER_MIN_SCALE, a), Color(1, 1, 1, Palette.PKT_ENTERING_OPACITY))
-	# 3. machine queues: input queues stack inward 6 px apart; a blocked output holds its
-	#    packet PKT_QUEUE_OFFSET down the wire. A job's input packet is not drawn.
-	for mid in sim.sorted_machine_ids():
-		var m: Machine = sim.machines[mid]
-		for port in m.inq:
-			var queue: Array = m.inq[port]
-			if queue.is_empty():
-				continue
-			var anchor := MachineView.port_world(m, port)
-			var inward := -Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
-			var j := 0
-			for p in queue:
-				if delivering.has(p.id):
-					continue  # the entering animation owns this packet for the whole tick
-				_draw_packet(p, anchor + inward * (float(j) * QUEUE_STACK), "normal", 1.0, Color.WHITE)
-				j += 1
-		if m.state != Machine.State.BLOCKED:
-			continue
-		for port in m.outq:
-			var p: Packet = m.outq[port]
-			if p == null:
-				continue
-			var anchor := MachineView.port_world(m, port)
-			var outward := Vector2(Catalog.side_vec(m.port_geom(port)["side"]))
-			_draw_packet(p, anchor + outward * float(Palette.PKT_QUEUE_OFFSET), "queued", 1.0, Color.WHITE)
+	_capture()
+	var t := frac()
+	for pid in _moves:
+		var mv: Dictionary = _moves[pid]
+		var pos := _along(mv["poly"], t)
+		var state: String = mv["state"]
+		var scale_k := 1.0
+		var mod := Color.WHITE
+		if mv.get("fade", false):
+			scale_k = lerpf(1.0, 0.6, t)
+			mod = Color(1, 1, 1, lerpf(Palette.PKT_ENTERING_OPACITY, 0.0, t))
+			state = "entering"
+		elif state == "entering":
+			mod = Color(1, 1, 1, lerpf(1.0, Palette.PKT_ENTERING_OPACITY, t))
+		elif state == "processing":
+			mod = Color(1, 1, 1, 0.85)
+		var label := true
+		if mv["to"].get("glide", false) or mv.get("from_glide", false):
+			# crossing the machine's face toward the exit: muted, unlabeled, so the
+			# machine's own display stays readable
+			mod = Color(1, 1, 1, 0.6)
+			label = false
+		_draw_packet(mv["packet"], pos, state, scale_k, mod, label)
 
 
 ## Sprite (tier + state) centred at pos, plus the close-tier value label.
-func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: Color) -> void:
+func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: Color, label := true) -> void:
 	var tex := Art.tex(Art.packet_file(p.data.width, _tier, state))
 	if tex == null:
 		return
 	var design := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
 	var rect := Rect2(pos - design * 0.5 * scale_k, design * scale_k)
 	draw_texture_rect(tex, rect, false, mod)
-	if _tier == "close":
+	if _tier == "close" and label:
 		_draw_label(p, pos, design * scale_k)
 
 
@@ -316,69 +401,3 @@ func _view_mode() -> int:
 	if md != null and not md.view_modes.is_empty():
 		return int(md.view_modes[0])
 	return ViewMode.Mode.BIN
-
-
-## World position the deliver event's packet is coming from: the head slot of the source
-## wire, or the input anchor for a zero-tile wire.
-func _wire_head_pos(sim: Simulation, m: Machine, port: String) -> Vector2:
-	var cv: Connection = sim.connection_at_port(m.id, port)
-	if cv == null:
-		return MachineView.port_world(m, port)
-	if not _paths.has(cv.id):
-		_paths[cv.id] = _build_path(cv)
-	var path: PackedVector2Array = _paths.get(cv.id, PackedVector2Array())
-	var plen := maxf(SignalGeom.poly_len(path), 1e-9)
-	if path.size() < 2 or plen <= 0.0:
-		return MachineView.port_world(m, port)
-	var arc := _slot_arc(path, cv.cells, cv.slots.size() - 1)
-	return SignalGeom.sample(path, clampf(arc / plen, 0.0, 1.0))[0]
-
-
-## Find a packet that lives inside a machine queue (used for entering packets).
-func _in_queue(m: Machine, pid: int) -> Packet:
-	for port in m.inq:
-		for p in m.inq[port]:
-			if p.id == pid:
-				return p
-	if not m.job.is_empty() and m.job.get("input", null) != null and m.job["input"].id == pid:
-		return m.job["input"]
-	for port in m.outq:
-		if m.outq[port] != null and m.outq[port].id == pid:
-			return m.outq[port]
-	return null
-
-
-## Same draw path as ConnectionView._build_path: [port anchor] + tile centres + [anchor],
-## simplified and chamfered (bus 18, trace 14) with the Signal System V1 geometry.
-func _build_path(c: Connection) -> PackedVector2Array:
-	var sim := SimulationManager.sim
-	if sim == null or not sim.machines.has(c.from_id) or not sim.machines.has(c.to_id):
-		return PackedVector2Array()
-	var fm: Machine = sim.machines[c.from_id]
-	var tm: Machine = sim.machines[c.to_id]
-	var pts := PackedVector2Array()
-	pts.append(MachineView.port_world(fm, c.from_port))
-	for cell in c.cells:
-		pts.append(Vector2(cell) * T + Vector2.ONE * (T * 0.5))
-	pts.append(MachineView.port_world(tm, c.to_port))
-	var raw := SignalGeom.simplify(pts)
-	var bus := bool(fm.port_geom(c.from_port).get("bus", false)) and bool(tm.port_geom(c.to_port).get("bus", false))
-	return SignalGeom.chamfer(raw, Palette.SIG_BUS_CHAMFER if bus else Palette.SIG_CHAMFER)
-
-
-## Arc length (px along the path) of slot i: the centre of the routed tile, or the wire's
-## delivery end for a zero-tile stretch.
-func _slot_arc(path: PackedVector2Array, cells: Array, i: int) -> float:
-	var plen := SignalGeom.poly_len(path)
-	if plen <= 0.0:
-		return 0.0
-	if i >= 0 and i < cells.size():
-		var centre := Vector2(cells[i]) * T + Vector2.ONE * (T * 0.5)
-		return clampf(SignalGeom.project(path, centre) * plen, 0.0, plen)
-	return plen
-
-
-## Cubic-out easing applied to SimulationManager.alpha (docs/MOTION_SYSTEM.md §1: one easing).
-static func _ease(a: float) -> float:
-	var x := 1.0 - clampf(a, 0.0, 1.0)
-	return 1.0 - x * x * x

@@ -44,7 +44,9 @@ var _press_world := Vector2.ZERO
 var _press_hit := {}
 var _lmb_down := false
 var _move_drag := {}  # {machine_id: int, cell: Vector2i, from: Vector2i}
-var _wire_drag := {}  # {from_id: int, from_port: String}
+var _wire_drag := {}  # {from_id: int, from_port: String, error?: String}
+var _preview_cells: Array = []  # route shown by the wire preview (committed as-is on release)
+var _preview_target := {}  # {id, port} of the valid target under the cursor, or {}
 var _hover := {}
 
 
@@ -197,8 +199,7 @@ func _lmb_press(world: Vector2) -> void:
 						_set_selection(-1, int(_press_hit["id"]))
 		"wire":
 			if _press_hit.get("kind") == "port" and _port_dir(int(_press_hit["id"]), str(_press_hit.get("port", ""))) == Catalog.DIR_OUT:
-				_wire_drag = {"from_id": int(_press_hit["id"]), "from_port": str(_press_hit["port"])}
-				_update_wire_preview(world)
+				_begin_wire(int(_press_hit["id"]), str(_press_hit["port"]), world)
 		"delete":
 			if _press_hit.get("kind") == "machine":
 				_delete_machine(int(_press_hit["id"]))
@@ -252,8 +253,7 @@ func _track_press_drag(world: Vector2) -> void:
 	if mid < 0:
 		return
 	if kind == "port" and _port_dir(mid, str(_press_hit.get("port", ""))) == Catalog.DIR_OUT:
-		_wire_drag = {"from_id": mid, "from_port": str(_press_hit["port"])}
-		_update_wire_preview(world)
+		_begin_wire(mid, str(_press_hit["port"]), world)
 		return
 	var sim := SimulationManager.sim
 	if sim != null and sim.machines.has(mid) and not sim.machines[mid].locked and kind == "machine":
@@ -366,54 +366,94 @@ func _update_wire_preview(world: Vector2) -> void:
 		_clear_preview()
 		return
 	var from := MachineView.port_world(sim.machines[fid], fport)
+	_preview_cells = []
+	_preview_target = {}
 	var target := _hit_port(world)
-	if target.is_empty():
-		_show_preview(PackedVector2Array([from, world]), "ConnectionPreview")
+	if not target.is_empty() and sim.machines.has(int(target["id"])):
+		# Over a port: exactly the route that release would place (WYSIWYG).
+		var tid := int(target["id"])
+		var tport := str(target["port"])
+		var to := MachineView.port_world(sim.machines[tid], tport)
+		var err := sim.connect_error(fid, fport, tid, tport)
+		var r := sim.route_between(fid, fport, tid, tport)
+		if err == "" and bool(r.get("ok", false)):
+			_preview_cells = r["cells"]
+			_preview_target = {"id": tid, "port": tport}
+			_show_preview(_route_pts(from, _preview_cells, to), "ValidTarget")
+			return
+		_wire_drag["error"] = err if err != "" else "No route"
+		var to_tile: Vector2i = sim.machines[tid].port_geom(tport)["outside"]
+		var bad_route := _route_to_cell(sim, fid, fport, to_tile)
+		_show_preview(_route_pts(from, bad_route, to), "InvalidTarget")
 		return
-	var tid := int(target["id"])
-	var tport := str(target["port"])
-	if not sim.machines.has(tid):
+	# Free drag: live route from the source to the tile under the cursor.
+	var cells := _route_to_cell(sim, fid, fport, _cell_of(world))
+	if cells.is_empty():
 		_show_preview(PackedVector2Array([from, world]), "ConnectionPreview")
-		return
-	var to := MachineView.port_world(sim.machines[tid], tport)
-	var err := sim.connect_error(fid, fport, tid, tport)
-	var r := sim.route_between(fid, fport, tid, tport)
-	if err == "" and bool(r.get("ok", false)):
-		var pts := PackedVector2Array([from])
-		for cell in r.get("cells", []):
-			pts.append(Vector2(cell) * T + Vector2.ONE * (T * 0.5))
-		pts.append(to)
-		_show_preview(pts, "ValidTarget")
 	else:
-		_show_preview(PackedVector2Array([from, to]), "InvalidTarget")
+		_show_preview(_route_pts(from, cells, Vector2.INF), "ConnectionPreview")
 
 
-## Release over a valid input-port target: create the wire. Otherwise notice with the
-## exact connect_error text (mismatched widths included) or "No route".
+## Start a wire from an output port. Single-connection ports that already carry a wire refuse:
+## replacing a wire is always an explicit player action (delete it first).
+func _begin_wire(mid: int, port: String, world: Vector2) -> void:
+	var sim := SimulationManager.sim
+	if sim != null and sim.connection_at_port(mid, port) != null:
+		notice.emit("Output already wired — delete that wire first (X)", "error")
+		return
+	_wire_drag = {"from_id": mid, "from_port": port}
+	hover_changed.emit({})  # no tooltips while dragging a wire
+	_update_wire_preview(world)
+
+
+func _cell_of(world: Vector2) -> Vector2i:
+	return Vector2i(floori(world.x / T), floori(world.y / T))
+
+
+## Router path from the tile outside the source port to `goal` (a free tile); [] if none.
+func _route_to_cell(sim: Simulation, fid: int, fport: String, goal: Vector2i) -> Array:
+	var ga: Dictionary = sim.machines[fid].port_geom(fport)
+	var occ := sim.occupancy()
+	if occ.has(goal) or goal.x < 0 or goal.y < 0 or goal.x >= sim.size.x or goal.y >= sim.size.y:
+		return []
+	var sd: Vector2i = Catalog.side_vec(ga["side"])
+	return Router.route(sim.size, occ, sim.wire_tiles(), ga["outside"], sd, goal, Vector2i.ZERO)
+
+
+## Draw points for a route: source anchor, tile centres, then the target anchor (if given).
+func _route_pts(from: Vector2, cells: Array, to: Vector2) -> PackedVector2Array:
+	var pts := PackedVector2Array([from])
+	for c in cells:
+		pts.append(Vector2(c) * T + Vector2.ONE * (T * 0.5))
+	if to != Vector2.INF:
+		pts.append(to)
+	return pts
+
+
+## Release/click: commit exactly the previewed route (WYSIWYG) to the previewed target.
+## Anything else reports why; existing wires are never touched.
 func _finish_wire_drag(world: Vector2) -> void:
 	var sim := SimulationManager.sim
 	var fid := int(_wire_drag.get("from_id", -1))
 	var fport := str(_wire_drag.get("from_port", ""))
+	_update_wire_preview(world)  # the preview for exactly this cursor position
+	var target := _preview_target
+	var cells := _preview_cells
+	var err := str(_wire_drag.get("error", ""))
 	_clear_preview()
 	_wire_drag = {}
+	_preview_cells = []
+	_preview_target = {}
 	if sim == null or not sim.machines.has(fid):
 		return
-	var target := _hit_port(world)
-	var err := ""
 	if not target.is_empty():
-		var tid := int(target["id"])
-		var tport := str(target["port"])
-		if sim.machines.has(tid):
-			err = sim.connect_error(fid, fport, tid, tport)
-			var r := sim.route_between(fid, fport, tid, tport)
-			if err == "" and bool(r.get("ok", false)):
-				SimulationManager.request_edit()
-				if sim.connect_ports(fid, fport, tid, tport) != null:
-					return
-				err = "No route"
-	if err == "":
-		err = "No route"
-	notice.emit(err, "error")
+		SimulationManager.request_edit()
+		if sim.connect_ports(fid, fport, int(target["id"]), str(target["port"]), cells) != null:
+			return
+		err = sim.last_error
+	if err == "" and _hit_port(world).is_empty():
+		return  # released on empty board: just cancel, nothing to explain
+	notice.emit(err if err != "" else "No route", "error")
 	_update_hover_immediate()
 
 
@@ -686,9 +726,16 @@ func _clear_ghost_after_rebuild() -> void:
 
 ## Draws ConnectionView.draw_preview onto the OverlayLayer while wiring.
 class PreviewLayer extends Node2D:
+	const FLOW_PX_PER_S := 24.0  # preview dash flow speed (source → cursor)
 	var pts := PackedVector2Array()
 	var state := ""
+	var _flow := 0.0
+
+	func _process(delta: float) -> void:
+		if pts.size() >= 2:
+			_flow += delta * FLOW_PX_PER_S
+			queue_redraw()
 
 	func _draw() -> void:
 		if pts.size() >= 2:
-			ConnectionView.draw_preview(self, pts, state)
+			ConnectionView.draw_preview(self, pts, state, _flow)

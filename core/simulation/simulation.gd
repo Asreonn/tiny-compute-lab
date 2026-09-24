@@ -33,6 +33,8 @@ var _conn_at_port: Dictionary = {}
 
 var mission: MissionRun = null
 var default_width := 0  # mission configuration; never a global constant
+var campaign_timing := false  # campaign dwell times + 2 wire slots per tile (Catalog timing profiles)
+var last_error := ""  # player-facing reason of the last refused edit (place/move/rotate/connect)
 var events: Array = []  # [{kind, ...}] produced this tick for the view/debugger
 
 # metrics
@@ -124,15 +126,24 @@ func place(type: String, cell: Vector2i, rot: int = 0, params: Dictionary = {}, 
 	if placement_error(type, cell, rot) != "":
 		return null
 	var m := Machine.new(_next_machine_id, type, cell, w, rot, params)
-	_next_machine_id += 1
+	m.campaign_timing = campaign_timing
 	machines[m.id] = m
-	_reroute_blocked()
+	# Wires crossing the new footprint are re-routed around it; if one cannot be, the
+	# placement is refused — an existing wire is never silently deleted.
+	var plan := _reroute_plan(_wires_through(m.footprint()))
+	if plan.has("fail"):
+		machines.erase(m.id)
+		last_error = "Would cut the wire %s" % _wire_name(int(plan["fail"]))
+		return null
+	_next_machine_id += 1
+	_apply_plan(plan)
 	changed.emit()
 	return m
 
 
 func add_machine(m: Machine) -> void:
 	m.id = _next_machine_id
+	m.campaign_timing = campaign_timing
 	m.label = "%s #%d" % [Catalog.def(m.type)["name"], m.id]
 	_next_machine_id += 1
 	machines[m.id] = m
@@ -155,12 +166,10 @@ func rotate(id: int) -> bool:
 		return false
 	var m: Machine = machines[id]
 	var nr := (m.rot + 1) % 4
-	if placement_error(m.type, m.cell, nr, id) != "":
+	last_error = placement_error(m.type, m.cell, nr, id)
+	if last_error != "":
 		return false
-	m.rot = nr
-	_reroute_machine(id)
-	changed.emit()
-	return true
+	return _relayout(m, m.cell, nr)
 
 
 ## Move a machine to a new cell. Refuses locked machines and invalid placement (the
@@ -171,12 +180,67 @@ func move(id: int, cell: Vector2i) -> bool:
 	if not machines.has(id) or machines[id].locked:
 		return false
 	var m: Machine = machines[id]
-	if placement_error(m.type, cell, m.rot, id) != "":
+	last_error = placement_error(m.type, cell, m.rot, id)
+	if last_error != "":
 		return false
+	return _relayout(m, cell, m.rot)
+
+
+## Move/rotate a machine only if every affected wire (its own + wires crossing the new
+## footprint) can be re-routed; otherwise nothing changes and last_error explains why.
+func _relayout(m: Machine, cell: Vector2i, rot: int) -> bool:
+	var old_cell := m.cell
+	var old_rot := m.rot
 	m.cell = cell
-	_reroute_machine(id)
+	m.rot = rot
+	var ids := _wires_through(m.footprint())
+	for cid in sorted_connection_ids():
+		var c: Connection = connections[cid]
+		if (c.from_id == m.id or c.to_id == m.id) and not cid in ids:
+			ids.append(cid)
+	var plan := _reroute_plan(ids)
+	if plan.has("fail"):
+		m.cell = old_cell
+		m.rot = old_rot
+		last_error = "Would cut the wire %s" % _wire_name(int(plan["fail"]))
+		return false
+	_apply_plan(plan)
 	changed.emit()
 	return true
+
+
+## Connection ids whose routed tiles overlap `cells`.
+func _wires_through(cells: Array) -> Array:
+	var out := []
+	for cid in sorted_connection_ids():
+		for cell in connections[cid].cells:
+			if cell in cells:
+				out.append(cid)
+				break
+	return out
+
+
+## New routes for `ids` on the current board, or {"fail": cid} when one has no route.
+func _reroute_plan(ids: Array) -> Dictionary:
+	var plan := {}
+	for cid in ids:
+		var c: Connection = connections[cid]
+		var r := route_between(c.from_id, c.from_port, c.to_id, c.to_port, cid)
+		if not r["ok"]:
+			return {"fail": cid}
+		plan[cid] = r["cells"]
+	return plan
+
+
+func _apply_plan(plan: Dictionary) -> void:
+	for cid in plan:
+		connections[cid].cells = plan[cid]
+		connections[cid].reset()
+
+
+func _wire_name(cid: int) -> String:
+	var c: Connection = connections[cid]
+	return "%s → %s" % [machines[c.from_id].label, machines[c.to_id].label]
 
 
 func set_param(id: int, key: String, value: Variant) -> void:
@@ -258,19 +322,51 @@ func route_between(a: int, pa: String, b: int, pb: String, ignore_conn: int = -1
 	return {"ok": not cells.is_empty(), "cells": cells}
 
 
-func connect_ports(a: int, pa: String, b: int, pb: String) -> Connection:
-	if connect_error(a, pa, b, pb) != "":
+## route: the exact tiles to use (the wire tool's WYSIWYG preview); null = auto-route.
+func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null) -> Connection:
+	last_error = connect_error(a, pa, b, pb)
+	if last_error != "":
 		return null
-	var r := route_between(a, pa, b, pb)
-	if not r["ok"]:
-		return null
-	var c := Connection.new(_next_conn_id, a, pa, b, pb, r["cells"], machines[a].port_width(pa))
+	var cells: Array[Vector2i] = []
+	if route == null:
+		var r := route_between(a, pa, b, pb)
+		if not r["ok"]:
+			last_error = "No route"
+			return null
+		cells = r["cells"]
+	else:
+		cells.assign(route)
+		last_error = route_error(a, pa, b, pb, cells)
+		if last_error != "":
+			return null
+	var spt := Catalog.CAMPAIGN_SLOTS_PER_TILE if campaign_timing else 1
+	var c := Connection.new(_next_conn_id, a, pa, b, pb, cells, machines[a].port_width(pa), spt)
 	_next_conn_id += 1
 	connections[c.id] = c
 	_conn_at_port["%d:%s" % [a, pa]] = c.id
 	_conn_at_port["%d:%s" % [b, pb]] = c.id
 	changed.emit()
 	return c
+
+
+## Why an explicit route cannot be used, or "": it must start on the tile outside the source
+## port, end on the tile outside the target port, step between 4-neighbours, stay on the board
+## and never cross a machine.
+func route_error(a: int, pa: String, b: int, pb: String, cells: Array) -> String:
+	var ga: Dictionary = machines[a].port_geom(pa)
+	var gb: Dictionary = machines[b].port_geom(pb)
+	if cells.is_empty():
+		return "" if ga["outside"] == gb["cell"] and gb["outside"] == ga["cell"] else "No route"
+	if cells[0] != ga["outside"] or cells[cells.size() - 1] != gb["outside"]:
+		return "No route"
+	var occ := occupancy()
+	for i in cells.size():
+		var c: Vector2i = cells[i]
+		if c.x < 0 or c.y < 0 or c.x >= size.x or c.y >= size.y or occ.has(c):
+			return "Route blocked"
+		if i > 0 and absi(c.x - cells[i - 1].x) + absi(c.y - cells[i - 1].y) != 1:
+			return "No route"
+	return ""
 
 
 func disconnect_wire(cid: int, notify := true) -> void:
@@ -290,8 +386,7 @@ func _reroute(cid: int) -> void:
 	if r["ok"]:
 		c.cells = r["cells"]
 		c.reset()
-	else:
-		disconnect_wire(cid, false)
+	# no route: keep the wire as it is (a wire is never silently deleted)
 
 
 func _reroute_machine(id: int) -> void:

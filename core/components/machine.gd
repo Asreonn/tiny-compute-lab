@@ -39,6 +39,7 @@ var stream: Array = []  # input: Array[BitVector] to emit
 var interval := 1  # input: ticks between packets
 var strict := false  # input: drop (and fail) instead of waiting when blocked
 var loop := false  # input: repeat the stream until the mission passes (campaign sources)
+var campaign_timing := false  # set by the Simulation: campaign dwell times (Catalog.ticks)
 var next_emit := 0
 var emitted := 0
 var channel := 0  # output: which expected stream it validates
@@ -67,7 +68,7 @@ func ports() -> Array:
 
 
 func processing_ticks() -> int:
-	return int(Catalog.def(type)["ticks"])
+	return Catalog.ticks(type, campaign_timing)
 
 
 func power() -> int:

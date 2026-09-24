@@ -232,8 +232,12 @@ func test_move_refuses_invalid() -> void:
 	check(c != null, "wire should connect before the drop test")
 	sim.place("compare", Vector2i(4, 8), 0, {}, 3)
 	sim.place("compare", Vector2i(5, 8), 0, {}, 3)
-	check(sim.move(a2.id, Vector2i(6, 8)), "move to a valid but boxed-in cell still succeeds")
-	check(not sim.connections.has(c.id), "wire with no possible route is dropped")
+	# A wire is never silently deleted: a move that would leave a wire unroutable is refused.
+	var before: Vector2i = a2.cell
+	check(not sim.move(a2.id, Vector2i(6, 8)), "move that would cut a wire is refused")
+	check(a2.cell == before, "refused move keeps the machine where it was")
+	check(sim.connections.has(c.id), "the wire is kept (never silently dropped)")
+	check(sim.last_error.begins_with("Would cut the wire"), "refusal explains itself, got '%s'" % sim.last_error)
 
 
 func test_layout_roundtrip() -> void:
@@ -264,7 +268,14 @@ func test_wrap_carries() -> void:
 		if sim.machines[id].type == "add":
 			add = sim.machines[id]
 	check(add != null, "a2 should have an Add")
-	check(add != null and add.carries == 2, "a2 Add carries should be 2, got %s" % [add.carries if add != null else -1])
+	# 101+010 no carry, 110+010 and 111+010 carry. The source loops, so the Add may process a
+	# 4th value (110 again) before the PASS lands: carries = processed values that overflow.
+	var expect := 0
+	var cycle := [false, true, true]
+	var started: int = (add.processed + (0 if add.job.is_empty() else 1)) if add != null else 0  # carry is computed when a job starts
+	for i in started:
+		expect += 1 if cycle[i % 3] else 0
+	check(add != null and add.carries == expect and add.carries >= 2, "a2 Add carries match the overflowing inputs (%s vs %d)" % [add.carries if add != null else -1, expect])
 
 
 func _run_with(id: String, setup: Callable, max_ticks := 500) -> Dictionary:

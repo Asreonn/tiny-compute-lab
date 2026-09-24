@@ -108,7 +108,7 @@ static func _data() -> Array:
 			"inputs": [_usb_in(Vector2i(1, 3), 5, chars("HELLO", 5), 4)],
 			"outputs": [_term(Vector2i(11, 3), 5, chars("HELLO", 5))],
 			"allowed": [], "unlocks": [],
-			"goals": [{"kind": "latency", "max": 14, "label": "Average latency ≤ 14 ticks"}],
+			"goals": [{"kind": "latency", "max": 20, "label": "Average latency ≤ 20 ticks"}],
 			"hint": "Wire USB → Terminal. Switch View as between CHR and BIN: same bits, two readings.",
 		},
 		{

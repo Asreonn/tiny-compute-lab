@@ -18,7 +18,11 @@ var moved_this_tick := false
 var carried := 0
 
 
-func _init(p_id: int, p_from: int, p_from_port: String, p_to: int, p_to_port: String, p_cells: Array[Vector2i], p_width: int) -> void:
+var slots_per_tile := 1  # campaign boards use 2: longer, readable travel (Catalog.CAMPAIGN_SLOTS_PER_TILE)
+
+
+func _init(p_id: int, p_from: int, p_from_port: String, p_to: int, p_to_port: String, p_cells: Array[Vector2i], p_width: int, p_slots_per_tile := 1) -> void:
+	slots_per_tile = maxi(1, p_slots_per_tile)
 	id = p_id
 	from_id = p_from
 	from_port = p_from_port
@@ -30,7 +34,7 @@ func _init(p_id: int, p_from: int, p_from_port: String, p_to: int, p_to_port: St
 
 
 func length() -> int:
-	return max(1, cells.size())
+	return max(1, cells.size() * slots_per_tile)
 
 
 func reset() -> void:

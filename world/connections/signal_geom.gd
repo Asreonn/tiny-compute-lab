@@ -95,6 +95,16 @@ static func sub_poly(pts: PackedVector2Array, t0: float, t1: float) -> PackedVec
 	return PackedVector2Array([sample(pts, t0)[0], sample(pts, t1)[0]])
 
 
+## Sub-path between two ARC LENGTHS (px). Equal arcs give the single point there.
+static func sub_poly_arc(pts: PackedVector2Array, arc0: float, arc1: float) -> PackedVector2Array:
+	var total := poly_len(pts)
+	if total <= 0.0:
+		return PackedVector2Array([pts[0]]) if pts.size() > 0 else PackedVector2Array()
+	if absf(arc1 - arc0) < 0.01:
+		return PackedVector2Array([sample(pts, clampf(arc0 / total, 0.0, 1.0))[0]])
+	return sub_poly(pts, arc0 / total, arc1 / total)
+
+
 ## Project a world point onto the polyline -> arc-length fraction t in [0, 1] (L.project).
 static func project(pts: PackedVector2Array, p: Vector2) -> float:
 	var best := 0.0
@@ -184,14 +194,18 @@ static func chevrons(pts: PackedVector2Array, spacing: float) -> Array:
 
 ## Split a polyline into dash/gap segments measured along arc length. Returns an Array of
 ## PackedVector2Array, one per dash. The gap is skipped between consecutive dashes.
-static func dash_poly(pts: PackedVector2Array, dash: float, gap: float) -> Array:
+## phase (px) shifts the dash pattern along the path (flowing preview dashes).
+static func dash_poly(pts: PackedVector2Array, dash: float, gap: float, phase := 0.0) -> Array:
 	var out: Array = []
 	var total := poly_len(pts)
 	if total <= 0.0:
 		return out
-	var d0 := 0.0
+	var period := dash + gap
+	var d0 := fmod(phase, period) - period
 	while d0 < total:
+		var a := maxf(d0, 0.0)
 		var d1 := minf(d0 + dash, total)
-		out.append(sub_poly(pts, d0 / total, d1 / total))
-		d0 = d1 + gap
+		if d1 > a:
+			out.append(sub_poly(pts, a / total, d1 / total))
+		d0 += period
 	return out

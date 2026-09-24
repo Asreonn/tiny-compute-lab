@@ -17,6 +17,11 @@ const ROLE_DATA := "data"
 const ROLE_CONTROL := "control"
 const ROLE_FLAG := "flag"
 
+## Timing profiles (docs/ARCHITECTURE.md §5): campaign boards give every machine a readable
+## dwell ("campaign_ticks") and wires 2 slots per tile, so a value can be followed by eye at
+## 1× (10 ticks/s). Legacy regression missions keep the original timings ("ticks", 1 slot/tile).
+const CAMPAIGN_SLOTS_PER_TILE := 2
+
 const MIN_WIDTH := 1
 const MAX_WIDTH := 64
 
@@ -42,49 +47,49 @@ static func _p(id: String, dir: String, role: String, width: Variant, cell: Vect
 ## params: key -> {label, kind ("int"|"enum"), default, min, max, options}
 static var DEFS := {
 	"input": {
-		"name": "Input", "family": "io", "size": "M", "ticks": 1, "power": 0, "icon": "io_input",
+		"name": "Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
 		"desc": "Feeds the mission's data stream into your machine.",
 		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
 		"params": {},
 	},
 	"usb_input": {
-		"name": "USB Input", "family": "io", "size": "M", "ticks": 1, "power": 0, "icon": "io_input",
+		"name": "USB Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
 		"desc": "Streams raw bits from the lab's USB line.",
 		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true)],
 		"params": {},
 	},
 	"output": {
-		"name": "Output", "family": "io", "size": "M", "ticks": 1, "power": 0, "icon": "io_output",
+		"name": "Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
 		"desc": "Collects results and checks them against the expected stream.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
 		"params": {},
 	},
 	"add": {
-		"name": "Add", "family": "math", "size": "M", "ticks": 1, "power": 1, "icon": "op_add",
+		"name": "Add", "family": "math", "size": "M", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "op_add",
 		"desc": "Adds a constant value to each packet.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"k": {"label": "Constant", "kind": "int", "default": 1, "min": 0, "max": 255}},
 	},
 	"modulo": {
-		"name": "Modulo", "family": "math", "size": "M", "ticks": 1, "power": 1, "icon": "", "glyph_text": "%",
+		"name": "Modulo", "family": "math", "size": "M", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "", "glyph_text": "%",
 		"desc": "Keeps the remainder after dividing by a constant.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"k": {"label": "Modulus", "kind": "int", "default": 26, "min": 1, "max": 255}},
 	},
 	"terminal_output": {
-		"name": "Terminal", "family": "io", "size": "M", "ticks": 1, "power": 0, "icon": "io_output",
+		"name": "Terminal", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
 		"desc": "Collects results as characters and checks them against the expected stream.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
 		"params": {},
 	},
 	"multiply": {
-		"name": "Multiply", "family": "math", "size": "M", "ticks": 2, "power": 2, "icon": "op_multiply",
+		"name": "Multiply", "family": "math", "size": "M", "ticks": 2, "campaign_ticks": 6, "power": 2, "icon": "op_multiply",
 		"desc": "Multiplies each packet by a constant.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"k": {"label": "Factor", "kind": "int", "default": 2, "min": -9, "max": 9}},
 	},
 	"compare": {
-		"name": "Compare", "family": "logic", "size": "S", "ticks": 1, "power": 1, "icon": "op_compare",
+		"name": "Compare", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_compare",
 		"desc": "Tests each value and emits a 1-bit result.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_FLAG, 1, Vector2i(0, 0), Side.E, "?")],
 		"params": {
@@ -93,7 +98,7 @@ static var DEFS := {
 		},
 	},
 	"gate": {
-		"name": "Gate", "family": "logic", "size": "S", "ticks": 1, "power": 1, "icon": "op_gate",
+		"name": "Gate", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_gate",
 		"desc": "Passes the data packet only when the control signal is TRUE; otherwise discards it.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
@@ -103,7 +108,7 @@ static var DEFS := {
 		"params": {},
 	},
 	"splitter": {
-		"name": "Splitter", "family": "routing", "size": "L", "ticks": 1, "power": 1, "icon": "op_split",
+		"name": "Splitter", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
 		"desc": "One stream in, two out. Alternate balances load; Duplicate copies every packet.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
@@ -113,7 +118,7 @@ static var DEFS := {
 		"params": {"mode": {"label": "Mode", "kind": "enum", "default": "Alternate", "options": ["Alternate", "Duplicate"]}},
 	},
 	"merger": {
-		"name": "Merger", "family": "routing", "size": "L", "ticks": 1, "power": 1, "icon": "op_merge",
+		"name": "Merger", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
 		"desc": "Two streams in, one out. Takes turns fairly between inputs.",
 		"ports": [
 			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
@@ -123,25 +128,25 @@ static var DEFS := {
 		"params": {},
 	},
 	"buffer": {
-		"name": "Buffer", "family": "storage", "size": "M", "ticks": 1, "power": 1, "icon": "op_buffer",
+		"name": "Buffer", "family": "storage", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_buffer",
 		"desc": "Queues packets so bursts don't back up the line.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
 		"params": {"capacity": {"label": "Capacity", "kind": "int", "default": 4, "min": 1, "max": 8}},
 	},
 	"delay": {
-		"name": "Delay", "family": "storage", "size": "S", "ticks": 1, "power": 1, "icon": "op_delay",
+		"name": "Delay", "family": "storage", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 1, "icon": "op_delay",
 		"desc": "Holds each packet for a fixed number of ticks.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "OUT")],
 		"params": {"ticks": {"label": "Delay", "kind": "int", "default": 3, "min": 1, "max": 9}},
 	},
 	"counter": {
-		"name": "Counter", "family": "storage", "size": "S", "ticks": 1, "power": 1, "icon": "op_counter",
+		"name": "Counter", "family": "storage", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_counter",
 		"desc": "Counts packets. Emits the running count for each one received.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "N")],
 		"params": {},
 	},
 	"processor": {
-		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "power": 4, "icon": "op_processor",
+		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "campaign_ticks": 12, "power": 4, "icon": "op_processor",
 		"desc": "Heavy general-purpose unit. Powerful but slow — a classic bottleneck.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"op": {"label": "Function", "kind": "enum", "default": "x²", "options": ["x²", "x³", "|x|", "−x"]}},
@@ -150,6 +155,11 @@ static var DEFS := {
 
 ## Build-menu order within each category.
 const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "buffer", "delay", "counter", "processor"]
+
+
+static func ticks(type: String, campaign: bool) -> int:
+	var d: Dictionary = DEFS[type]
+	return int(d.get("campaign_ticks", d["ticks"])) if campaign else int(d["ticks"])
 
 
 static func has(type: String) -> bool:

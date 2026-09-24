@@ -183,6 +183,20 @@ between ticks using `SimulationManager.alpha`, for animation only.
 | 8 | mission validation | `MissionRun.after_tick` |
 | 9 | metrics | rate windows, latency, bottleneck |
 
+### 5.1 Timing profiles and continuous rendering
+- The simulation always runs at `TICKS_PER_SEC` (10) × speed. Readability never comes from slowing it down.
+- **Campaign boards** (`Simulation.campaign_timing`) give every machine a readable dwell
+  (`Catalog.ticks(type, true)`; Add/Modulo 4 ticks = 0.4 s at 1×) and wires 2 slots per tile
+  (`Catalog.CAMPAIGN_SLOTS_PER_TILE`).
+- **Legacy regression missions** keep the original timings.
+- **Rendering is continuous** (`world/packets/packet_layer.gd`):
+  - Each tick, every packet gets a logical location: wire slot (evenly spaced along the chamfered path, anchors included), input dock, machine core, exit glide, or blocked queue.
+  - Between ticks it moves along the real geometry from its previous location to the new one, at constant speed (tick fraction).
+  - `tools/motion_check.gd` fails if any sample moves more than 5 px per 1/10 tick.
+- **Processing progress** = `(total − ticks_left + tick fraction) / total`, drawn as ActivityArea progress (a ring on Dial areas).
+- **Wires are never silently deleted.** A placement, move or rotation that would leave a wire unroutable is refused with a reason.
+- **The wire tool is WYSIWYG.** The live preview is the router's path, and release commits exactly those tiles (`connect_ports(..., route)`). Single-connection ports reject a second wire.
+
 ## 6. Missions
 
 `MissionDef` carries explicit widths:

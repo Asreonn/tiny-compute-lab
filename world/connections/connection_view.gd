@@ -278,21 +278,32 @@ func _draw_width_tag(canvas: CanvasItem) -> void:
 
 ## Static helper for the (future) wire tool: draws a no-trench preview exactly as
 ## L.drawWire does for ConnectionPreview / ValidTarget / InvalidTarget.
-static func draw_preview(canvas: CanvasItem, pts: PackedVector2Array, state: String) -> void:
-	var p := SignalGeom.chamfer(pts, Palette.SIG_CHAMFER)
+## Wire-tool preview (L.wireLook preview states) drawn on the LIVE route: a translucent
+## hologram of the final trench (edge + trench, same chamfered geometry as the placed wire)
+## under the canonical preview marks. Preview dashes flow from the source toward the cursor.
+static func draw_preview(canvas: CanvasItem, pts: PackedVector2Array, state: String, flow := 0.0) -> void:
+	var p := SignalGeom.simplify(pts)
+	p = SignalGeom.chamfer(p, Palette.SIG_CHAMFER)
 	if p.size() < 2:
 		return
 	var end := p[p.size() - 1]
+	var holo := 0.45 if state != "InvalidTarget" else 0.25
+	canvas.draw_polyline(p, Color(Palette.BOARD_PAD_EDGE, holo), float(Palette.SIG_EDGE), true)
+	canvas.draw_polyline(p, Color(Palette.MATERIAL_VENT, holo), float(Palette.SIG_TRENCH), true)
 	match state:
 		"ConnectionPreview":
-			_draw_dashed(canvas, p, Color(Palette.STATE_BUILD, 1.0), float(Palette.SIG_CORE), DASH_LEN, DASH_GAP)
+			for seg in SignalGeom.dash_poly(p, DASH_LEN, DASH_GAP, flow):
+				if seg.size() >= 2:
+					canvas.draw_polyline(seg, Palette.STATE_BUILD, float(Palette.SIG_CORE), true)
 			canvas.draw_circle(end, 4.0, Palette.STATE_BUILD)
 			canvas.draw_arc(end, 4.0, 0.0, TAU, 16, Palette.STATE_BUILD, 1.0, true)
 		"ValidTarget":
 			canvas.draw_polyline(p, Palette.STATE_VALID, float(Palette.SIG_CORE_LIT), true)
 			canvas.draw_arc(end, 11.0, 0.0, TAU, 48, Palette.STATE_VALID, 2.0, true)
 		"InvalidTarget":
-			_draw_dashed(canvas, p, Color(Palette.STATE_INVALID, 1.0), float(Palette.SIG_CORE), DASH_LEN, DASH_GAP)
+			for seg in SignalGeom.dash_poly(p, DASH_LEN, DASH_GAP, flow):
+				if seg.size() >= 2:
+					canvas.draw_polyline(seg, Palette.STATE_INVALID, float(Palette.SIG_CORE), true)
 			canvas.draw_line(end - Vector2(6, 6), end + Vector2(6, 6), Palette.STATE_INVALID, 2.5, true)
 			canvas.draw_line(Vector2(end.x + 6, end.y - 6), Vector2(end.x - 6, end.y + 6), Palette.STATE_INVALID, 2.5, true)
 

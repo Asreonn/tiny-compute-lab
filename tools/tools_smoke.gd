@@ -65,12 +65,47 @@ func _wire_all() -> void:
 	var out := _find("output")
 	# Wire tool, through the real mouse-button path: one drag, one click-click.
 	_tools.set_tool("wire")
-	_drag(_mv.port_world(sim.machines[usb], "out"), _mv.port_world(sim.machines[add], "in"))
+	var src: Vector2 = _mv.port_world(sim.machines[usb], "out")
+	var dst: Vector2 = _mv.port_world(sim.machines[add], "in")
+	# live routing: mid-drag over an empty tile the preview is a routed path, not a straight line
+	_tools._on_mouse_motion(src)
+	_button(true, src)
+	_tools._on_mouse_motion(Vector2(4 * 64 + 32, 6 * 64 + 32))
+	_expect(_tools._preview.pts.size() > 2, "free-drag preview is routed (got %d points)" % _tools._preview.pts.size())
+	_tools._on_mouse_motion(dst)
+	var previewed: Array = _tools._preview_cells.duplicate()
+	_expect(_tools._preview.state == "ValidTarget", "hovering a free input previews ValidTarget")
+	_button(false, dst)
 	_expect(sim.connections.size() == 1, "wire tool drag makes a wire (got %d)" % sim.connections.size())
+	var c1: Connection = sim.connections.values()[0]
+	_expect(Array(c1.cells) == previewed, "placed wire == previewed route (WYSIWYG)")
 	_click(_mv.port_world(sim.machines[add], "out"))
 	_tools._on_mouse_motion(_mv.port_world(sim.machines[out], "in"))
 	_click(_mv.port_world(sim.machines[out], "in"))
 	_expect(sim.connections.size() == 2, "two wires exist (got %d)" % sim.connections.size())
+	# occupancy: an occupied output does not start a wire; an occupied input rejects the drop.
+	var before := {}
+	for cid in sim.connections:
+		before[cid] = Array(sim.connections[cid].cells)
+	_drag(_mv.port_world(sim.machines[usb], "out"), _mv.port_world(sim.machines[out], "in"))
+	_tools.set_tool("place")
+	_tools.begin_place("add")
+	var p2 := Vector2(6 * 64 + 32, 6 * 64 + 32)
+	_tools._on_mouse_motion(p2)
+	_click(p2)
+	var add2 := -1
+	for id in sim.sorted_machine_ids():
+		if sim.machines[id].type == "add" and id != add:
+			add2 = id
+	_tools.set_tool("wire")
+	if add2 >= 0:
+		_drag(_mv.port_world(sim.machines[add2], "out"), _mv.port_world(sim.machines[out], "in"))
+	var same: bool = sim.connections.size() == 2
+	for cid in before:
+		same = same and sim.connections.has(cid) and Array(sim.connections[cid].cells) == before[cid]
+	_expect(same, "occupied ports reject new wires and the existing wires stay untouched")
+	if add2 >= 0:
+		sim.remove(add2)
 	_step = 3
 
 

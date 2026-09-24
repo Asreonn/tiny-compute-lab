@@ -36,6 +36,12 @@ static func layout(type: String) -> Dictionary:
 	return l.get("roadmap", {}).get(key, {})
 
 
+## ActivityArea kind size in px from layouts.areas (Dial 40×40, Feed 84×28, …).
+static func area_size(kind: String) -> Vector2:
+	var a: Dictionary = _layout_data().get("areas", {}).get(kind, {})
+	return Vector2(float(a.get("w", 0)), float(a.get("h", 0)))
+
+
 ## Chassis form entry (shell asset + footprint) from layouts.forms.
 static func form(name: String) -> Dictionary:
 	return _layout_data().get("forms", {}).get(name, {})

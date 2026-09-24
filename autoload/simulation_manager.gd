@@ -12,9 +12,9 @@ signal speed_changed(speed: int)
 signal view_mode_changed(mode: int)
 
 const MAX_STEPS_PER_FRAME := 8
-## Real-time playback: sim ticks per real second at 1× (player feedback: 10/s was too fast to
-## read the data). Simulation.TICKS_PER_SEC stays the sim's own metric unit.
-const TICK_RATE := 4.0
+## Real-time playback at 1×: the intended sim rate. Readability comes from continuous visual
+## interpolation between ticks + campaign dwell times, never from slowing the simulation.
+const TICK_RATE := float(Simulation.TICKS_PER_SEC)
 const SPEEDS := [1, 2, 4]
 
 var sim: Simulation
