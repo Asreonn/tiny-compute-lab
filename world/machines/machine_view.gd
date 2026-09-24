@@ -41,6 +41,7 @@ var _size_key := "m"
 var _area: Sprite2D
 var _area_kind := ""
 var _area_idle := "Idle"
+var _opwin: Sprite2D = null  # roadmap OpWindow area (idle / active)
 var _led: Sprite2D
 var _led_rel := ""
 var _overlays := {}  # name -> Sprite2D
@@ -119,14 +120,14 @@ func _build() -> void:
 		_area = Art.sprite(Art.area_file(_area_kind, _area_idle), _v(area.get("pos", [0, 0])))
 		_area.name = "ActivityArea"
 		body.add_child(_area)
-	# 4b OpWindow (roadmap two-input kits): the operator window; its glyph is upright text
+	# 4b OpWindow (roadmap kits): the exported operator window, lit while processing; its
+	# glyph is upright text
 	if ly.get("areas", null) is Array:
 		for a in ly["areas"]:
 			if a is Dictionary and str(a.get("kind", "")) == "OpWindow":
-				var ow := OpWindow.new()
-				ow.name = "OpWindow"
-				ow.position = _v(a.get("pos", [0, 0]))
-				body.add_child(ow)
+				_opwin = Art.sprite(Art.area_file("OpWindow", "Idle"), _v(a.get("pos", [0, 0])))
+				_opwin.name = "OpWindow"
+				body.add_child(_opwin)
 	# 5 glyph icon, scaled to glyph.size
 	var glyph: Dictionary = _entry(ly, "glyph")
 	if not glyph.is_empty() and str(glyph.get("icon", "")) != "":
@@ -253,7 +254,7 @@ func _build_width_tags(ly: Dictionary) -> void:
 		var port_id := ""
 		if machine.type == "usb_input":
 			w = machine.width  # the roadmap tag is a placeholder for the instance width
-		elif machine.type == "bit_splitter" and i < cports.size():
+		elif machine.type in ["bit_splitter", "zero_extend", "sign_extend", "truncate"] and i < cports.size():
 			# The BusSplitter kit's tags sit at ports in / hi / lo; tag i shows the CURRENT
 			# width of port i (machine.port_width), refreshed on param changes — not the
 			# layout's placeholder numbers.
@@ -530,6 +531,11 @@ func refresh(delta: float) -> void:
 		var t := Art.tex(rel)
 		if _area.texture != t:
 			_area.texture = t
+	if _opwin != null:
+		var busy := running and m.state in [Machine.State.PROCESSING, Machine.State.RECEIVING]
+		var ot := Art.tex(Art.area_file("OpWindow", "Active" if busy else "Idle"))
+		if _opwin.texture != ot:
+			_opwin.texture = ot
 	# State overlays (alpha tween 0.12 s); hover/selected driven by the tools. The
 	# processing/outputready body overlays stay at alpha 0 always (VFX ladder L2 is the
 	# ActivityArea / LED only, never a body glow).
@@ -1380,13 +1386,4 @@ class ThermalPartView extends Node2D:
 			"blower": SystemsDraw.blower(self, Vector2.ZERO, _spin, _level)
 			"radiator": SystemsDraw.radiator(self, Vector2.ZERO, _level)
 			"heat_pipe": SystemsDraw.heat_pipe(self, Vector2.ZERO, _links, _pads, _warmth)
-
-
-## Roadmap-kit operator window (Penpot 14, "operator-window"): 30x24, material.die fill, 1.5 px
-## material.frame stroke, r4. The operator glyph is drawn by the upright text layer.
-class OpWindow extends Node2D:
-	func _draw() -> void:
-		var r := Rect2(Vector2.ZERO, Vector2(30, 24))
-		SystemsDraw.rrect(self, r, 4.0, Palette.MATERIAL_DIE)
-		SystemsDraw.rrect_outline(self, r.grow(-0.75), 4.0, Palette.MATERIAL_FRAME, 1.5)
 

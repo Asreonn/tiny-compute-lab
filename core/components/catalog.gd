@@ -148,6 +148,24 @@ static var DEFS := {
 		],
 		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 3, "min": 1, "max": 63}},
 	},
+	"zero_extend": {
+		"name": "Zero Extend", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "ZX",
+		"desc": "Widens a word, filling the new high bits with 0. The value stays the same.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
+		"params": {"to": {"label": "To bits", "kind": "int", "default": 5, "min": 1, "max": 64}},
+	},
+	"sign_extend": {
+		"name": "Sign Extend", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "SX",
+		"desc": "Widens a signed word, copying its top bit into the new bits. −3 stays −3.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
+		"params": {"to": {"label": "To bits", "kind": "int", "default": 5, "min": 1, "max": 64}},
+	},
+	"truncate": {
+		"name": "Truncate", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "TR",
+		"desc": "Narrows a word, keeping only its low bits.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
+		"params": {"to": {"label": "To bits", "kind": "int", "default": 3, "min": 1, "max": 64}},
+	},
 	"number_encoder": {
 		"name": "Number Encoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
 		"desc": "Turns a raw number into bits of the chosen width. A value that does not fit sets the overflow LED.",
@@ -284,7 +302,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it

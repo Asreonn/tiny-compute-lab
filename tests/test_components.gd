@@ -9,6 +9,7 @@ static func run(t) -> void:
 	_mux(t)
 	_cond_router(t)
 	_if_bit(t)
+	_width_converters(t)
 
 
 static func _sim() -> Simulation:
@@ -84,3 +85,21 @@ static func _if_bit(t) -> void:
 	t.check(c.expect_from(BitVector.from_bin("10011")) is BitVector and (c.expect_from(BitVector.from_bin("10011")) as BitVector).equals(BitVector.from_bin("100")), "tag set: payload 011 + 1 = 100")
 	t.check((c.expect_from(BitVector.from_bin("00101")) as BitVector).equals(BitVector.from_bin("010")), "tag clear: payload 101 × 2 = 010 (wraps)")
 	t.check(c.describe() == "by tag: b4 ? x+1 : x×2", "describe: %s" % c.describe())
+
+
+static func _width_converters(t) -> void:
+	var cases := [["zero_extend", 3, 5, "101", "00101"], ["sign_extend", 3, 5, "101", "11101"], ["sign_extend", 3, 5, "011", "00011"], ["truncate", 5, 3, "10110", "110"]]
+	for c in cases:
+		var sim := _sim()
+		var m := sim.place(c[0], Vector2i(2, 2), 0, {"to": c[2]}, c[1])
+		t.check(m.port_width("out") == c[2], "%s: the output port is %d bits" % [c[0], c[2]])
+		_feed(sim, m, "in", c[3])
+		var p: Packet = _run_until_out(sim, m).get("packet")
+		t.check(p != null and p.data.equals(BitVector.from_bin(c[4])), "%s %s → %s (got %s)" % [c[0], c[3], c[4], str(p.data) if p != null else "-"])
+	var sim2 := _sim()
+	var bad := sim2.place("zero_extend", Vector2i(2, 2), 0, {"to": 2}, 5)
+	_feed(sim2, bad, "in", "10101")
+	for i in 4:
+		sim2.step()
+	t.check(bad.state == Machine.State.ERROR and bad.error_text != "", "extending to fewer bits is a configuration error (%s)" % bad.error_text)
+

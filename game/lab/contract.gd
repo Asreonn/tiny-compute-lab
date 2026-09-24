@@ -195,6 +195,12 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 			return RawValue.text(Charset.decode(v as BitVector)) if v is BitVector else DROP
 		"keep_if":
 			return v if _keep(v, op) else DROP
+		"zext":
+			return (v as BitVector).zero_extend(int(op.get("width", 1))) if v is BitVector and (v as BitVector).width <= int(op.get("width", 1)) else DROP
+		"sext":
+			return (v as BitVector).sign_extend(int(op.get("width", 1))) if v is BitVector and (v as BitVector).width <= int(op.get("width", 1)) else DROP
+		"trunc":
+			return (v as BitVector).truncate(int(op.get("width", 1))) if v is BitVector and (v as BitVector).width >= int(op.get("width", 1)) else DROP
 		"if_bit":
 			# route by a tag bit of the value: the chosen branch's ops run on it
 			if not (v is BitVector):
@@ -300,6 +306,9 @@ func _expr_of(chain: Array, base: String) -> String:
 			"mul": e = "%s × %d" % [e, k]
 			"mod": e = "%s mod %d" % [e, k]
 			"slice": e = "low %d bits of %s" % [int(op.get("len", 1)), e]
+			"zext": e = "zx%d(%s)" % [int(op.get("width", 1)), e]
+			"sext": e = "sx%d(%s)" % [int(op.get("width", 1)), e]
+			"trunc": e = "tr%d(%s)" % [int(op.get("width", 1)), e]
 			"encode_num": e = "enc%d(%s)" % [int(op.get("width", 1)), e]
 			"encode_char": e = "chr(%s)" % e
 			"decode_num": e = "num(%s)" % e

@@ -289,6 +289,13 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, ad, "out", mg, "a")
 			_w(sim, mu, "out", mg, "b")
 			_w(sim, mg, "out", d, "in")
+		14:  # L15: widen 3 → 5 bits, then multiply by 5 at 5 bits
+			_lab_plug(sim, s, "bit")
+			var zx := _pw(sim, "zero_extend", Vector2i(4, 1), 3, {"to": 5})
+			var mu := _pw(sim, "multiply", Vector2i(8, 1), 5, {"k": 5})
+			_w(sim, s, "out", zx, "in")
+			_w(sim, zx, "out", mu, "in")
+			_w(sim, mu, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

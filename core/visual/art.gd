@@ -58,8 +58,14 @@ static func layout(type: String) -> Dictionary:
 
 
 ## ActivityArea kind size in px from layouts.areas (Dial 40×40, Feed 84×28, …).
+## Roadmap-kit areas the MVP layout table does not list (sizes from the Penpot 14 exports).
+const KIT_AREA_SIZES := {"Taper": Vector2(56, 28), "OpWindow": Vector2(30, 24)}
+
+
 static func area_size(kind: String) -> Vector2:
 	var a: Dictionary = _layout_data().get("areas", {}).get(kind, {})
+	if a.is_empty() and KIT_AREA_SIZES.has(kind):
+		return KIT_AREA_SIZES[kind]
 	return Vector2(float(a.get("w", 0)), float(a.get("h", 0)))
 
 

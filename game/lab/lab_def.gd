@@ -136,6 +136,14 @@ static var LEVELS: Array = [
 		"unlocks": ["demux", "mux", "cond_router"],
 		"view": ViewMode.Mode.BIN,
 	},
+	{
+		"id": "lab_l15", "title": "Wider",
+		"brief": "3-bit numbers in, 5-bit answers out: widen each one, then multiply it by 5.",
+		"contract": {"kind": "map", "ops": [{"op": "zext", "width": 5}, {"op": "mul", "k": 5}], "count": 24, "accept_format": "bits", "accept_width": 5},
+		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 2}},
+		"unlocks": ["zero_extend", "sign_extend", "truncate"],
+		"view": ViewMode.Mode.UDEC,
+	},
 ]
 
 
