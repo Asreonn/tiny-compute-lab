@@ -32,6 +32,7 @@ var _pulse_kinds := PackedStringArray()
 var _pulse_start := -1.0
 var _font: Font
 var _psu_key := []  # [capacity, demand] last drawn (the gauge redraws when they change)
+var _psu_over_start := -1.0  # overload onset: the overflow chevrons pulse twice, then hold
 
 
 func _ready() -> void:
@@ -235,6 +236,10 @@ func _try_drop(pick: Dictionary, p: Vector2) -> bool:
 	if handled:
 		if not ok:
 			_show_note(sim.last_error if sim.last_error != "" else "Cannot plug that here", p)
+		elif target_port != null:
+			AudioBus.event("usb_insert")
+		elif pick["from"] == "port":
+			AudioBus.event("usb_remove")
 		sim.changed.emit()
 	return handled
 
@@ -276,7 +281,12 @@ func _process(_delta: float) -> void:
 	if sim != null and run.has_psu():
 		var key := [run.power_capacity(), sim.power_demand()]
 		if key != _psu_key:
+			var was_over: bool = _psu_key.size() == 2 and int(_psu_key[1]) > int(_psu_key[0])
 			_psu_key = key
+			if int(key[1]) > int(key[0]) and not was_over and not HudKit.REDUCED_MOTION:
+				_psu_over_start = Time.get_ticks_msec() / 1000.0
+			queue_redraw()
+		if _psu_over_start >= 0.0:
 			queue_redraw()
 	var now := Time.get_ticks_msec() / 1000.0
 	var animating := (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
@@ -352,7 +362,14 @@ func _draw_psu(run: LabRun, sim: Simulation) -> void:
 	if icon != null:
 		draw_texture_rect(icon, Rect2(r.position + Vector2(14, 18), Vector2(20, 20)), false, Palette.MATERIAL_GOLD)
 	var rows := 1 if cap <= 8 else (2 if cap <= 16 else 4)
-	SystemsDraw.gauge(self, r.position + Vector2(40, 18 if rows <= 2 else 12), 72.0, cap, dem, rows)
+	var chev := 1.0
+	if _psu_over_start >= 0.0:
+		var el := Time.get_ticks_msec() / 1000.0 - _psu_over_start
+		if el < 0.4:
+			chev = 0.35 + 0.65 * absf(cos(el / 0.2 * PI))  # two 200 ms pulses (MOTION_SYSTEM §8)
+		else:
+			_psu_over_start = -1.0
+	SystemsDraw.gauge(self, r.position + Vector2(40, 18 if rows <= 2 else 12), 72.0, cap, dem, rows, chev)
 	draw_string(_font, r.position + Vector2(16, 55), "PSU · %d" % cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(Palette.MATERIAL_SILK, 0.55))
 	# LED: idle / blocked (>= 75 %) / error (> 100 %)
 	var led := "error" if dem > cap else ("blocked" if dem * 4 >= cap * 3 else "idle")

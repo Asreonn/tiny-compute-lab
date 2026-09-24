@@ -471,7 +471,9 @@ A backup `save.v1.json` is written before the migration.
 
 ## 13. Audio hooks
 
-`AudioBus.event(name)` is a signal-only autoload for now. Events:
+`AudioBus.event(name)` is an autoload: it emits `fired(name)` for listeners and plays a tiny
+synthesized cue (generated at startup, no asset files, rate-limited per event, master volume from
+Settings → Sound). Events come from the views and the manager, never from `core/`. Events:
 - USB: `usb_insert`, `usb_remove`
 - Wires: `wire_connect`, `wire_disconnect`
 - Machines: `machine_place`, `machine_delete`

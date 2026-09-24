@@ -350,7 +350,7 @@ static func monitor(ci: CanvasItem, pos: Vector2, value: String, hist: Array, ac
 
 ## Power gauge: one cell per power unit in `rows` rows; gold, amber at >= 75 %, red plus an
 ## overflow chevron above 100 %. `pos` = top-left, `w` = width (height = rows * 9 + 6).
-static func gauge(ci: CanvasItem, pos: Vector2, w: float, cap: int, used: int, rows: int) -> void:
+static func gauge(ci: CanvasItem, pos: Vector2, w: float, cap: int, used: int, rows: int, chev_alpha := 1.0) -> void:
 	if cap <= 0:
 		return
 	var per := ceili(float(cap) / float(rows))
@@ -368,7 +368,7 @@ static func gauge(ci: CanvasItem, pos: Vector2, w: float, cap: int, used: int, r
 	if over:
 		var o := pos + Vector2(w + 4.0, box.size.y * 0.5 - 5.0)
 		for dx in [0.0, 6.0]:
-			ci.draw_polyline(PackedVector2Array([o + Vector2(1 + dx, 1), o + Vector2(5 + dx, 5), o + Vector2(1 + dx, 9)]), Palette.STATE_ERROR, 2.0, true)
+			ci.draw_polyline(PackedVector2Array([o + Vector2(1 + dx, 1), o + Vector2(5 + dx, 5), o + Vector2(1 + dx, 9)]), Color(Palette.STATE_ERROR, chev_alpha), 2.0, true)
 
 
 # ================================================================ thermal family (page 16 / 07)

@@ -45,6 +45,11 @@ var _redo: Array = []
 var _snap := ""  # JSON of the current snapshot
 var _hist_pending := false
 var _restoring := false
+# audio cue edges (AudioBus): what the last step looked like
+var _cue_delivered := 0
+var _cue_rejected := 0
+var _cue_level := -1
+var _cue_overloaded := false
 
 
 func load_mission(id: String) -> void:
@@ -213,10 +218,48 @@ func _restore(snap: String) -> void:
 	history_changed.emit()
 
 
+func _audio(name: String) -> void:
+	var ab := get_node_or_null("/root/AudioBus")
+	if ab != null:
+		ab.event(name)
+
+
+## Sound cues from what the step changed (never per packet: AudioBus rate-limits the accepts).
+func _audio_cues() -> void:
+	if lab_run != null:
+		if lab_run.level != _cue_level:
+			if _cue_level >= 0 and lab_run.level > _cue_level:
+				_audio("job_complete")
+				if not LabDef.level(lab_run.level).get("unlocks", []).is_empty() and not lab_run.all_done():
+					_audio("unlock")
+			_cue_level = lab_run.level
+			_cue_delivered = lab_run.delivered
+			_cue_rejected = lab_run.rejected
+		else:
+			if lab_run.delivered > _cue_delivered:
+				_audio("job_accept")
+			if lab_run.rejected > _cue_rejected:
+				_audio("job_reject")
+			_cue_delivered = lab_run.delivered
+			_cue_rejected = lab_run.rejected
+	var over := sim.overloaded()
+	if over and not _cue_overloaded:
+		_audio("power_overload")
+	_cue_overloaded = over
+	for e in sim.events:
+		if str(e.get("kind", "")) == "heat" and int(e.get("stage", 0)) >= ThermalGrid.Stage.HOT:
+			_audio("thermal_warning")
+			break
+
+
 func play() -> void:
 	if sim == null or running:
 		return
 	running = true
+	for id in sim.machines:
+		if sim.machines[id].type == "blower":
+			_audio("fan_start")
+			break
 	run_state_changed.emit(true)
 
 
@@ -307,6 +350,7 @@ func _process(delta: float) -> void:
 func _do_step() -> void:
 	sim.step()
 	ticked.emit(sim.tick)
+	_audio_cues()
 	if run.status != MissionRun.Status.RUNNING:
 		pause()
 		run_finished.emit(run.status)

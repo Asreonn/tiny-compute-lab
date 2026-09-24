@@ -58,9 +58,17 @@ var _via_interval := 3.0
 var _via_elapsed := 0.0
 var _via_pos := Vector2.ZERO
 var _vignette: CanvasLayer
+## Success sweep (MOTION_SYSTEM §6): a state.valid band at 12 % crosses the board left → right in
+## 450 ms when a mission passes or a Lab level is complete.
+const SUCCESS_SWEEP := 0.45
+var _success_start := -1.0
+var _success_level := -1
 
 
 func _ready() -> void:
+	SimulationManager.run_finished.connect(func(status: int):
+		if status == MissionRun.Status.PASS:
+			_start_success())
 	if not AMBIENCE:
 		return
 	_vignette = CanvasLayer.new()
@@ -94,6 +102,34 @@ func _draw() -> void:
 	_draw_reveal(sim, size, board)
 	_draw_decals(sim, size, board)
 	_draw_ambience(board)
+	_draw_success(board)
+
+
+func _start_success() -> void:
+	if HudKit.REDUCED_MOTION:
+		return
+	_success_start = Time.get_ticks_msec() / 1000.0
+
+
+func _draw_success(board: Rect2) -> void:
+	if _success_start < 0.0:
+		return
+	var el := Time.get_ticks_msec() / 1000.0 - _success_start
+	if el >= SUCCESS_SWEEP:
+		_success_start = -1.0
+		return
+	var bw := board.size.x * 0.25
+	var cx := lerpf(-bw, board.size.x + bw, 1.0 - pow(1.0 - el / SUCCESS_SWEEP, 3.0))  # cubic-out
+	var x0 := clampf(cx - bw, 0.0, board.size.x)
+	var x1 := clampf(cx, 0.0, board.size.x)
+	var x2 := clampf(cx + bw, 0.0, board.size.x)
+	var c0 := Color(Palette.STATE_VALID, 0.0)
+	var c1 := Color(Palette.STATE_VALID, 0.12)
+	var h := board.size.y
+	if x1 > x0:
+		draw_polygon(PackedVector2Array([Vector2(x0, 0), Vector2(x1, 0), Vector2(x1, h), Vector2(x0, h)]), PackedColorArray([c0, c1, c1, c0]))
+	if x2 > x1:
+		draw_polygon(PackedVector2Array([Vector2(x1, 0), Vector2(x2, 0), Vector2(x2, h), Vector2(x1, h)]), PackedColorArray([c1, c0, c0, c1]))
 
 
 ## Lab-expansion reveal: when the board grows (level-up), newly added tiles get a STATE_BUILD
@@ -135,6 +171,15 @@ func _process(delta: float) -> void:
 		_prev_size = sim.size
 	if _reveal_start >= 0.0:
 		queue_redraw()  # drive the fade
+	var lr = SimulationManager.lab_run
+	if lr != null:
+		if _success_level >= 0 and lr.level > _success_level:
+			_start_success()  # a Lab level is complete
+		_success_level = lr.level
+	else:
+		_success_level = -1
+	if _success_start >= 0.0:
+		queue_redraw()
 	_update_ambience(delta, sim)
 
 

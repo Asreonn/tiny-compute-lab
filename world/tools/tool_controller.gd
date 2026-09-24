@@ -262,6 +262,7 @@ func _finish_group_drag() -> void:
 		if copies.is_empty():
 			notice.emit(sim.last_error, "error")
 		else:
+			AudioBus.event("machine_place")
 			select_group(copies)
 	elif not sim.move_group(ids, delta):
 		notice.emit(sim.last_error, "error")
@@ -640,6 +641,7 @@ func _delete_selection() -> void:
 			SimulationManager.request_edit()
 			var n := sim.remove_group(selected_group)
 			notice.emit("Deleted %d machines" % n, "info")
+			AudioBus.event("machine_delete")
 		_set_selection(-1, -1)
 		return
 	if selected_machine >= 0:
@@ -658,6 +660,7 @@ func _delete_machine(mid: int) -> void:
 	SimulationManager.request_edit()
 	if sim.machines.has(mid):
 		sim.remove(mid)
+		AudioBus.event("machine_delete")
 	_set_selection(-1, -1)
 
 
@@ -667,6 +670,7 @@ func _delete_conn(cid: int) -> void:
 		return
 	SimulationManager.request_edit()
 	sim.disconnect_wire(cid)
+	AudioBus.event("wire_disconnect")
 	_set_selection(-1, -1)
 
 
@@ -971,6 +975,7 @@ func _finish_wire_drag(world: Vector2) -> void:
 		# commit: replaces the source's / target's old wires atomically (only now)
 		var e := _ends(fid, fport, int(target["id"]), str(target["port"]), rev)
 		if sim.rewire(e[0], e[1], e[2], e[3], cells) != null:
+			AudioBus.event("wire_connect")
 			return
 		err = sim.last_error
 	if err == "" and _hit_port(world).is_empty():
@@ -992,6 +997,7 @@ func _try_place(world: Vector2) -> void:
 		notice.emit(sim.placement_error(place_type, cell, place_rot), "error")
 		return
 	placed.emit(place_type)
+	AudioBus.event("machine_place")
 	if Input.is_key_pressed(KEY_SHIFT):
 		_rebuild_ghost(_snap_cell(world, place_type, place_rot), place_type, place_rot)
 	else:
