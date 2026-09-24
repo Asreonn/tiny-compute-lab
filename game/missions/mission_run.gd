@@ -1,5 +1,5 @@
 class_name MissionRun
-extends RefCounted
+extends RunBase
 ## Runtime validation of a mission against the simulation.
 ## Campaign missions are non-fatal (docs/ARCHITECTURE.md §6): sources loop, wrong values are
 ## rejected and shown, an ordered output needs its expected sequence as an unbroken streak, and
@@ -9,17 +9,10 @@ enum Status { RUNNING, PASS, FAIL }
 
 const SETTLE_TICKS := 20  # after the last expected output, wait for stray extras
 
-var def: MissionDef
-var status: int = Status.RUNNING
-var progress: Array = []  # per output channel: correct count
 var remaining: Array = []  # per output channel (unordered): BitVectors still expected
-var expected_bits: Array = []  # per output channel: Array[BitVector]
-var failure: Dictionary = {}  # {title, reason, expected, received, expected_bits, received_bits, packet, path: PackedStringArray, machines: Array[int]}
 var complete_tick := -1
 var discarded := 0
 var rejected: Array = []  # per output channel: wrong values received (non-strict)
-var last_ok: Array = []  # per output channel: {packet: id, ok: bool} of the last arrival
-var warning := ""  # non-strict stall explanation (cleared when data moves again)
 
 
 func _init(p_def: MissionDef) -> void:
@@ -116,7 +109,7 @@ func accuracy() -> float:
 	if not def.strict_validation:
 		var seen := correct_total() + rejected_total()
 		return 100.0 * correct_total() / float(seen) if seen > 0 else 100.0
-	var t := def.expected_total()
+	var t: int = def.expected_total()
 	return 100.0 * correct_total() / float(t) if t > 0 else 100.0
 
 

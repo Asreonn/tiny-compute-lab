@@ -30,6 +30,14 @@ static func layout(type: String) -> Dictionary:
 		return m[type]
 	if type == "usb_input":
 		return l.get("roadmap", {}).get("USBInput", {})
+	if type == "usb_output":
+		# Reuses the Output composition (EdgeOut-M) with USB silk and no Bin area yet
+		# (docs/IMPLEMENTATION.md "Lab mode"); LabRun validates the width + bits itself.
+		var out: Dictionary = m.get("output", {})
+		var usb := out.duplicate(true) if not out.is_empty() else {"form": "EdgeOut-M", "family": "io"}
+		usb.erase("area")
+		usb["silk"] = {"text": "USB", "pos": [18, 47]}
+		return usb
 	# Roadmap kit machines: snake_case type -> PascalCase kit key (modulo -> Modulo,
 	# terminal_output -> TerminalOutput).
 	var key := "".join(Array(type.split("_")).map(func(w): return w.capitalize()))

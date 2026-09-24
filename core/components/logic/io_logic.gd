@@ -6,7 +6,7 @@ func start(m, sim) -> void:
 	match m.type:
 		"input", "usb_input":
 			_start_input(m, sim)
-		"output", "terminal_output":
+		"output", "terminal_output", "usb_output":
 			_start_output(m, sim)
 
 

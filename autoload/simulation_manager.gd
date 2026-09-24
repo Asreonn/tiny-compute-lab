@@ -3,7 +3,7 @@ extends Node
 ## Accumulates real time and calls Simulation.step() at TICK_RATE × speed.
 ## Views read sim.run / sim.sim and interpolate with `alpha`; they never tick the sim.
 
-signal mission_loaded(def: MissionDef)
+signal mission_loaded(def: Variant)
 signal layout_changed
 signal ticked(tick: int)
 signal run_state_changed(running: bool)
@@ -18,8 +18,14 @@ const TICK_RATE := float(Simulation.TICKS_PER_SEC) / 3.0
 const SPEEDS := [1, 2, 5, 10]
 
 var sim: Simulation
-var run: MissionRun
+## The active run: MissionRun (tutorial) or LabRun (lab), both RunBase. Typed as the shared
+## base so views can hold either while the Simulation duck-types sim.mission.
+var run: RunBase = null
 var mission: MissionDef
+## True while the persistent Lab is loaded. `lab_run` is the LabRun driving it.
+var in_lab := false
+var lab_run: LabRun = null
+var _lab_level_shown := -1
 var running := false
 var speed := 1  # allowed: SPEEDS
 var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation only
@@ -36,6 +42,8 @@ func load_mission(id: String) -> void:
 		return
 	sim = Simulation.new()
 	mission = def
+	in_lab = false
+	lab_run = null
 	run = MissionRun.new(def)
 	run.build_board(sim)
 	sim.changed.connect(_on_sim_changed)
@@ -50,12 +58,60 @@ func load_mission(id: String) -> void:
 	mission_loaded.emit(mission)
 
 
-## Keeps the layout autosaved and forwards changes to the views. Connected once per mission
+## Build or restore the persistent Lab. Restoring rebuilds the board of the saved level
+## (size + every source up to it) and then lays the player's layout on top.
+func load_lab() -> void:
+	sim = Simulation.new()
+	in_lab = true
+	var saved := SaveStore.load_lab()
+	var lvl := clampi(int(saved.get("level", 0)), 0, LabDef.LEVELS.size())
+	var lr := LabRun.new()
+	lr.level = lvl
+	lr.build_board(sim)
+	lab_run = lr
+	run = lr
+	mission = LabDef.mission_def(lvl)
+	_lab_level_shown = lvl
+	sim.changed.connect(_on_sim_changed)
+	var lay = saved.get("layout", {})
+	if lay is Dictionary and not (lay as Dictionary).is_empty():
+		sim.load_player_layout(lay)
+	lr.delivered = int(saved.get("delivered", 0))
+	lr.rejected = int(saved.get("rejected", 0))
+	sim.reset_run()
+	running = false
+	_acc = 0.0
+	alpha = 0.0
+	set_view_mode(LabDef.view_mode(lvl))
+	mission_loaded.emit(run)
+
+
+## Keep the layout autosaved and forward changes to the views. Connected once per mission
 ## to a fresh Simulation, so it can never reference a stale board.
 func _on_sim_changed() -> void:
 	layout_changed.emit()
-	if sim != null and mission != null:
+	if sim == null:
+		return
+	if in_lab and lab_run != null:
+		if lab_run.level != _lab_level_shown:
+			_lab_level_shown = lab_run.level
+			mission = LabDef.mission_def(lab_run.level)
+			mission_loaded.emit(lab_run)
+		_save_lab()
+	elif mission != null:
 		SaveStore.save_layout(mission.id, sim.layout_to_dict())
+
+
+func _save_lab() -> void:
+	if lab_run == null or sim == null:
+		return
+	SaveStore.save_lab({
+		"level": lab_run.level,
+		"delivered": lab_run.delivered,
+		"rejected": lab_run.rejected,
+		"size": [sim.size.x, sim.size.y],
+		"layout": sim.layout_to_dict(),
+	})
 
 
 func play() -> void:
@@ -116,9 +172,11 @@ func set_view_mode(mode: int) -> void:
 	view_mode_changed.emit(mode)
 
 
-## Tools call this before any Simulation mutation: editing while running is allowed, but the
-## in-flight run resets first so the layout and the run never diverge.
+## Tools call this before any Simulation mutation. The lab keeps running while the player
+## builds (live editing); the tutorial pauses and resets so layout and run never diverge.
 func request_edit() -> void:
+	if run != null and run.live_edit:
+		return
 	pause()
 	if sim != null and sim.tick > 0:
 		reset_run()

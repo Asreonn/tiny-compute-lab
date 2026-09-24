@@ -25,7 +25,7 @@ static func clear() -> void:
 
 
 static func _default() -> Dictionary:
-	return {"version": VERSION, "layouts": {}, "results": {}}
+	return {"version": VERSION, "layouts": {}, "results": {}, "lab": {}}
 
 
 static func _load() -> Dictionary:
@@ -62,6 +62,19 @@ static func load_layout(id: String) -> Dictionary:
 static func save_layout(id: String, layout: Dictionary) -> void:
 	var data := _load()
 	data["layouts"][id] = layout
+	_save(data)
+
+
+## The persistent Lab: {level, delivered, size: [w, h], layout: layout_dict}.
+## `layout` includes the locked USB sources/output, so a restore rebuilds the exact board.
+static func load_lab() -> Dictionary:
+	var lab = _load().get("lab", {})
+	return lab if typeof(lab) == TYPE_DICTIONARY else {}
+
+
+static func save_lab(lab: Dictionary) -> void:
+	var data := _load()
+	data["lab"] = lab
 	_save(data)
 
 

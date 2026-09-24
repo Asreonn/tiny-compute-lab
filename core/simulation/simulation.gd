@@ -31,7 +31,9 @@ var tick := 0
 # port index: "mid:port" -> connection id
 var _conn_at_port: Dictionary = {}
 
-var mission: MissionRun = null
+## The active run: MissionRun (tutorial) or LabRun (lab). Duck-typed on purpose so the lab
+## and the tutorial share the Simulation without the core depending on either (docs §6).
+var mission = null
 var default_width := 0  # mission configuration; never a global constant
 var campaign_timing := false  # campaign dwell times + 2 wire slots per tile (Catalog timing profiles)
 var last_error := ""  # player-facing reason of the last refused edit (place/move/rotate/connect)
@@ -243,10 +245,25 @@ func _wire_name(cid: int) -> String:
 	return "%s → %s" % [machines[c.from_id].label, machines[c.to_id].label]
 
 
-func set_param(id: int, key: String, value: Variant) -> void:
-	if machines.has(id):
-		machines[id].params[key] = value
-		changed.emit()
+## Set one machine parameter. If the param changes the width of any port that currently
+## has a wire, the change is REFUSED (wires are never deleted) and false is returned.
+## Returns true when applied.
+func set_param(id: int, key: String, value: Variant) -> bool:
+	if not machines.has(id):
+		return false
+	var m: Machine = machines[id]
+	for p in m.ports():
+		var w: Variant = p["width"]
+		if typeof(w) != TYPE_STRING:
+			continue
+		var s: String = str(w)
+		var used := (s.begins_with("P:") or s.begins_with("R:")) and s.substr(2) == key
+		if used and connection_at_port(id, p["id"]) != null:
+			last_error = "Unwire the ports first — the widths would change"
+			return false
+	m.params[key] = value
+	changed.emit()
+	return true
 
 
 ## Change an instance width. Refuses locked machines and out-of-range widths.
@@ -302,7 +319,9 @@ func connect_error(a: int, pa: String, b: int, pb: String, ignore: Array = []) -
 		return "Wires start at an output port"
 	if gb["dir"] == Catalog.DIR_OUT:
 		return "Target must be an input or control port"
-	if ga["width"] != gb["width"]:
+	# "*" is the ONLY exception to the width-match rule (docs/ARCHITECTURE.md §4.3): an
+	# any-width sink (lab USB Output) accepts whatever the source carries.
+	if str(ma.port_width_spec(pa)) != "*" and str(mb.port_width_spec(pb)) != "*" and ga["width"] != gb["width"]:
 		return "%d-bit output cannot connect to a %d-bit input. Use a width converter." % [ga["width"], gb["width"]]
 	var ca := connection_at_port(a, pa)
 	if ca != null and not ca.id in ignore:
@@ -349,6 +368,11 @@ func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null
 	connections[c.id] = c
 	_conn_at_port["%d:%s" % [a, pa]] = c.id
 	_conn_at_port["%d:%s" % [b, pb]] = c.id
+	# A "*" port resolves to the width of the wire that was just connected (source width).
+	if str(machines[b].port_width_spec(pb)) == "*":
+		machines[b].port_width_override[pb] = c.width
+	if str(machines[a].port_width_spec(pa)) == "*":
+		machines[a].port_width_override[pa] = c.width
 	changed.emit()
 	return c
 
@@ -414,6 +438,11 @@ func disconnect_wire(cid: int, notify := true) -> void:
 	var c: Connection = connections[cid]
 	_conn_at_port.erase("%d:%s" % [c.from_id, c.from_port])
 	_conn_at_port.erase("%d:%s" % [c.to_id, c.to_port])
+	# A "*" port goes back to width 0 once its wire is gone.
+	if machines.has(c.to_id) and str(machines[c.to_id].port_width_spec(c.to_port)) == "*":
+		machines[c.to_id].port_width_override.erase(c.to_port)
+	if machines.has(c.from_id) and str(machines[c.from_id].port_width_spec(c.from_port)) == "*":
+		machines[c.from_id].port_width_override.erase(c.from_port)
 	connections.erase(cid)
 	if notify:
 		changed.emit()

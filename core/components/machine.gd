@@ -13,6 +13,9 @@ var cell: Vector2i
 var rot: int = 0
 var width: int = 1  # instance width; port widths of "W" resolve to this
 var params: Dictionary = {}
+## Resolved width of a "*" port (any-width sink, e.g. usb_output): port id -> source width.
+## Set by Simulation when a wire is connected; never touched by reset() (it is not runtime state).
+var port_width_override: Dictionary = {}
 var locked := false  # placed by the mission (IO); cannot be moved or deleted
 var label: String = ""  # e.g. "Multiply #2" — used in packet paths
 
@@ -90,15 +93,36 @@ func footprint() -> Array[Vector2i]:
 	return out
 
 
-## Effective width of a port: an explicit int, or the instance width for "W".
+## Raw width spec of a port: an int, "W", "P:<param>", "R:<param>" or "*".
+## "*" marks an any-width sink (usb_output) — the ONLY exception to the width-match rule.
+func port_width_spec(port_id: String) -> Variant:
+	var pd := Catalog.port_def(type, port_id)
+	if pd.is_empty():
+		return "W"
+	return pd["width"]
+
+
+## Effective width of a port: an explicit int, the instance width for "W",
+## "P:<param>" (= the instance param value), "R:<param>" (= instance width minus that param)
+## or "*" (= the connected source width, 0 while unconnected).
 func port_width(port_id: String) -> int:
 	var pd := Catalog.port_def(type, port_id)
 	if pd.is_empty():
 		return width
 	var w: Variant = pd["width"]
-	if typeof(w) == TYPE_STRING:
+	if typeof(w) == TYPE_INT:
+		return int(w)
+	# string form: "W", "P:<param>", "R:<param>", "*"
+	var s: String = str(w)
+	if s == "*":
+		return int(port_width_override.get(port_id, 0))
+	if s == "W":
 		return width
-	return int(w)
+	if s.begins_with("P:"):
+		return int(params.get(s.substr(2), 0))
+	if s.begins_with("R:"):
+		return maxi(1, width - int(params.get(s.substr(2), 0)))
+	return width
 
 
 ## World-grid information about a port after rotation: {cell, side, outside, width, role, bus, dir}

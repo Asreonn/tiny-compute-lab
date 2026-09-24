@@ -27,7 +27,7 @@ const MAX_WIDTH := 64
 
 const SIZES := {"S": Vector2i(1, 1), "M": Vector2i(2, 1), "L": Vector2i(2, 2)}
 
-const FAMILIES := ["io", "math", "logic", "routing", "storage", "compute"]
+const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "compute"]
 const CATEGORIES := [
 	{"id": "io", "label": "IO"},
 	{"id": "math", "label": "Math"},
@@ -62,6 +62,14 @@ static var DEFS := {
 		"name": "Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
 		"desc": "Collects results and checks them against the expected stream.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
+		"params": {},
+	},
+	"usb_output": {
+		"name": "USB Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
+		"desc": "Hands processed data back out through the lab's USB line.",
+		# width "*" = accepts any width (the ONE exception to the width-match rule,
+		# docs/ARCHITECTURE.md §4.3): the Lab USB Output validates bits + width itself.
+		"ports": [_p("in", DIR_IN, ROLE_DATA, "*", Vector2i(0, 0), Side.W, "USB", true)],
 		"params": {},
 	},
 	"add": {
@@ -127,6 +135,27 @@ static var DEFS := {
 		],
 		"params": {},
 	},
+	"bit_splitter": {
+		"name": "Bit Splitter", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
+		"desc": "Splits a word into its high bits and its low bits.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true),
+			_p("hi", DIR_OUT, ROLE_DATA, "R:lo", Vector2i(1, 0), Side.E, "HI", true),
+			_p("lo", DIR_OUT, ROLE_DATA, "P:lo", Vector2i(1, 1), Side.E, "LO", true),
+		],
+		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 3, "min": 1, "max": 63}},
+	},
+	"demux": {
+		"name": "Demux", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_split",
+		"desc": "Sends each value to A when the select bit is 0, to B when it is 1.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
+			_p("sel", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "SEL"),
+			_p("a", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "A"),
+			_p("b", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 1), Side.E, "B"),
+		],
+		"params": {},
+	},
 	"buffer": {
 		"name": "Buffer", "family": "storage", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_buffer",
 		"desc": "Queues packets so bursts don't back up the line.",
@@ -154,7 +183,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "demux", "buffer", "delay", "counter", "processor"]
 
 
 static func ticks(type: String, campaign: bool) -> int:
@@ -177,6 +206,8 @@ static func size_of(type: String, rot: int = 0) -> Vector2i:
 
 static func category_of(type: String) -> String:
 	var f: String = DEFS[type]["family"]
+	if f == "conversion":
+		return "routing"
 	return "storage" if f == "compute" else f
 
 

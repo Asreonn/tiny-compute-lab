@@ -10,6 +10,8 @@ func start(m, sim) -> void:
 			_start_splitter(m, sim)
 		"merger":
 			_start_merger(m, sim)
+		"demux":
+			_start_demux(m, sim)
 
 
 func _start_splitter(m, sim) -> void:
@@ -35,3 +37,14 @@ func _start_merger(m, sim) -> void:
 			m.rr = 1 if port == "a" else 0
 			m.begin_job({"out": p}, p)
 			return
+
+
+func _start_demux(m, sim) -> void:
+	if m.inq["in"].is_empty() or m.inq["sel"].is_empty():
+		return
+	var d: Packet = m.pop("in")
+	var sel: Packet = m.pop("sel")
+	var port := "b" if sel.data.as_bool() else "a"
+	var out := {}
+	out[port] = d
+	m.begin_job(out, d)

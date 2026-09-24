@@ -26,9 +26,11 @@ func _init() -> void:
 	test_a1_wrong_constant_is_non_fatal()
 	test_streak_prevents_accidental_pass()
 	test_slice_b()
+	test_splitter_and_demux()
 	test_save_layout_reloads_and_passes()
 	test_save_record_result_keeps_best()
 	test_save_unlock_chain()
+	test_lab_mode()
 	SaveStore.clear()
 	print("\n%d passed, %d failed" % [passes, failures])
 	quit(1 if failures > 0 else 0)
@@ -347,6 +349,57 @@ func test_slice_b() -> void:
 # ------------------------------------------------------------------ SaveStore
 # The autoload Node is NOT tested headless; only the pure static SaveStore is.
 
+func test_splitter_and_demux() -> void:
+	check(Catalog.ticks("demux", true) == 3, "demux campaign dwell should be 3 ticks, got %d" % Catalog.ticks("demux", true))
+	check(Catalog.category_of("bit_splitter") == "routing", "conversion machines belong to the routing palette category")
+	var sim := Simulation.new()
+	sim.size = Vector2i(16, 10)
+	sim.default_width = 5
+	# bit splitter port widths: hi = W - lo = 2, lo = lo = 3 for W=5, lo=3
+	var bs := sim.place("bit_splitter", Vector2i(2, 2), 0, {"lo": 3}, 5)
+	check(bs.port_width("in") == 5 and bs.port_width("hi") == 2 and bs.port_width("lo") == 3, "splitter port widths resolve to 5/2/3, got %d/%d/%d" % [bs.port_width("in"), bs.port_width("hi"), bs.port_width("lo")])
+	# 10101 through the splitter -> hi 10 (2-bit), lo 101 (3-bit); call the logic directly
+	var p := Packet.new(sim.new_packet_id(), BitVector.from_bin("10101"), sim.tick)
+	bs.inq["in"].append(p)
+	ComponentLogic.for_type("bit_splitter").start(bs, sim)
+	check(not bs.job.is_empty(), "splitter should start a job with both outputs")
+	bs.advance(sim)
+	var hi: BitVector = bs.outq["hi"].data
+	var lo: BitVector = bs.outq["lo"].data
+	check(hi.equals(BitVector.of(2, 2)) and lo.equals(BitVector.of(5, 3)), "10101 -> hi 10 (2-bit) and lo 101 (3-bit), got %s / %s" % [hi, lo])
+	# set_param(lo) refused while a width-dependent port is wired; applied when unwired
+	var sim2 := Simulation.new()
+	sim2.size = Vector2i(16, 10)
+	sim2.default_width = 5
+	var bs2 := sim2.place("bit_splitter", Vector2i(2, 6), 0, {"lo": 3}, 5)
+	var dst := sim2.place("output", Vector2i(12, 7), 0, {}, 3)
+	var c := sim2.connect_ports(bs2.id, "lo", dst.id, "in")
+	check(c != null, "lo port (3-bit) should wire to a 3-bit output")
+	check(sim2.set_param(bs2.id, "lo", 4) == false, "set_param(lo) must be refused while lo is wired")
+	check(sim2.last_error == "Unwire the ports first — the widths would change", "refusal sets last_error, got '%s'" % sim2.last_error)
+	check(bs2.params["lo"] == 3 and sim2.connections.size() == 1, "refused change keeps param and wires")
+	sim2.disconnect_wire(c.id)
+	check(sim2.set_param(bs2.id, "lo", 4), "set_param(lo) applies once unwired")
+	check(bs2.params["lo"] == 4, "param value applied after unwiring")
+	check(sim2.set_param(99, "lo", 1) == false, "unknown machine id sets nothing")
+	# demux routes by select bit and waits for both inputs
+	var da := sim.place("demux", Vector2i(6, 2), 0, {}, 5)
+	da.inq["sel"].append(Packet.new(sim.new_packet_id(), BitVector.from_bool(false), sim.tick))
+	ComponentLogic.for_type("demux").start(da, sim)
+	check(da.job.is_empty(), "demux waits until both inputs are present")
+	da.inq["in"].append(Packet.new(sim.new_packet_id(), BitVector.of(7, 5), sim.tick))
+	ComponentLogic.for_type("demux").start(da, sim)
+	check(da.job.has("results") and da.job["results"].has("a") and not da.job["results"].has("b"), "demux sel=0 routes to a only")
+	da.advance(sim)
+	check(da.outq["a"] != null and da.outq["a"].data.equals(BitVector.of(7, 5)) and da.outq["b"] == null, "demux sel=0 sends the value to a")
+	var db := sim.place("demux", Vector2i(10, 2), 0, {}, 5)
+	db.inq["sel"].append(Packet.new(sim.new_packet_id(), BitVector.from_bool(true), sim.tick))
+	db.inq["in"].append(Packet.new(sim.new_packet_id(), BitVector.of(9, 5), sim.tick))
+	ComponentLogic.for_type("demux").start(db, sim)
+	check(db.job.has("results") and db.job["results"].has("b") and not db.job["results"].has("a"), "demux sel=1 routes to b only")
+	db.advance(sim)
+	check(db.outq["b"] != null and db.outq["b"].data.equals(BitVector.of(9, 5)), "demux sel=1 sends the value to b")
+
 func test_save_layout_reloads_and_passes() -> void:
 	SaveStore.set_path("user://test_save.json")
 	SaveStore.clear()
@@ -386,3 +439,117 @@ func test_save_unlock_chain() -> void:
 	SaveStore.record_result("a1_plus_two", 1, 5.0)
 	check(SaveStore.unlocked("a2_wrap"), "previous mission with >=1 star unlocks the next")
 	check(SaveStore.unlocked("boot"), "legacy missions stay available")
+
+
+# ------------------------------------------------------------------ Lab mode
+
+func _lab_output(sim: Simulation) -> Machine:
+	for id in sim.sorted_machine_ids():
+		if sim.machines[id].type == "usb_output":
+			return sim.machines[id]
+	return null
+
+
+func _lab_source_at(sim: Simulation, cell: Vector2i) -> Machine:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "usb_input" and m.cell == cell:
+			return m
+	return null
+
+
+func _lab_log(ticks: int) -> String:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.build_board(sim)
+	var src := _lab_source_at(sim, Vector2i(1, 5))
+	var out := _lab_output(sim)
+	sim.connect_ports(src.id, "out", out.id, "in")
+	var log := PackedStringArray()
+	for i in ticks:
+		sim.step()
+		for e in sim.events:
+			log.append("%d:%s" % [sim.tick, str(e)])
+	return "\n".join(log)
+
+
+func test_lab_mode() -> void:
+	SaveStore.set_path("user://test_save.json")
+	SaveStore.clear()
+	# --- L1: one USB source wired straight to the USB Output ---
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.build_board(sim)
+	check(run.level == 0 and sim.size == Vector2i(20, 12), "lab starts at L1 on a 20x12 board")
+	check(Catalog.has("usb_output"), "usb_output is in the catalog")
+	var out := _lab_output(sim)
+	var src := _lab_source_at(sim, Vector2i(1, 5))
+	check(out != null and src != null, "lab starts with a USB Output and a USB Input")
+	var c := sim.connect_ports(src.id, "out", out.id, "in")
+	check(c != null and out.port_width("in") == 3, "usb_output accepts a 3-bit wire and resolves its width")
+	var guard := 0
+	while run.level < 1 and guard < 4000:
+		sim.step()
+		guard += 1
+	check(run.level == 1, "L1 completes and advances to L2 (got level %d)" % run.level)
+	check(run.unlocked.has("add"), "L2 unlocks Add")
+
+	# --- L2: place an Add k=2 LIVE (no reset) and reach L3 ---
+	sim.disconnect_wire(c.id)
+	var add := sim.place("add", Vector2i(8, 5), 0, {"k": 2}, 3)
+	check(add != null, "Add can be placed in L2")
+	sim.connect_ports(src.id, "out", add.id, "in")
+	sim.connect_ports(add.id, "out", out.id, "in")
+	guard = 0
+	while run.level < 2 and guard < 6000:
+		sim.step()
+		guard += 1
+	check(run.level == 2, "L2 completes live and reaches L3 (got level %d)" % run.level)
+	check(run.delivered < 20, "delivered resets on level advance")
+
+	# --- L3: wrong values (100) are rejected, never fatal ---
+	guard = 0
+	while run.rejected < 3 and guard < 2000:
+		sim.step()
+		guard += 1
+	check(run.rejected >= 3, "wrong values are counted as rejected (got %d)" % run.rejected)
+	check(run.status == MissionRun.Status.RUNNING, "wrong values never fail the lab")
+	check(run.failure.is_empty(), "the lab records no failure")
+
+	# --- L4: the board grows and a new source appears ---
+	var sim4 := Simulation.new()
+	var run4 := LabRun.new()
+	run4.level = 3
+	run4.build_board(sim4)
+	check(sim4.size == Vector2i(28, 16), "L4 board grows to 28x16 (got %s)" % sim4.size)
+	check(_lab_source_at(sim4, Vector2i(1, 13)) != null, "L4 adds a USB input at (1,13)")
+	check(LabDef.request_bits(3).width == 5 and LabDef.view_mode(3) == ViewMode.Mode.CHAR, "L4 request is a 5-bit character")
+
+	# --- width "*": the same USB Output also accepts a 5-bit wire ---
+	var out4 := _lab_output(sim4)
+	var src4 := _lab_source_at(sim4, Vector2i(1, 13))
+	var c4 := sim4.connect_ports(src4.id, "out", out4.id, "in")
+	check(c4 != null and out4.port_width("in") == 5, "usb_output accepts a 5-bit wire and resolves its width")
+
+	# --- save / load round-trip ---
+	SaveStore.save_lab({"level": run.level, "delivered": run.delivered, "rejected": run.rejected, "size": [sim.size.x, sim.size.y], "layout": sim.layout_to_dict()})
+	var loaded := SaveStore.load_lab()
+	check(int(loaded.get("level", -1)) == run.level, "lab save keeps the level")
+	var sim2 := Simulation.new()
+	var run2 := LabRun.new()
+	run2.level = int(loaded["level"])
+	run2.build_board(sim2)
+	sim2.load_player_layout(loaded["layout"])
+	check(sim2.machines.size() == sim.machines.size(), "lab reload keeps every machine")
+	check(sim2.connections.size() == sim.connections.size(), "lab reload keeps every wire")
+	check(_lab_source_at(sim2, Vector2i(1, 5)) != null, "lab reload rebuilds the L1 source")
+	var has_add := false
+	for id in sim2.machines:
+		if sim2.machines[id].type == "add":
+			has_add = true
+	check(has_add, "lab reload restores the player's Add")
+
+	# --- determinism of the first 200 ticks ---
+	check(_lab_log(200) == _lab_log(200), "the lab's first 200 ticks are deterministic")
+
+	SaveStore.clear()
