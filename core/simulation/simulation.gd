@@ -860,6 +860,8 @@ func load_player_layout(d: Dictionary) -> void:
 				var dev := str(md.get("device", ""))
 				if dev != "":
 					insert_device(mid, dev)  # false is ignored: the fresh board already has the socket
+				elif bool(md.get("socket", false)) and lm.device != "":
+					remove_device(mid)  # the player had moved this port's module to the desk
 				li += 1
 		else:
 			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))

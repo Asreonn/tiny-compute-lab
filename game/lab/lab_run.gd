@@ -19,6 +19,12 @@ var accepted_ticks: Array[int] = []
 ## Overruns since the window started (docs/SYSTEMS_EXPANSION.md §2, §3).
 var window_lost := 0
 var _window_warning := ""
+## Desk zones (docs/SYSTEMS_EXPANSION.md §2.2): slot index -> module kind beside the laptop.
+## Every owned device is in exactly one place: a desk slot or a port.
+var desk_inputs: Dictionary = {}
+var desk_outputs: Dictionary = {}
+## Devices that landed on the desk on the last level-up (the views pulse them as "New").
+var new_devices := PackedStringArray()
 var _io_warning := ""
 
 
@@ -216,10 +222,11 @@ func _ensure_io(sim: Simulation) -> void:
 		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
 		if first_in != null and first_in.device == "":
 			sim.insert_device(first_in.id, "bit")
-	if _job_drive(sim) == null:
+	if _job_drive(sim) == null and not desk_outputs.values().has("job"):
 		var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
 		if first_out != null:
 			sim.insert_device(first_out.id, "job")
+	sync_desk(sim)
 
 
 ## Rebuild the sealed bay reservations: every not-yet-open port row reserves its 2x1 footprint
@@ -326,3 +333,137 @@ func _socket_ids(sim: Simulation) -> Array[int]:
 func _sync() -> void:
 	expected_bits = [[request_bits()]]
 	progress = [delivered]
+
+
+# ------------------------------------------------------------------ desk zones
+
+## Slots on a desk side: its owned devices + 2 spare (SYSTEMS_EXPANSION §2.2).
+func desk_slot_count(side: String) -> int:
+	var owned := devices_owned() if side == "in" else output_devices_owned()
+	return owned.size() + 2
+
+
+func _desk(side: String) -> Dictionary:
+	return desk_inputs if side == "in" else desk_outputs
+
+
+func _first_free_slot(side: String) -> int:
+	var d := _desk(side)
+	for i in desk_slot_count(side):
+		if not d.has(i):
+			return i
+	return -1
+
+
+## Kinds currently plugged into the ports of one side.
+func _plugged(sim: Simulation, side: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var ty := "usb_input" if side == "in" else LabDef.OUTPUT_TYPE
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == ty and m.socket and m.device != "":
+			out.append(m.device)
+	return out
+
+
+## Make the desks consistent: plugged devices leave the desk, owned devices that are nowhere land
+## in the first free slot (and are reported in `new_devices`). Deterministic (owned order).
+func sync_desk(sim: Simulation) -> void:
+	new_devices = PackedStringArray()
+	for side in ["in", "out"]:
+		var d := _desk(side)
+		var plugged := _plugged(sim, side)
+		for slot in d.keys():
+			if plugged.has(d[slot]):
+				d.erase(slot)
+		var owned := devices_owned() if side == "in" else output_devices_owned()
+		for kind in owned:
+			if plugged.has(kind) or d.values().has(kind):
+				continue
+			var slot := _first_free_slot(side)
+			if slot < 0:
+				continue
+			d[slot] = kind
+			new_devices.append(kind)
+
+
+func _port_side(m: Machine) -> String:
+	if m == null or not m.socket:
+		return ""
+	return "in" if m.type == "usb_input" else ("out" if m.type == LabDef.OUTPUT_TYPE else "")
+
+
+## Plug the module lying in `slot` into the port machine. A module already in that port swaps back
+## into `slot`. Refusals (wrong side, sealed/unknown port, the wire rule) change nothing.
+func plug_from_desk(sim: Simulation, side: String, slot: int, port_id: int) -> bool:
+	var d := _desk(side)
+	if not d.has(slot) or not sim.machines.has(port_id):
+		return false
+	var m: Machine = sim.machines[port_id]
+	if _port_side(m) != side:
+		sim.last_error = "That module belongs in an %s port" % ("input" if side == "in" else "output")
+		return false
+	var kind: String = d[slot]
+	var old := m.device
+	if side == "in":
+		if not sim.insert_device(port_id, kind):
+			return false
+	else:
+		sim.insert_device(port_id, kind)
+	d.erase(slot)
+	if old != "":
+		d[slot] = old
+	return true
+
+
+## Unplug a port's module onto the desk (slot -1 = first free). Refused when the slot is taken.
+func unplug_to_desk(sim: Simulation, port_id: int, slot: int = -1) -> bool:
+	if not sim.machines.has(port_id):
+		return false
+	var m: Machine = sim.machines[port_id]
+	var side := _port_side(m)
+	if side == "" or m.device == "":
+		return false
+	var d := _desk(side)
+	var target := _first_free_slot(side) if slot < 0 else slot
+	if target < 0 or target >= desk_slot_count(side) or d.has(target):
+		return false
+	var kind := m.device
+	sim.remove_device(port_id)
+	d[target] = kind
+	return true
+
+
+## Move a module between desk slots (swap when the target is taken).
+func move_on_desk(side: String, from_slot: int, to_slot: int) -> bool:
+	var d := _desk(side)
+	if not d.has(from_slot) or to_slot < 0 or to_slot >= desk_slot_count(side) or from_slot == to_slot:
+		return false
+	var kind: String = d[from_slot]
+	if d.has(to_slot):
+		d[from_slot] = d[to_slot]
+	else:
+		d.erase(from_slot)
+	d[to_slot] = kind
+	return true
+
+
+## Save form: {"in": {slot: kind}, "out": {...}} with string keys (JSON).
+func desk_to_dict() -> Dictionary:
+	var out := {"in": {}, "out": {}}
+	for k in desk_inputs:
+		out["in"][str(k)] = desk_inputs[k]
+	for k in desk_outputs:
+		out["out"][str(k)] = desk_outputs[k]
+	return out
+
+
+func desk_from_dict(d: Dictionary, sim: Simulation) -> void:
+	desk_inputs = {}
+	desk_outputs = {}
+	for k in d.get("in", {}):
+		desk_inputs[int(k)] = str(d["in"][k])
+	for k in d.get("out", {}):
+		desk_outputs[int(k)] = str(d["out"][k])
+	sync_desk(sim)
+

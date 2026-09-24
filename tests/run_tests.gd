@@ -13,6 +13,7 @@ func _init() -> void:
 	SignalGeomTests.run(self)
 	RawTests.run(self)
 	PortTests.run(self)
+	DeskTests.run(self)
 	UsbTests.run(self)
 	ContractTests.run(self)
 	SaveStoreTests.run(self)
