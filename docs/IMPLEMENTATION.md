@@ -135,12 +135,12 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 
 | Item | State |
 |---|---|
-| A1 core types: BitVector, ViewMode, Charset | done |
-| A2 sim on BitVector with explicit widths; slice A missions a1_plus_two, a2_wrap; legacy missions as regression | done |
-| A3 SimulationManager autoload + SaveStore | done |
-| A4 board, MachineView (Penpot exports), Signal V1 wires, packets with view-mode labels, camera | done |
-| A5 tools (place/wire/move/delete/rotate) + canonical HUD V2 | done |
-| Tests | 191 headless checks + `tools/tools_smoke.gd` (SMOKE PASS) |
-| Previews | `design/previews/godot/` |
-| Open for slice A | manual playtest with real mouse input; mission select (Menu/MISSIONS); tooltip visual check; a2_wrap carry LED on the Add |
-| Next | slice B (5-bit characters, TCL-5 CHAR view, Modulo, Terminal Output) |
+| Core: BitVector / ViewMode / Charset; explicit widths; deterministic sim | done |
+| Tutorial missions a1, a2 (3-bit), b1–b3 (5-bit characters, Caesar) | done |
+| Views: machines from Penpot exports, Signal V1 wires, continuous packet motion, progress ring, stats silk, MSDF text | done |
+| Tools: place / live-routed WYSIWYG wires / rewire / move / delete / rotate; canonical HUD V2 | done |
+| Lab (main game): persistent expanding factory, USB in/out, "deliver N × value" levels L1–L6, live editing, save | done |
+| Lab HUD: request panel, level banner, main menu (Lab + tutorial) | done |
+| Components: Add, Modulo, Bit Splitter, Demux (+ legacy machines) | done |
+| Checks | `make test` (246) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke}.gd` |
+| Next | USB Output Penpot design (needs Penpot + MCP plugin); more Lab levels with Compare/Gate/Demux routing, width conversion (Zero Extend/Truncate), 8-bit BYTE/ASCII, throughput goals; then the post-MVP polish phase |
