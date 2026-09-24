@@ -25,7 +25,7 @@ static func _make(type: String) -> ComponentLogic:
 			return load("res://core/components/logic/math_logic.gd").new()
 		"compare", "gate":
 			return load("res://core/components/logic/logic_logic.gd").new()
-		"splitter", "merger", "demux":
+		"splitter", "merger", "demux", "mux", "cond_router":
 			return load("res://core/components/logic/routing_logic.gd").new()
 		"bit_splitter":
 			return load("res://core/components/logic/conversion_logic.gd").new()

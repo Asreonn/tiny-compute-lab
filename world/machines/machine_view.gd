@@ -619,6 +619,10 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
+		if t["key"] == "operator" and m.type == "cond_router":
+			var op := str(m.params.get("op", ">"))
+			t["text"] = "b%d" % int(m.params.get("k", 0)) if op == "bit" else op  # the live test
+			continue
 		if t["key"] == "dial" or t["key"] == "operator":
 			continue  # static text
 		var txt: String = vals.get(t["key"], "")
@@ -736,8 +740,8 @@ func _area_state(running: bool) -> String:
 			var split_on := running and st in [Machine.State.PROCESSING, Machine.State.RECEIVING, Machine.State.OUTPUT_READY]
 			if not split_on:
 				return _area_idle
-			if m.type == "demux":
-				if m.job.has("b") or (m.outq.has("b") and m.outq["b"] != null):
+			if m.type in ["demux", "cond_router"]:
+				if (m.job.get("results", {}) as Dictionary).has("b") or (m.outq.has("b") and m.outq["b"] != null):
 					return "laneb"
 				return "lanea"
 			return "dup"

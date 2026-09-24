@@ -21,6 +21,7 @@ func _init() -> void:
 	ThermalTests.run(self)
 	UndoTests.run(self)
 	MoveTests.run(self)
+	ComponentTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()

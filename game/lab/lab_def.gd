@@ -128,6 +128,14 @@ static var LEVELS: Array = [
 		"unlocks": ["counter"],
 		"view": ViewMode.Mode.CHAR,
 	},
+	{
+		"id": "lab_l14", "title": "Mixed Traffic",
+		"brief": "Tagged words: when the top bit is set add 1 to the payload, otherwise double it. One output.",
+		"contract": {"kind": "map", "ops": [{"op": "if_bit", "bit": 4, "then": [{"op": "slice", "lo": 0, "len": 3}, {"op": "add", "k": 1}], "else": [{"op": "slice", "lo": 0, "len": 3}, {"op": "mul", "k": 2}]}], "count": 24, "accept_format": "bits", "accept_width": 3},
+		"streams": {"bit": {"values": ["10011", "00101", "11110", "01010", "10001", "00111", "11100", "01011"], "width": 5, "interval": 2}},
+		"unlocks": ["demux", "mux", "cond_router"],
+		"view": ViewMode.Mode.BIN,
+	},
 ]
 
 

@@ -195,6 +195,19 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 			return RawValue.text(Charset.decode(v as BitVector)) if v is BitVector else DROP
 		"keep_if":
 			return v if _keep(v, op) else DROP
+		"if_bit":
+			# route by a tag bit of the value: the chosen branch's ops run on it
+			if not (v is BitVector):
+				return DROP
+			var b := v as BitVector
+			var k := int(op.get("bit", 0))
+			var set := k >= 0 and k < b.width and (b.unsigned() >> k) & 1 == 1
+			var cur: Variant = v
+			for sub in (op.get("then", []) if set else op.get("else", [])):
+				cur = apply_op(sub, cur)
+				if cur is String:
+					return DROP
+			return cur
 		"add_src":
 			# paired: add the value another stream contributed (a key, a number, bits)
 			if not (v is BitVector) or not _pair_values.has(str(op.get("src", ""))):
@@ -247,6 +260,8 @@ func describe() -> String:
 		_:
 			if _is_caesar():
 				return "Caesar +%d (%s)" % [int(_first_op("add").get("k", 0)), _format_name()]
+			if not _first_op("if_bit").is_empty():
+				return "by tag: %s" % _expr()  # compact: fits the request panel
 			return "map x → %s (%s)" % [_expr(), _format_name()]
 
 
@@ -266,10 +281,20 @@ func _is_caesar() -> bool:
 
 
 func _expr() -> String:
-	var e := "x"
-	for op in ops:
+	return _expr_of(ops, "x")
+
+
+func _expr_of(chain: Array, base: String) -> String:
+	var e := base
+	for op in chain:
 		var k := int(op.get("k", 0))
 		match str(op.get("op", "")):
+			"if_bit":
+				var slice := _is_low_slice(op.get("then", [])) and _is_low_slice(op.get("else", []))
+				var b2 := "x" if slice else e
+				var te := _expr_of(_drop_slice(op.get("then", [])) if slice else op.get("then", []), b2).replace(" ", "")
+				var ee := _expr_of(_drop_slice(op.get("else", [])) if slice else op.get("else", []), b2).replace(" ", "")
+				e = "b%d ? %s : %s" % [int(op.get("bit", 0)), te, ee]
 			"add": e = "%s + %d" % [e, k]
 			"sub": e = "%s − %d" % [e, k]
 			"mul": e = "%s × %d" % [e, k]
@@ -280,6 +305,15 @@ func _expr() -> String:
 			"decode_num": e = "num(%s)" % e
 			"decode_char": e = "chr(%s)" % e
 	return e
+
+
+## A branch that starts by taking the low bits (the payload of a tagged word).
+static func _is_low_slice(chain: Array) -> bool:
+	return not chain.is_empty() and str(chain[0].get("op", "")) == "slice" and int(chain[0].get("lo", -1)) == 0
+
+
+static func _drop_slice(chain: Array) -> Array:
+	return chain.slice(1)
 
 
 func _first_op(op_name: String) -> Dictionary:

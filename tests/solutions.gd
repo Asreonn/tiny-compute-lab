@@ -273,6 +273,22 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 			_w(sim, ad, "out", mo, "in")
 			_w(sim, mo, "out", dc, "in")
 			_w(sim, dc, "out", d, "in")
+		13:  # L14: route by the tag bit, transform each lane, merge
+			_lab_plug(sim, s, "bit")
+			var cr := _pw(sim, "cond_router", Vector2i(3, 1), 5, {"op": "bit", "k": 4})
+			var bs1 := _pw(sim, "bit_splitter", Vector2i(7, 1), 5, {"lo": 3})
+			var bs2 := _pw(sim, "bit_splitter", Vector2i(7, 4), 5, {"lo": 3})
+			var ad := _pw(sim, "add", Vector2i(11, 1), 3, {"k": 1})
+			var mu := _pw(sim, "multiply", Vector2i(11, 4), 3, {"k": 2})
+			var mg := _pw(sim, "merger", Vector2i(15, 2), 3)
+			_w(sim, s, "out", cr, "in")
+			_w(sim, cr, "a", bs1, "in")
+			_w(sim, cr, "b", bs2, "in")
+			_w(sim, bs1, "lo", ad, "in")
+			_w(sim, bs2, "lo", mu, "in")
+			_w(sim, ad, "out", mg, "a")
+			_w(sim, mu, "out", mg, "b")
+			_w(sim, mg, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

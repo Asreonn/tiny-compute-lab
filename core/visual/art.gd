@@ -42,6 +42,8 @@ static func layout(type: String) -> Dictionary:
 		usb.erase("area")
 		usb["silk"] = {"text": "USB", "pos": [18, 47]}
 		return usb
+	if type == "cond_router":
+		return l.get("roadmap", {}).get("ConditionalRouter", {})
 	if type == "adder":
 		# The two-input Adder wears the roadmap two-input logic kit (Module-L, Merge lanes into an
 		# OpWindow) with the math family and a "+" operator.

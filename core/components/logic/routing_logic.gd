@@ -1,5 +1,6 @@
 extends ComponentLogic
-## Routing machines: splitter (alternate/duplicate) and merger (fair round-robin).
+## Routing machines: splitter (alternate/duplicate), merger (fair round-robin), demux / mux
+## (a select bit picks the lane) and the conditional router (a value test picks the lane).
 
 
 func start(m, sim) -> void:
@@ -12,6 +13,10 @@ func start(m, sim) -> void:
 			_start_merger(m, sim)
 		"demux":
 			_start_demux(m, sim)
+		"mux":
+			_start_mux(m, sim)
+		"cond_router":
+			_start_cond_router(m, sim)
 
 
 func _start_splitter(m, sim) -> void:
@@ -49,3 +54,38 @@ func _start_demux(m, sim) -> void:
 	var out := {}
 	out[port] = d
 	m.begin_job(out, d)
+
+
+## Mux: the select bit says which input to take next; only that input is consumed.
+func _start_mux(m, sim) -> void:
+	if m.inq["sel"].is_empty():
+		return
+	var port := "b" if (m.inq["sel"][0] as Packet).data.as_bool() else "a"
+	if m.inq[port].is_empty():
+		return
+	var sel: Packet = m.pop("sel")
+	var d: Packet = m.pop(port)
+	d.merge_origins(sel)
+	m.begin_job({"out": d}, d)
+
+
+## Conditional Router: A when the test holds on the value (unsigned), else B.
+func _start_cond_router(m, sim) -> void:
+	if m.inq["in"].is_empty():
+		return
+	var d: Packet = m.pop("in")
+	var port := "a" if test(str(m.params.get("op", ">")), int(m.params.get("k", 0)), d.data) else "b"
+	var out := {}
+	out[port] = d
+	m.begin_job(out, d)
+
+
+static func test(op: String, k: int, v: BitVector) -> bool:
+	var u := v.unsigned()
+	match op:
+		">": return u > k
+		"<": return u < k
+		"=": return u == k
+		"bit": return k >= 0 and k < v.width and (u >> k) & 1 == 1
+	return false
+

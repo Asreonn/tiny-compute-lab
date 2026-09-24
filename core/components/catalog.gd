@@ -198,6 +198,30 @@ static var DEFS := {
 		],
 		"params": {},
 	},
+	"mux": {
+		"name": "Mux", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
+		"desc": "Two streams in, one out: the select bit picks A (0) or B (1) for each value.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("sel", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "SEL"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"cond_router": {
+		"name": "Conditional Router", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
+		"desc": "Sends each value to A when the test holds, otherwise to B.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
+			_p("a", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "A"),
+			_p("b", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 1), Side.E, "B"),
+		],
+		"params": {
+			"op": {"label": "Test", "kind": "enum", "default": ">", "options": [">", "<", "=", "bit"]},
+			"k": {"label": "Value", "kind": "int", "default": 3, "min": 0, "max": 255},
+		},
+	},
 	"buffer": {
 		"name": "Buffer", "family": "storage", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_buffer",
 		"desc": "Queues packets so bursts don't back up the line.",
@@ -260,7 +284,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "mux", "cond_router", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it
