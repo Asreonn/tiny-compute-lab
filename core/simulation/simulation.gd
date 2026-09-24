@@ -292,6 +292,85 @@ func set_width(id: int, w: int) -> Array:
 	return removed
 
 
+# ============================================================ devices
+
+## Plug a data module into a lab socket (docs/SYSTEMS_EXPANSION.md §2). Refused when the
+## socket's existing wire would become incompatible (a raw <-> bits change or a bits width
+## change) — a wire is never silently broken; `last_error` explains it. The stream comes from
+## the mission's contract (`stream_for_device`), or from `stream_override` for a specific
+## socket (the lab's per-source stream).
+func insert_device(machine_id: int, kind: String, stream_override: Dictionary = {}) -> bool:
+	if not machines.has(machine_id) or not Devices.has(kind):
+		return false
+	var m: Machine = machines[machine_id]
+	if not m.socket:
+		return false
+	var spec: Dictionary = stream_override if not stream_override.is_empty() else _device_stream_spec(kind)
+	var stream := Devices.make_stream(kind, spec)
+	var raw: bool = Devices.out_kind(kind) == "raw"
+	var new_width := m.width
+	if not raw:
+		new_width = int(spec.get("width", 0))
+		if new_width < 1 and not stream.is_empty() and stream[0] is BitVector:
+			new_width = (stream[0] as BitVector).width
+		if new_width < 1:
+			new_width = m.width
+	var conn := connection_at_port(machine_id, "out")
+	if conn != null:
+		var old_role := m.port_role("out")
+		var new_role: String = Catalog.ROLE_RAW if raw else Catalog.ROLE_DATA
+		var old_width: int = m.port_width("out")
+		var new_w: int = 0 if raw else new_width
+		if old_role != new_role or (new_role == Catalog.ROLE_DATA and old_width != new_w):
+			last_error = "Unplug the wire first: the %s emits %s" % [Devices.display_name(kind), _device_emits_desc(kind, new_width)]
+			return false
+	m.device = kind
+	m.last_device = kind
+	m.stream = stream
+	m.width = new_width
+	m.interval = int(spec.get("interval", 4))
+	m.fifo.clear()
+	m.gen_seq = 0
+	m.next_emit = tick + 1
+	events.append({"kind": "device", "machine": machine_id, "device": kind})
+	changed.emit()
+	return true
+
+
+## Unplug the module: no data flows, but the wire stays and the output role follows
+## `last_device`, so the wire is never invalidated.
+func remove_device(machine_id: int) -> bool:
+	if not machines.has(machine_id):
+		return false
+	var m: Machine = machines[machine_id]
+	if not m.socket:
+		return false
+	m.device = ""
+	m.stream = []
+	m.fifo.clear()
+	m.gen_seq = 0
+	events.append({"kind": "device", "machine": machine_id, "device": ""})
+	changed.emit()
+	return true
+
+
+## The current run's stream for a module kind, or {} when the mission has no contract for it.
+func _device_stream_spec(kind: String) -> Dictionary:
+	if mission != null and mission.has_method("stream_for_device"):
+		var spec = mission.stream_for_device(kind)
+		if spec is Dictionary:
+			return spec
+	return {}
+
+
+## Player-facing description of what a module emits: "raw TEXT" or "3-bit words".
+func _device_emits_desc(kind: String, width: int) -> String:
+	var d: Dictionary = Devices.KINDS[kind]
+	if str(d["out"]) == "bits":
+		return "%d-bit words" % width
+	return "raw " + RawValue.KIND_NAMES[int(d["raw_kind"])]
+
+
 # ============================================================ wiring
 
 func connection_at_port(mid: int, port: String) -> Connection:
@@ -718,7 +797,14 @@ func load_player_layout(d: Dictionary) -> void:
 	for md in d.get("machines", []):
 		if md.get("locked", false):
 			if li < locked_by_index.size():
-				map[i] = locked_by_index[li]
+				var mid: int = locked_by_index[li]
+				map[i] = mid
+				var lm: Machine = machines[mid]
+				if md.has("last_device"):
+					lm.last_device = str(md["last_device"])
+				var dev := str(md.get("device", ""))
+				if dev != "":
+					insert_device(mid, dev)  # false is ignored: the fresh board already has the socket
 				li += 1
 		else:
 			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))

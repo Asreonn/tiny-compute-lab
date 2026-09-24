@@ -22,7 +22,8 @@ static var LEVELS: Array = [
 		"brief": "A stick of raw data was plugged in. Hand the words back unchanged.",
 		"request": {"value": "010"}, "count": 10, "view": ViewMode.Mode.BIN,
 		"unlocks": [], "grow": Vector2i(20, 12),
-		"sources": [{"cell": Vector2i(1, 5), "width": 3, "values": ["010"], "interval": 4}],
+		"streams": {"bit": {"values": ["010"], "width": 3, "interval": 4}},
+		"sources": [{"cell": Vector2i(1, 5), "width": 3, "values": ["010"], "interval": 4, "device": "bit", "stream": {"values": ["010"], "width": 3, "interval": 4}}],
 	},
 	{
 		"id": "lab_l2", "title": "Plus Two",
@@ -43,21 +44,24 @@ static var LEVELS: Array = [
 		"brief": "A second stick carries letters. Shift H to K.",
 		"request": {"chr": "K", "width": 5}, "count": 30, "view": ViewMode.Mode.CHAR,
 		"unlocks": [], "grow": Vector2i(28, 16),
-		"sources": [{"cell": Vector2i(1, 13), "width": 5, "values": ["H"], "interval": 4}],
+		"streams": {"bit": {"values": ["H"], "width": 5, "interval": 4}},
+		"sources": [{"cell": Vector2i(1, 13), "width": 5, "values": ["H"], "interval": 4, "device": "bit", "stream": {"values": ["H"], "width": 5, "interval": 4}}],
 	},
 	{
 		"id": "lab_l5", "title": "Past Z",
 		"brief": "X + 3 falls off the alphabet. Wrap it back to A.",
 		"request": {"chr": "A", "width": 5}, "count": 30, "view": ViewMode.Mode.CHAR,
 		"unlocks": ["modulo"], "grow": Vector2i(28, 16),
-		"sources": [{"cell": Vector2i(1, 9), "width": 5, "values": ["X"], "interval": 4}],
+		"streams": {"bit": {"values": ["X"], "width": 5, "interval": 4}},
+		"sources": [{"cell": Vector2i(1, 9), "width": 5, "values": ["X"], "interval": 4, "device": "bit", "stream": {"values": ["X"], "width": 5, "interval": 4}}],
 	},
 	{
 		"id": "lab_l6", "title": "Payload",
 		"brief": "Tagged words: keep only the 3-bit payload.",
 		"request": {"value": "101"}, "count": 30, "view": ViewMode.Mode.BIN,
 		"unlocks": ["bit_splitter"], "grow": Vector2i(36, 20),
-		"sources": [{"cell": Vector2i(1, 17), "width": 5, "values": ["10101"], "interval": 4}],
+		"streams": {"bit": {"values": ["10101"], "width": 5, "interval": 4}},
+		"sources": [{"cell": Vector2i(1, 17), "width": 5, "values": ["10101"], "interval": 4, "device": "bit", "stream": {"values": ["10101"], "width": 5, "interval": 4}}],
 	},
 ]
 
@@ -112,6 +116,18 @@ static func sources_upto(i: int) -> Array:
 		for src in LEVELS[k].get("sources", []):
 			out.append(src)
 	return out
+
+
+## The contract's stream spec for a device kind at level `level_idx`: the spec of the LATEST
+## level <= level_idx that defines that kind ({} when none does). The stream belongs to the
+## contract, so a socket always carries the newest applicable stream.
+static func stream_spec(level_idx: int, kind: String) -> Dictionary:
+	var idx := clampi(level_idx, 0, LEVELS.size() - 1)
+	for k in range(idx, -1, -1):
+		var streams: Dictionary = LEVELS[k].get("streams", {})
+		if streams.has(kind):
+			return streams[kind]
+	return {}
 
 
 static func source_bits(src: Dictionary) -> Array:

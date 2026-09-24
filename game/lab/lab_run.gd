@@ -46,6 +46,16 @@ func allows(type: String) -> bool:
 	return type in ["usb_input", "usb_output"]
 
 
+## The contract's stream for a device kind at the current level (Simulation.insert_device).
+func stream_for_device(kind: String) -> Dictionary:
+	return LabDef.stream_spec(level, kind)
+
+
+## The data modules the player owns (D2: only the Bit module; D4 grows the tray).
+func devices_owned() -> PackedStringArray:
+	return PackedStringArray(["bit"])
+
+
 func correct_total() -> int:
 	return delivered
 
@@ -141,13 +151,14 @@ func _add_sources(sim: Simulation, lvl: int) -> void:
 	for src in LabDef.level(lvl).get("sources", []):
 		var m := Machine.new(0, "usb_input", src["cell"], int(src["width"]))
 		m.locked = true
+		m.socket = true
 		sim.add_machine(m)
 		m.label = "USB Input"
-		m.stream = LabDef.source_bits(src)
-		m.interval = int(src.get("interval", 4))
 		m.loop = true
 		m.strict = false
-		m.next_emit = 1
+		# The stream belongs to the contract; a per-source override keeps this socket's own
+		# stream when the level's contract stream is not the one it was created with.
+		sim.insert_device(m.id, str(src.get("device", "bit")), src.get("stream", {}))
 
 
 func _sync() -> void:

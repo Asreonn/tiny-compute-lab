@@ -39,7 +39,7 @@ var carries := 0  # Add: total carry-outs this run
 var dropped := 0  # codec: values dropped this run (unencodable or of the wrong kind)
 
 # Input/Output machines are configured by the mission.
-var stream: Array = []  # input: Array[BitVector] to emit
+var stream: Array = []  # input: Array[BitVector|RawValue] to emit
 var interval := 1  # input: ticks between packets
 var strict := false  # input: drop (and fail) instead of waiting when blocked
 var loop := false  # input: repeat the stream until the mission passes (campaign sources)
@@ -48,6 +48,14 @@ var next_emit := 0
 var emitted := 0
 var channel := 0  # output: which expected stream it validates
 var received: Array = []  # output: Packet list
+
+# --- USB socket (lab): a locked usb_input the player plugs a data module into ---
+var device: String = ""  # plugged module kind, "" = none (docs/SYSTEMS_EXPANSION.md §2)
+var last_device: String = ""  # kind of the last plugged module; keeps the wire valid after removal
+var socket := false  # true = lab socket semantics (module stream + 2-slot FIFO overrun)
+var fifo: Array = []  # pending [value, seq] pairs, max 2; the oldest is dropped on overrun
+var lost := 0  # overruns this run (values dropped from the FIFO)
+var gen_seq := 0  # index of the next stream value to generate
 
 
 func _init(p_id: int, p_type: String, p_cell: Vector2i, p_width: int, p_rot: int = 0, p_params: Dictionary = {}) -> void:
@@ -115,8 +123,14 @@ func port_role(port_id: String) -> String:
 	var pd := Catalog.port_def(type, port_id)
 	if pd.is_empty():
 		return Catalog.ROLE_DATA
-	if pd.get("dir", "") == Catalog.DIR_OUT and is_raw_source():
-		return Catalog.ROLE_RAW
+	if pd.get("dir", "") == Catalog.DIR_OUT:
+		# A lab socket's role follows the plugged module (or the last one, so removing a
+		# device never invalidates the wire); every other source follows its stream.
+		if socket:
+			var kind := device if device != "" else last_device
+			return Catalog.ROLE_RAW if Devices.out_kind(kind) == "raw" else Catalog.ROLE_DATA
+		if is_raw_source():
+			return Catalog.ROLE_RAW
 	return pd.get("role", Catalog.ROLE_DATA)
 
 
@@ -186,6 +200,9 @@ func reset() -> void:
 	next_emit = 0
 	emitted = 0
 	received = []
+	fifo = []
+	lost = 0
+	gen_seq = 0
 
 
 func can_accept(port_id: String) -> bool:
@@ -312,7 +329,11 @@ func set_error(msg: String) -> void:
 # ---------------------------------------------------------------- persistence
 
 func to_dict() -> Dictionary:
-	return {"type": type, "cell": [cell.x, cell.y], "rot": rot, "width": width, "params": params.duplicate(), "locked": locked, "channel": channel}
+	return {
+		"type": type, "cell": [cell.x, cell.y], "rot": rot, "width": width,
+		"params": params.duplicate(), "locked": locked, "channel": channel,
+		"device": device, "last_device": last_device, "socket": socket,
+	}
 
 
 static func from_dict(p_id: int, d: Dictionary, fallback_width: int) -> Machine:
@@ -320,4 +341,7 @@ static func from_dict(p_id: int, d: Dictionary, fallback_width: int) -> Machine:
 	var m := Machine.new(p_id, d["type"], Vector2i(d["cell"][0], d["cell"][1]), w, int(d.get("rot", 0)), d.get("params", {}))
 	m.locked = d.get("locked", false)
 	m.channel = int(d.get("channel", 0))
+	m.device = str(d.get("device", ""))
+	m.last_device = str(d.get("last_device", ""))
+	m.socket = bool(d.get("socket", false))
 	return m
