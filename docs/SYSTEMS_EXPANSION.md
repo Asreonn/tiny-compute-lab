@@ -127,6 +127,31 @@
   - Output ports stay glued to the east edge and move with their wires.
   - Port rows never move.
 
+### 2.2 Desk zones (player request 2026-09-24): the physical inventory
+
+- Two **desk zones** lie beside the laptop, outside the board:
+  - **left, INPUT MODULES:** a mat of slots where owned input modules lie (plug pointing east, toward
+    the laptop);
+  - **right, OUTPUT DEVICES:** the Job drive and the Monitor (plug pointing west).
+- Each zone is a vertical column of slots, one module per slot. It has at least as many slots as owned
+  devices, plus 2 spare.
+- **Drag and drop:**
+  - Drag a desk module onto an open port to plug it in. If that port already holds a module, the two
+    swap: the old module goes to the slot the new one came from.
+  - Drag a plugged module out of its port onto the desk to unplug it into that slot.
+  - Drag between slots to rearrange.
+  - Click a module, then click a port (or a slot): the same, without dragging.
+  - Sealed ports and wrong-side drops are refused. A red slash shows the refusal, and the module snaps
+    back.
+- **Rules:**
+  - An input module can only go to input ports; an output device only to output ports.
+  - A module is always in exactly one place: a desk slot or a port.
+  - Plugging still respects the wire rule (`insert_device` refuses a module that would break the port's
+    wire; the module snaps back and the reason is shown).
+- **State:** LabRun keeps `desk_inputs` / `desk_outputs` (slot index → module kind), saved in the lab
+  section. Newly owned modules appear in the first free slot with the "New" pulse.
+- The Device/Drive Tray popover stays only as a fallback, for clicking a port with no desk visible.
+
 ## 3. Contract Drive and contracts
 
 **Contract Drive** (`contract_drive`, replaces `usb_output`, locked, east board edge):

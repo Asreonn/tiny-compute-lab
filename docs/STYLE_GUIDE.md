@@ -275,7 +275,14 @@ tooltips. Planned extensions, in the same components:
   - The output side takes a **Job drive** or a **Monitor**. The Monitor is a bezel-silhouette module,
     `state.select` key bar, a wide screen with the last value, and a 10-sample history strip.
   - The **Drive Tray** mirrors the Device Tray for output ports.
-- **Device Tray:** a world-anchored popover with module thumbnails, available/in-use/hover/locked rows
+- **Desk zones (page `15 / 02d`):**
+  - A `surface.sunken` mat (r10, `surface.border`) with a 9 px "INPUT MODULES" / "OUTPUT DEVICES"
+    header.
+  - Slots are 148×68 (r6, 1 px `board.silk` α .5; empty slots are dashed).
+  - Modules lie with their plug facing the laptop.
+  - Dragging shows a module ghost at α .7 and the canonical 1.5 px `state.valid` target ring on the
+    port (a red slash when refused).
+- **Device Tray** (fallback): a world-anchored popover with module thumbnails, available/in-use/hover/locked rows
   (locked rows state their unlock) and Unplug.
 
 ### 14.5 Encoder / Decoder (page `16 / 06`)
