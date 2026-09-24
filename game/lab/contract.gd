@@ -41,6 +41,10 @@ var primary_socket := 0
 var source_kind := ""
 ## paired: the stream kinds that must meet, primary first (e.g. ["text", "key"]).
 var pair: Array = []
+## The primary stream's values (one cycle), for ops that depend on history: prefix_sum,
+## ram_program, seq_table. The origin's seq says where in the stream a value came from.
+var stream: Array = []
+var _seq := -1
 var _pair_values := {}  # kind -> origin value, while one paired packet is being judged
 
 
@@ -59,6 +63,7 @@ static func from_level(lv: Dictionary) -> Contract:
 	var streams: Dictionary = lv.get("streams", {})
 	if not streams.is_empty():
 		c.source_kind = str(streams.keys()[0])
+		c.stream = Devices.make_stream(c.source_kind, streams[c.source_kind])
 	c.accept_format = str(d.get("accept_format", ""))
 	if c.kind == "deliver":
 		c.accept_format = "bits"
@@ -87,6 +92,7 @@ func expected_for(p: Packet, sockets: Array[int]) -> Variant:
 	if sid < 0 or p == null or not p.origins.has(sid):
 		return null
 	var entry: Dictionary = p.origins[sid]
+	_seq = int(entry.get("seq", -1))
 	return expect_from(entry.get("value"))
 
 
@@ -107,6 +113,7 @@ func _expected_paired(p: Packet) -> Variant:
 			return null  # out of step: the i-th letter met another key
 		seq = sq
 	_pair_values = {}
+	_seq = seq
 	for k in pair:
 		_pair_values[k] = by_kind[k].get("value")
 	var out: Variant = expect_from(_pair_values[pair[0]])
@@ -224,6 +231,36 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 				if cur is String:
 					return DROP
 			return cur
+		"prefix_sum":
+			# running sum of the stream up to and including this value (seq), at `width`
+			if _seq < 0 or stream.is_empty():
+				return DROP
+			return BitVector.of(_prefix_sum(_seq), int(op.get("width", 8)))
+		"table":
+			if not (v is BitVector):
+				return DROP
+			var tv: Array = op.get("values", [])
+			var ti: int = (v as BitVector).unsigned()
+			return BitVector.of(int(tv[ti]) if ti < tv.size() else 0, int(op.get("width", 8)))
+		"seq_table":
+			# the value's position in the stream picks the entry (a program counter's job)
+			var sv: Array = op.get("values", [])
+			if _seq < 0 or sv.is_empty():
+				return DROP
+			return BitVector.of(int(sv[_seq % sv.size()]), int(op.get("width", 8)))
+		"ram_program":
+			return _ram_program(op)
+		"alu_src":
+			# paired: A (this value) with B from another stream, the operation picked by a bit stream
+			if not (v is BitVector) or not _pair_values.has(str(op.get("b", ""))) or not _pair_values.has(str(op.get("sel", ""))):
+				return DROP
+			var bw := v as BitVector
+			var bv: Variant = _pair_values[str(op.get("b", ""))]
+			var bn := int((bv as RawValue).value) if bv is RawValue else (bv as BitVector).unsigned()
+			var sel: Variant = _pair_values[str(op.get("sel", ""))]
+			var one: bool = (sel as BitVector).as_bool() if sel is BitVector else int((sel as RawValue).value) != 0
+			var ops2: Array = op.get("ops", ["ADD", "SUB"])
+			return MemoryOps.alu(str(ops2[1] if one else ops2[0]), bw, BitVector.of(bn, bw.width))
 		"add_src", "and_src", "or_src", "xor_src":
 			# paired: combine with the value another stream contributed (a key, a number, bits)
 			if not (v is BitVector) or not _pair_values.has(str(op.get("src", ""))):
@@ -237,6 +274,55 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 				"xor_src": return bv.bxor(BitVector.of(n, bv.width))
 			return bv.add(n)
 	return DROP
+
+
+static func _num(v: Variant) -> int:
+	if v is BitVector:
+		return (v as BitVector).unsigned()
+	if v is RawValue:
+		return int((v as RawValue).value)
+	return 0
+
+
+## Σ stream[0..seq] (the stream cycles), in O(cycle length).
+func _prefix_sum(seq: int) -> int:
+	var n := stream.size()
+	var cycle := 0
+	for x in stream:
+		cycle += _num(x)
+	var total := (seq / n) * cycle
+	for j in (seq % n) + 1:
+		total += _num(stream[j])
+	return total
+
+
+## The memory program behind a RAM level: each instruction word is WE | address | value.
+## Writes must not reach the drive (DROP); a read expects the cell as the program left it —
+## every earlier instruction in stream order. The stream cycles and writes only set cells, so
+## from the second cycle on the memory starts from "the first cycle's writes applied".
+func _ram_program(op: Dictionary) -> Variant:
+	if _seq < 0 or stream.is_empty():
+		return DROP
+	var we_bit := int(op.get("we_bit", 7))
+	var alo := int(op.get("addr_lo", 3))
+	var alen := int(op.get("addr_len", 4))
+	var vlo := int(op.get("val_lo", 0))
+	var vlen := int(op.get("val_len", 3))
+	var n := stream.size()
+	var mem := {}
+	if _seq >= n:
+		for x in stream:
+			var w0 := _num(x)
+			if (w0 >> we_bit) & 1 == 1:
+				mem[(w0 >> alo) & ((1 << alen) - 1)] = (w0 >> vlo) & ((1 << vlen) - 1)
+	for j in _seq % n:
+		var w1 := _num(stream[j])
+		if (w1 >> we_bit) & 1 == 1:
+			mem[(w1 >> alo) & ((1 << alen) - 1)] = (w1 >> vlo) & ((1 << vlen) - 1)
+	var cur := _num(stream[_seq % n])
+	if (cur >> we_bit) & 1 == 1:
+		return DROP  # a write: nothing may come out
+	return BitVector.of(int(mem.get((cur >> alo) & ((1 << alen) - 1), 0)), vlen)
 
 
 func _keep(v: Variant, op: Dictionary) -> bool:
@@ -268,6 +354,8 @@ func describe() -> String:
 		"deliver":
 			return "deliver %s × %d" % [_bin(value), count]
 		"filter":
+			if not _first_op("ram_program").is_empty():
+				return "run the memory program"
 			var ki := _first_op("keep_if")
 			var src := source_kind if source_kind != "" else "x"
 			if ki.is_empty():
@@ -277,6 +365,8 @@ func describe() -> String:
 			var src := str(_first_op("add_src").get("src", "key"))
 			if _is_caesar_paired():
 				return "Caesar + %s (%s)" % [src, _format_name()]
+			if not _first_op("alu_src").is_empty():
+				return "A + B or A − B by OP"
 			for g in [["and_src", "AND"], ["or_src", "OR"], ["xor_src", "XOR"]]:
 				var gop := _first_op(g[0])
 				if not gop.is_empty():
@@ -287,6 +377,14 @@ func describe() -> String:
 				return "Caesar +%d (%s)" % [int(_first_op("add").get("k", 0)), _format_name()]
 			if not _first_op("if_bit").is_empty():
 				return "by tag: %s" % _expr()  # compact: fits the request panel
+			if not _first_op("prefix_sum").is_empty():
+				return "running sum (%d-bit)" % int(_first_op("prefix_sum").get("width", 8))
+			if not _first_op("table").is_empty():
+				return "look up x in the table"
+			if not _first_op("seq_table").is_empty():
+				return "play the table in order"
+			if not _first_op("ram_program").is_empty():
+				return "run the memory program"
 			return "map x → %s (%s)" % [_expr(), _format_name()]
 
 

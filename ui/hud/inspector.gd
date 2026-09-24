@@ -144,6 +144,22 @@ func _param_row(m: Machine, key: String, pdef: Dictionary, y: float) -> float:
 			var i := opts.find(m.params[key])
 			_set_param(key, opts[(i + 1) % opts.size()]))
 		return y + 38
+	if pdef["kind"] == "text":
+		# free text (the ROM table): commit on Enter or when the field loses focus
+		var le := LineEdit.new()
+		le.position = Vector2(4, 2)
+		le.size = Vector2(132, 28)
+		le.text = str(m.params.get(key, pdef.get("default", "")))
+		le.add_theme_font_override("font", TclTheme.font(HudKit.W_XBOLD))
+		le.add_theme_font_size_override("font_size", 11)
+		le.add_theme_color_override("font_color", Palette.DATA_NUMBER)
+		le.add_theme_color_override("caret_color", Palette.DATA_NUMBER)
+		le.add_theme_stylebox_override("normal", HudKit.style(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 4))
+		le.add_theme_stylebox_override("focus", HudKit.style(Palette.SURFACE_SUNKEN, Palette.DATA_NUMBER, 1, 4))
+		le.text_submitted.connect(func(t): _set_param(key, t))
+		le.focus_exited.connect(func(): if le.text != str(m.params.get(key, "")): _set_param(key, le.text))
+		ctl.add_child(le)
+		return y + 38
 	# int stepper: [−] value [+], value shown in the current view mode at the machine width
 	var lo := int(pdef.get("min", 0))
 	var hi := int(pdef.get("max", 255))

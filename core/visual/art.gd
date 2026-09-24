@@ -42,6 +42,8 @@ static func layout(type: String) -> Dictionary:
 		usb.erase("area")
 		usb["silk"] = {"text": "USB", "pos": [18, 47]}
 		return usb
+	if type in ["rom", "ram", "alu"]:
+		return l.get("roadmap", {}).get(type.to_upper(), {})
 	if type == "shift_left":
 		return l.get("roadmap", {}).get("ShiftLeft", {})
 	if type == "shift_right":

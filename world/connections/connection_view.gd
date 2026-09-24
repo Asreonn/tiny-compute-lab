@@ -272,13 +272,18 @@ func _draw_comet(canvas: CanvasItem, s: float) -> void:
 
 func _draw_width_tag(canvas: CanvasItem) -> void:
 	var mid: Vector2 = SignalGeom.sample(_path, 0.5)[0]
-	var tex := Art.tex(Art.widthtag_file(connection.width))
-	if tex != null:
-		var scaled := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
-		canvas.draw_texture_rect(tex, Rect2(mid - scaled * 0.5, scaled), false)
-	var f := TclTheme.font("ExtraBold")
 	var label := str(connection.width)
 	var tw := 14.0 if label.length() <= 1 else 18.0
+	# widths without a chip asset (5, 6, 7, 12…) wear the 16 chip narrowed to 14 / 18 px, like the
+	# machine width tags (MachineView.TAG_FALLBACK)
+	var has_asset := label in MachineView.TAG_ASSETS
+	var tex := Art.tex(Art.widthtag_file(connection.width if has_asset else MachineView.TAG_FALLBACK))
+	if tex != null:
+		var scaled := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
+		if not has_asset:
+			scaled.x *= tw / 18.0
+		canvas.draw_texture_rect(tex, Rect2(mid - scaled * 0.5, scaled), false)
+	var f := TclTheme.font("ExtraBold")
 	var ascent := f.get_ascent(TAG_FONT)
 	var descent := f.get_descent(TAG_FONT)
 	canvas.draw_string(f, Vector2(mid.x - tw * 0.5, mid.y + (ascent - descent) * 0.5), label,

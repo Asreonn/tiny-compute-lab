@@ -144,6 +144,8 @@ const FAMILY := {
 	"routing": FAMILY_ROUTING,
 	"storage": FAMILY_STORAGE,
 	"compute": FAMILY_COMPUTE,
+	"memory": FAMILY_STORAGE,  # the Penpot memory tab is the storage orange
+	"control": FAMILY_COMPUTE,  # the Penpot control tab is the compute grey
 }
 
 static func datatype(width: int) -> Color:

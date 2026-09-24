@@ -674,6 +674,12 @@ func _display_value(vm: int) -> String:
 			return "×" + sgn + ViewMode.format(BitVector.of(abs(k), m.width), vm)
 		"delay":
 			return "%dt" % int(m.params.get("ticks", 3))
+		"register":
+			# the stored value (the initial value until the first write)
+			var v: BitVector = m.memory[0] if not m.memory.is_empty() else BitVector.of(int(m.params.get("init", 0)), m.width)
+			return ViewMode.format(v, vm)
+		"program_counter":
+			return str(m.counter if m.primed else int(m.params.get("start", 0)))
 	return ""
 
 
@@ -701,6 +707,8 @@ func _silk_text(_sim: Simulation) -> String:
 				if m.channel < run.progress.size():
 					got = run.progress[m.channel]
 			return "%d/%d" % [got, total]
+		"splitter":
+			return "DUP" if str(m.params.get("mode", "")) == "Duplicate" else "ALT"  # the live mode
 		_:
 			var ly := Art.layout(m.type)
 			var sylk: Dictionary = _entry(ly, "silk")
@@ -757,6 +765,11 @@ func _area_state(running: bool) -> String:
 					return "laneb"
 				return "lanea"
 			return "dup"
+		"Cells":
+			# memory: the cells light for a write or a read while the operation runs
+			if not busy:
+				return _area_idle
+			return "write" if m.last_mem_op == "write" else "read"
 		_:
 			if not busy:
 				return _area_idle

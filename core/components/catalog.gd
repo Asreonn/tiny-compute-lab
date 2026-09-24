@@ -326,6 +326,83 @@ static var DEFS := {
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "N")],
 		"params": {},
 	},
+	"register": {
+		"name": "Register", "family": "memory", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "R",
+		"desc": "Remembers one value. Echo: each write is passed on (it starts by sending its initial value — a feedback loop's seed). A pulse on READ sends the stored value again.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
+			_p("read", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "RD"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {
+			"mode": {"label": "Mode", "kind": "enum", "default": "echo", "options": ["echo", "on read"]},
+			"init": {"label": "Initial", "kind": "int", "default": 0, "min": 0, "max": 255},
+		},
+	},
+	"register_bank": {
+		"name": "Register Bank", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 2, "icon": "", "glyph_text": "R4",
+		"desc": "Four registers. Each operation takes an address, a value and the WE bit: WE 1 writes the value, WE 0 reads the addressed register out.",
+		"ports": [
+			_p("d", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
+			_p("a", DIR_IN, ROLE_DATA, 2, Vector2i(0, 1), Side.W, "A"),
+			_p("we", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "WE"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"ram": {
+		"name": "RAM", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 2, "icon": "", "glyph_text": "RAM",
+		"desc": "Sixteen cells. Each operation takes a 4-bit address, a value and the WE bit: WE 1 writes, WE 0 reads the cell out (the value input is used up either way).",
+		"ports": [
+			_p("d", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
+			_p("a", DIR_IN, ROLE_DATA, 4, Vector2i(0, 1), Side.W, "A"),
+			_p("we", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "WE"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
+	"rom": {
+		"name": "ROM", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "", "glyph_text": "ROM",
+		"desc": "A table you type in: the value at the incoming address comes out. Up to 16 entries.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "ADDR"),
+			_p("out", DIR_OUT, ROLE_DATA, "P:out", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {
+			"table": {"label": "Table", "kind": "text", "default": "0 1 2 3 4 5 6 7"},
+			"out": {"label": "Out bits", "kind": "int", "default": 3, "min": 1, "max": 16},
+		},
+	},
+	"alu": {
+		"name": "ALU", "family": "compute", "size": "L", "ticks": 1, "campaign_ticks": 4, "power": 2, "icon": "", "glyph_text": "ALU",
+		"desc": "Arithmetic-logic unit: combines A and B with operation 0 or operation 1, picked by the OP bit of each step.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("op", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(1, 0), Side.N, "OP"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {
+			"op0": {"label": "Op 0", "kind": "enum", "default": "ADD", "options": ["ADD", "SUB", "AND", "OR", "XOR"]},
+			"op1": {"label": "Op 1", "kind": "enum", "default": "SUB", "options": ["ADD", "SUB", "AND", "OR", "XOR"]},
+		},
+	},
+	"program_counter": {
+		"name": "Program Counter", "family": "control", "size": "S", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "PC",
+		"desc": "Counts steps: each 1-bit clock pulse sends the next address — start, start + 1, … wrapping at its width.",
+		"ports": [_p("in", DIR_IN, ROLE_DATA, 1, Vector2i(0, 0), Side.W, "CLK"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "PC")],
+		"params": {"start": {"label": "Start", "kind": "int", "default": 0, "min": 0, "max": 255}},
+	},
+	"instruction_decoder": {
+		"name": "Instruction Decoder", "family": "control", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "DEC",
+		"desc": "Reads an instruction word: its top bit comes out on A, the next bit on B — control lines for WE or OP.",
+		"ports": [
+			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "INSTR"),
+			_p("a", DIR_OUT, ROLE_CONTROL, 1, Vector2i(1, 0), Side.E, "A"),
+			_p("b", DIR_OUT, ROLE_CONTROL, 1, Vector2i(1, 1), Side.E, "B"),
+		],
+		"params": {},
+	},
 	"processor": {
 		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "campaign_ticks": 12, "power": 4, "heat": 440, "icon": "op_processor",
 		"desc": "Heavy general-purpose unit. Powerful but slow — a classic bottleneck.",
@@ -360,7 +437,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "shift_left", "shift_right", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "shift_left", "shift_right", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "register", "register_bank", "ram", "rom", "program_counter", "instruction_decoder", "alu", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it
@@ -403,7 +480,7 @@ static func category_of(type: String) -> String:
 	var f: String = DEFS[type]["family"]
 	if f == "conversion":
 		return "routing"
-	return "storage" if f == "compute" else f
+	return "storage" if f in ["compute", "memory", "control"] else f
 
 
 static func default_params(type: String) -> Dictionary:

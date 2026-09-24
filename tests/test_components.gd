@@ -12,6 +12,10 @@ static func run(t) -> void:
 	_width_converters(t)
 	_gates(t)
 	_combiner(t)
+	_register(t)
+	_memory(t)
+	_rom_alu_pc_decoder(t)
+	_history_contracts(t)
 
 
 static func _sim() -> Simulation:
@@ -133,4 +137,101 @@ static func _combiner(t) -> void:
 	_feed(sim, c, "hi", "10")
 	var p: Packet = _run_until_out(sim, c).get("packet")
 	t.check(p != null and p.data.equals(BitVector.from_bin("10011")), "hi 10 : lo 011 = 10011")
+
+
+static func _outs(sim: Simulation, m: Machine, ticks: int) -> Array:
+	var got := []
+	for i in ticks:
+		sim.step()
+		if m.outq.get("out") != null:
+			got.append((m.outq["out"] as Packet).data.unsigned())
+			m.outq["out"] = null  # nothing wired: collect by hand
+	return got
+
+
+static func _register(t) -> void:
+	var sim := _sim()
+	var r := sim.place("register", Vector2i(2, 2), 0, {"mode": "echo", "init": 5}, 4)
+	var first := _outs(sim, r, 4)
+	t.check(first == [5], "an echo register seeds its loop with the initial value (%s)" % str(first))
+	_feed(sim, r, "in", "0011")
+	t.check(_outs(sim, r, 4) == [3], "an echo register passes each write on")
+	var sim2 := _sim()
+	var h := sim2.place("register", Vector2i(2, 2), 0, {"mode": "on read", "init": 0}, 4)
+	_feed(sim2, h, "in", "1001")
+	t.check(_outs(sim2, h, 6).is_empty(), "an on-read register keeps writes to itself")
+	_feed(sim2, h, "read", "1")
+	_feed(sim2, h, "read", "1")
+	var reads := _outs(sim2, h, 12)
+	t.check(reads == [9, 9], "every READ pulse sends the stored value again (%s)" % str(reads))
+
+
+static func _memory(t) -> void:
+	var sim := _sim()
+	var ram := sim.place("ram", Vector2i(2, 2), 0, {}, 3)
+	# write 5 to cell 9, then read cell 9 and cell 2
+	for op in [["1001", "101", "1"], ["1001", "000", "0"], ["0010", "000", "0"]]:
+		_feed(sim, ram, "a", op[0])
+		_feed(sim, ram, "d", op[1])
+		_feed(sim, ram, "we", op[2])
+	var got := _outs(sim, ram, 20)
+	t.check(got == [5, 0], "RAM: a write stores, reads return the cell (unwritten = 0) (%s)" % str(got))
+	var bank := sim.place("register_bank", Vector2i(2, 6), 0, {}, 4)
+	t.check(bank.port_width("a") == 2 and ram.port_width("a") == 4, "the bank takes 2-bit addresses, RAM 4-bit")
+
+
+static func _rom_alu_pc_decoder(t) -> void:
+	var sim := _sim()
+	var rom := sim.place("rom", Vector2i(2, 2), 0, {"table": "6 4 7 1", "out": 3}, 2)
+	for a in ["00", "10", "11"]:
+		_feed(sim, rom, "in", a)
+	t.check(_outs(sim, rom, 16) == [6, 7, 1], "ROM looks the address up in its table")
+	t.check(MemoryLogicProbe.parse("6, 4,x 7") == [6, 4, 0, 7], "the table text accepts commas; junk reads as 0")
+	var alu := sim.place("alu", Vector2i(2, 6), 0, {"op0": "ADD", "op1": "SUB"}, 5)
+	for c in [["00111", "00010", "0"], ["00111", "00010", "1"]]:
+		_feed(sim, alu, "a", c[0])
+		_feed(sim, alu, "b", c[1])
+		_feed(sim, alu, "op", c[2])
+	t.check(_outs(sim, alu, 20) == [9, 5], "ALU: OP 0 adds, OP 1 subtracts")
+	var pc := sim.place("program_counter", Vector2i(8, 2), 0, {"start": 6}, 3)
+	for i in 3:
+		_feed(sim, pc, "in", "1")
+	t.check(_outs(sim, pc, 16) == [6, 7, 0], "the program counter counts from its start and wraps")
+	var dec := sim.place("instruction_decoder", Vector2i(10, 6), 0, {}, 8)
+	t.check(dec.port_width("a") == 1 and dec.port_width("b") == 1, "the decoder's outputs are 1-bit control lines")
+
+
+static func _history_contracts(t) -> void:
+	var sum := Contract.from_level(LabDef.level(21))
+	var vals := [2, 5, 7, 0, 3, 6, 1, 4]  # WORDS_3
+	var run := 0
+	var ok := true
+	for s in 20:
+		run += vals[s % 8]
+		var p := Packet.new(1, BitVector.of(0, 5), 0)
+		p.origins = {1: {"seq": s, "value": BitVector.of(vals[s % 8], 3)}}
+		var e: Variant = sum.expected_for(p, [1])
+		ok = ok and e is BitVector and (e as BitVector).unsigned() == run % 32
+	t.check(ok, "prefix_sum expects the running total mod 32 at every seq")
+	# ram_program against a brute-force run of the same program
+	var ram := Contract.from_level(LabDef.level(24))
+	var prog: Array = ram.stream
+	var mem := {}
+	var ok2 := true
+	for s in 30:
+		var w: int = (prog[s % prog.size()] as BitVector).unsigned()
+		var addr := (w >> 3) & 15
+		var p2 := Packet.new(1, BitVector.of(0, 3), 0)
+		p2.origins = {1: {"seq": s, "value": prog[s % prog.size()]}}
+		var e2: Variant = ram.expected_for(p2, [1])
+		if (w >> 7) & 1 == 1:
+			ok2 = ok2 and e2 is String
+			mem[addr] = w & 7
+		else:
+			ok2 = ok2 and e2 is BitVector and (e2 as BitVector).unsigned() == int(mem.get(addr, 0))
+	t.check(ok2, "ram_program matches a brute-force run over three cycles")
+	var play := Contract.from_level(LabDef.level(25))
+	var p3 := Packet.new(1, BitVector.of(0, 4), 0)
+	p3.origins = {1: {"seq": 10, "value": BitVector.of(1, 1)}}
+	t.check((play.expected_for(p3, [1]) as BitVector).unsigned() == 8, "seq_table: pulse 10 plays note 10 % 8 = 2 → 8")
 

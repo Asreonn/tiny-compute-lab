@@ -51,6 +51,11 @@ var delay_line: Array = []  # [[Packet, ready_tick], ...]
 var last_carry := 0  # Add: carry out of the most recent addition
 var carries := 0  # Add: total carry-outs this run
 var dropped := 0  # codec: values dropped this run (unencodable or of the wrong kind)
+# memory / control machines (Group E–F)
+var memory: Array = []  # register (1 cell), register bank (4), RAM (16): BitVector per cell
+var held: Packet = null  # register: the packet last written (its lineage is re-emitted on read)
+var primed := false  # register: the reset value was emitted; program counter: started
+var last_mem_op := ""  # "read" / "write" (the Cells area shows it)
 
 # Input/Output machines are configured by the mission.
 var stream: Array = []  # input: Array[BitVector|RawValue] to emit
@@ -239,6 +244,10 @@ func reset() -> void:
 	lost = 0
 	gen_seq = 0
 	pattern_idx = 0
+	memory = []
+	held = null
+	primed = false
+	last_mem_op = ""
 	work_done = 0
 	temp = 0
 	heat_stage = 0

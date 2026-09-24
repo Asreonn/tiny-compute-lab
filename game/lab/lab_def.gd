@@ -199,6 +199,51 @@ static var LEVELS: Array = [
 		"unlocks": ["heat_pipe", "radiator"], "reward": {"psu_tier": 3},
 		"view": ViewMode.Mode.UDEC,
 	},
+	{
+		"id": "lab_l22", "title": "Running Sum",
+		"brief": "Deliver the total so far: each answer adds the new value to everything before it. The factory needs a memory.",
+		# one value every 36 ticks: a tidy feedback loop (Adder → Register → Adder) keeps up, and a
+		# lost value would spoil every total after it
+		"contract": {"kind": "map", "ops": [{"op": "prefix_sum", "width": 5}], "count": 16, "accept_format": "bits", "accept_width": 5},
+		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 36}},
+		"unlocks": ["register"],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l23", "title": "Lookup",
+		"brief": "A secret substitution: 0→6 1→4 2→7 3→1 4→0 5→3 6→5 7→2. No arithmetic does it — a table does.",
+		"contract": {"kind": "map", "ops": [{"op": "table", "values": [6, 4, 7, 1, 0, 3, 5, 2], "width": 3}], "count": 24, "accept_format": "bits", "accept_width": 3},
+		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 2}},
+		"unlocks": ["rom"],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l24", "title": "Calculator",
+		"brief": "Three sticks: a number, a second number on the key stick, and an operation bit. Add when it is 0, subtract when it is 1.",
+		"contract": {"kind": "paired", "pair": ["number", "key", "bits"], "ops": [{"op": "encode_num", "width": 5}, {"op": "alu_src", "b": "key", "sel": "bits", "ops": ["ADD", "SUB"]}], "count": 24, "accept_format": "bits", "accept_width": 5},
+		# the ALU takes 4 ticks a step: the three sticks come every 6 so no stick overruns and the
+		# three streams stay in step
+		"streams": {"number": {"values": [9, 3, 14, 7, 20, 5, 11], "interval": 6}, "key": {"values": [4, 8, 2, 6, 1, 3], "interval": 6},
+			"bit": {"values": ["0", "1", "1", "0", "1"], "width": 1, "interval": 6}},
+		"unlocks": ["alu"],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l25", "title": "Tiny Memory",
+		"brief": "Instructions: top bit 1 = WRITE the low 3 bits to the address in bits 6-3, 0 = READ that address. Run them on RAM; deliver only what the reads return.",
+		"contract": {"kind": "filter", "ops": [{"op": "ram_program", "we_bit": 7, "addr_lo": 3, "addr_len": 4, "val_lo": 0, "val_len": 3}], "count": 16, "accept_format": "bits", "accept_width": 3},
+		"streams": {"bit": {"values": ["10010101", "10111011", "00010000", "10010110", "00111000", "00010000", "01001000", "11001111", "01001000"], "width": 8, "interval": 3}},
+		"unlocks": ["ram", "register_bank", "instruction_decoder"],
+		"view": ViewMode.Mode.UDEC,
+	},
+	{
+		"id": "lab_l26", "title": "Playback",
+		"brief": "Play the melody 3 5 8 5 10 8 12 1 — one note per clock pulse, in order, again and again.",
+		"contract": {"kind": "map", "ops": [{"op": "seq_table", "values": [3, 5, 8, 5, 10, 8, 12, 1], "width": 4}], "count": 24, "accept_format": "bits", "accept_width": 4},
+		"streams": {"bit": {"values": ["1"], "width": 1, "interval": 3}},
+		"unlocks": ["program_counter"],
+		"view": ViewMode.Mode.UDEC,
+	},
 ]
 
 
