@@ -143,6 +143,15 @@ static func _lab_io(sim: Simulation) -> Dictionary:
 	return {"socket": socket, "drive": drive}
 
 
+## The input port on `row` (the Lab racks sit at rows 1 / 4 / 7 / 10).
+static func _lab_socket(sim: Simulation, row: int) -> int:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "usb_input" and m.cell.y == row:
+			return id
+	return -1
+
+
 static func _lab_plug(sim: Simulation, socket: int, kind: String) -> void:
 	sim.remove_device(socket)
 	assert(sim.insert_device(socket, kind), "plug %s failed: %s" % [kind, sim.last_error])
@@ -228,6 +237,22 @@ static func lab_solution(sim: Simulation, level_idx: int) -> void:
 		10:  # L11: four parallel multiplies to sustain the rate
 			_lab_plug(sim, s, "bit")
 			_lab_rush_hour(sim, s, d)
+		11:  # L12: text + key through two encoders into one Adder, wrap, decode
+			var s2 := _lab_socket(sim, 4)
+			_lab_plug(sim, s, "text")
+			_lab_plug(sim, s2, "key")
+			var ce := _p(sim, "char_encoder", Vector2i(4, 1), {"width": 5})
+			var ne := _p(sim, "number_encoder", Vector2i(4, 4), {"width": 5})
+			var ad := _pw(sim, "adder", Vector2i(9, 2), 5)
+			var mo := _pw(sim, "modulo", Vector2i(14, 2), 5, {"k": 26})
+			var dc := _p(sim, "char_decoder", Vector2i(18, 2), {"width": 5})
+			_w(sim, s, "out", ce, "in")
+			_w(sim, s2, "out", ne, "in")
+			_w(sim, ce, "out", ad, "a")
+			_w(sim, ne, "out", ad, "b")
+			_w(sim, ad, "out", mo, "in")
+			_w(sim, mo, "out", dc, "in")
+			_w(sim, dc, "out", d, "in")
 
 
 static func _lab_rush_hour(sim: Simulation, s: int, d: int) -> void:

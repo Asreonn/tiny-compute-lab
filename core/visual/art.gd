@@ -42,6 +42,13 @@ static func layout(type: String) -> Dictionary:
 		usb.erase("area")
 		usb["silk"] = {"text": "USB", "pos": [18, 47]}
 		return usb
+	if type == "adder":
+		# The two-input Adder wears the roadmap two-input logic kit (Module-L, Merge lanes into an
+		# OpWindow) with the math family and a "+" operator.
+		var k: Dictionary = l.get("roadmap", {}).get("AND", {}).duplicate(true)
+		k["family"] = "math"
+		k["operator"] = "+"
+		return k
 	# Roadmap kit machines: snake_case type -> PascalCase kit key (modulo -> Modulo,
 	# terminal_output -> TerminalOutput).
 	var key := "".join(Array(type.split("_")).map(func(w): return w.capitalize()))

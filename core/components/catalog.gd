@@ -210,6 +210,16 @@ static var DEFS := {
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "OUT")],
 		"params": {"ticks": {"label": "Delay", "kind": "int", "default": 3, "min": 1, "max": 9}},
 	},
+	"adder": {
+		"name": "Adder", "family": "math", "size": "L", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "op_add",
+		"desc": "Adds two streams: a + b, one pair at a time. Waits for both.",
+		"ports": [
+			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
+			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
+			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
+		],
+		"params": {},
+	},
 	"counter": {
 		"name": "Counter", "family": "storage", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_counter",
 		"desc": "Counts packets. Emits the running count for each one received.",
@@ -250,7 +260,7 @@ static var DEFS := {
 }
 
 ## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
+const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
 ## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it

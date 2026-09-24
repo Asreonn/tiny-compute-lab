@@ -7,7 +7,9 @@ extends RefCounted
 ##   deliver — the payload must equal `value` (the L1–L3 behaviour)
 ##   map     — the payload must equal `f(origin)` for a small op chain
 ##   filter  — as map, but `f` may return DROP (the value must NOT arrive)
-##   paired  — reserved: as map over several sockets (D3 uses map/filter)
+##   paired  — as map over several sockets: the packet must carry an origin of every stream
+##             kind in `pair` (found by raw kind, whichever socket the player used) with the same
+##             `seq`; ops start from the first kind and may add another (`add_src`)
 ##
 ## `expected_for` returns the expected BitVector/RawValue, DROP (the value must not arrive) or
 ## null (the packet carries no origin from the primary socket → it cannot be judged → reject).
@@ -33,6 +35,9 @@ var max_lost := -1
 var primary_socket := 0
 ## The primary socket's stream kind ("bit", "number", "text", "sensor"), for describe().
 var source_kind := ""
+## paired: the stream kinds that must meet, primary first (e.g. ["text", "key"]).
+var pair: Array = []
+var _pair_values := {}  # kind -> origin value, while one paired packet is being judged
 
 
 static func from_level(lv: Dictionary) -> Contract:
@@ -44,6 +49,7 @@ static func from_level(lv: Dictionary) -> Contract:
 	c.max_lost = int(d.get("max_lost", -1))
 	c.primary_socket = int(d.get("primary_socket", 0))
 	c.ops = d.get("ops", [])
+	c.pair = d.get("pair", [])
 	var streams: Dictionary = lv.get("streams", {})
 	if not streams.is_empty():
 		c.source_kind = str(streams.keys()[0])
@@ -69,11 +75,48 @@ static func from_level(lv: Dictionary) -> Contract:
 func expected_for(p: Packet, sockets: Array[int]) -> Variant:
 	if kind == "deliver":
 		return value
+	if kind == "paired":
+		return _expected_paired(p)
 	var sid := _primary_id(sockets)
 	if sid < 0 or p == null or not p.origins.has(sid):
 		return null
 	var entry: Dictionary = p.origins[sid]
 	return expect_from(entry.get("value"))
+
+
+## Paired: every kind in `pair` must be among the packet's origins with one shared seq.
+func _expected_paired(p: Packet) -> Variant:
+	if p == null or pair.is_empty():
+		return null
+	var by_kind := {}
+	for sid in p.origins:
+		var e: Dictionary = p.origins[sid]
+		by_kind[origin_kind(e.get("value"))] = e
+	var seq := -1
+	for k in pair:
+		if not by_kind.has(k):
+			return null  # a stream never took part: the value cannot be judged
+		var sq := int(by_kind[k].get("seq", -1))
+		if seq >= 0 and sq != seq:
+			return null  # out of step: the i-th letter met another key
+		seq = sq
+	_pair_values = {}
+	for k in pair:
+		_pair_values[k] = by_kind[k].get("value")
+	var out: Variant = expect_from(_pair_values[pair[0]])
+	_pair_values = {}
+	return out
+
+
+## The stream kind of an origin value: "text" / "number" / "key" / "sensor" or "bits".
+static func origin_kind(v: Variant) -> String:
+	if v is RawValue:
+		match (v as RawValue).kind:
+			RawValue.Kind.TEXT: return "text"
+			RawValue.Kind.NUMBER: return "number"
+			RawValue.Kind.KEY: return "key"
+			RawValue.Kind.SENSOR: return "sensor"
+	return "bits"
 
 
 ## Apply the op chain to an origin value. Returns the expected value or DROP.
@@ -152,6 +195,13 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 			return RawValue.text(Charset.decode(v as BitVector)) if v is BitVector else DROP
 		"keep_if":
 			return v if _keep(v, op) else DROP
+		"add_src":
+			# paired: add the value another stream contributed (a key, a number, bits)
+			if not (v is BitVector) or not _pair_values.has(str(op.get("src", ""))):
+				return DROP
+			var o: Variant = _pair_values[str(op.get("src", ""))]
+			var n := int((o as RawValue).value) if o is RawValue else ((o as BitVector).unsigned() if o is BitVector else 0)
+			return (v as BitVector).add(n)
 	return DROP
 
 
@@ -190,7 +240,10 @@ func describe() -> String:
 				return "filter × %d" % count
 			return "keep %s %s %d" % [src, str(ki.get("cmp", ">")), int(ki.get("k", 0))]
 		"paired":
-			return "paired × %d" % count
+			var src := str(_first_op("add_src").get("src", "key"))
+			if _is_caesar_paired():
+				return "Caesar + %s (%s)" % [src, _format_name()]
+			return "%s paired × %d" % [" + ".join(pair), count]
 		_:
 			if _is_caesar():
 				return "Caesar +%d (%s)" % [int(_first_op("add").get("k", 0)), _format_name()]
@@ -244,3 +297,8 @@ func _bin(v: Variant) -> String:
 	for k in range(b.width - 1, -1, -1):
 		s += "1" if b.bit(k) != 0 else "0"
 	return s
+
+
+func _is_caesar_paired() -> bool:
+	return not _first_op("encode_char").is_empty() and not _first_op("add_src").is_empty() and not _first_op("decode_char").is_empty()
+

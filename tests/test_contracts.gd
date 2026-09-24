@@ -11,6 +11,7 @@ static func run(t) -> void:
 	_lab_levels(t)
 	_constraints(t)
 	_drive_move(t)
+	_paired(t)
 
 
 # --- helpers --------------------------------------------------------------------
@@ -129,7 +130,7 @@ static func _describe(t) -> void:
 # --- the whole lab table --------------------------------------------------------
 
 static func _lab_levels(t) -> void:
-	t.check(LabDef.count() == 11, "the lab has 11 levels (got %d)" % LabDef.count())
+	t.check(LabDef.count() == 12, "the lab has 12 levels (got %d)" % LabDef.count())
 	for idx in range(LabDef.count()):
 		var sim := Simulation.new()
 		var run := LabRun.new()
@@ -202,3 +203,25 @@ static func _drive_move(t) -> void:
 	t.check(drive.locked, "the drive stays locked after the move")
 	t.check(sim.connection_at_port(drive.id, "in") != null, "the incoming wire survived the move")
 	t.check(sim.connections.size() == 1, "the move kept exactly one wire (got %d)" % sim.connections.size())
+
+
+## L12 paired: text + key meet in step; a missing stream or a seq mismatch cannot be judged.
+static func _paired(t) -> void:
+	var c := Contract.from_level(LabDef.level(11))
+	t.check(c.kind == "paired" and c.pair == ["text", "key"], "L12 is a paired text + key contract")
+	var enc := Charset.encode("X", 5)
+	# X (23) + key 5 = 28 → mod 26 = 2 → C
+	var p := Packet.make_raw(1, RawValue.text("C"), 0)
+	p.origins = {10: {"seq": 4, "value": RawValue.text("X")}, 11: {"seq": 4, "value": RawValue.key(5)}}
+	t.check(c.judge(p, [10, 11]), "a letter shifted by its own key is accepted (X + 5 → C)")
+	var off := Packet.make_raw(2, RawValue.text("C"), 0)
+	off.origins = {10: {"seq": 4, "value": RawValue.text("X")}, 11: {"seq": 5, "value": RawValue.key(5)}}
+	t.check(not c.judge(off, [10, 11]), "a letter that met another key (seq 4 vs 5) is rejected")
+	var alone := Packet.make_raw(3, RawValue.text("C"), 0)
+	alone.origins = {10: {"seq": 4, "value": RawValue.text("X")}}
+	t.check(not c.judge(alone, [10, 11]), "a constant shift without the key stream is rejected")
+	var swapped := Packet.make_raw(4, RawValue.text("C"), 0)
+	swapped.origins = {11: {"seq": 7, "value": RawValue.text("X")}, 10: {"seq": 7, "value": RawValue.key(5)}}
+	t.check(c.judge(swapped, [10, 11]), "the sticks may sit in either socket")
+	t.check(enc != null and c.describe() == "Caesar + key (text)", "describe: %s" % c.describe())
+

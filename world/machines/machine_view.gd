@@ -119,6 +119,14 @@ func _build() -> void:
 		_area = Art.sprite(Art.area_file(_area_kind, _area_idle), _v(area.get("pos", [0, 0])))
 		_area.name = "ActivityArea"
 		body.add_child(_area)
+	# 4b OpWindow (roadmap two-input kits): the operator window; its glyph is upright text
+	if ly.get("areas", null) is Array:
+		for a in ly["areas"]:
+			if a is Dictionary and str(a.get("kind", "")) == "OpWindow":
+				var ow := OpWindow.new()
+				ow.name = "OpWindow"
+				ow.position = _v(a.get("pos", [0, 0]))
+				body.add_child(ow)
 	# 5 glyph icon, scaled to glyph.size
 	var glyph: Dictionary = _entry(ly, "glyph")
 	if not glyph.is_empty() and str(glyph.get("icon", "")) != "":
@@ -378,6 +386,17 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 			"width": 40.0, "size": 18.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
 			"color": Palette.TEXT_PRIMARY, "text": str(ly["dial_text"]),
 		})
+	# Operator glyph in the OpWindow (roadmap kits: "&", "^", "+"): 16/800 text.primary, centred
+	# in the 30x24 window, top of the text box at +2
+	if ly.get("operator", null) is String and ly.get("areas", null) is Array:
+		for a in ly["areas"]:
+			if a is Dictionary and str(a.get("kind", "")) == "OpWindow":
+				var op: Array = a.get("pos", [0, 0])
+				_text_specs.append({
+					"key": "operator", "pos": _upright(Vector2(op[0], op[1] + 2), off, rot),
+					"width": 30.0, "size": 16.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
+					"color": Palette.TEXT_PRIMARY, "text": str(ly["operator"]),
+				})
 	# Silk text (the Terminal has no silk entry in its kit layout: it shares the Output's slot)
 	var sylk: Dictionary = _entry(ly, "silk")
 	if sylk.is_empty() and machine.type == "terminal_output":
@@ -600,7 +619,7 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = str(_tag_values[i])
 	for t in _text_specs:
-		if t["key"] == "dial":
+		if t["key"] == "dial" or t["key"] == "operator":
 			continue  # static text
 		var txt: String = vals.get(t["key"], "")
 		t["text"] = txt
@@ -1357,4 +1376,13 @@ class ThermalPartView extends Node2D:
 			"blower": SystemsDraw.blower(self, Vector2.ZERO, _spin, _level)
 			"radiator": SystemsDraw.radiator(self, Vector2.ZERO, _level)
 			"heat_pipe": SystemsDraw.heat_pipe(self, Vector2.ZERO, _links, _pads, _warmth)
+
+
+## Roadmap-kit operator window (Penpot 14, "operator-window"): 30x24, material.die fill, 1.5 px
+## material.frame stroke, r4. The operator glyph is drawn by the upright text layer.
+class OpWindow extends Node2D:
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, Vector2(30, 24))
+		SystemsDraw.rrect(self, r, 4.0, Palette.MATERIAL_DIE)
+		SystemsDraw.rrect_outline(self, r.grow(-0.75), 4.0, Palette.MATERIAL_FRAME, 1.5)
 

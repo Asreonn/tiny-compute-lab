@@ -7,6 +7,18 @@ func start(m, sim) -> void:
 	if not m.outputs_empty():
 		return
 	match m.type:
+		"adder":
+			# a pair at a time: both inputs must be waiting; the result carries both lineages
+			if m.inq["a"].is_empty() or m.inq["b"].is_empty():
+				return
+			var pa: Packet = m.pop("a")
+			var pb: Packet = m.pop("b")
+			var r := pa.data.add_carry(pb.data.unsigned())
+			m.last_carry = int(r["carry"])
+			m.carries += m.last_carry
+			var out := pa.derive(sim.new_packet_id(), r["value"])
+			out.merge_origins(pb)
+			m.begin_job({"out": out}, pa)
 		"add", "multiply", "processor", "counter", "modulo":
 			if m.inq["in"].is_empty():
 				return

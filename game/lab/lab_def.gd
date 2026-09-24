@@ -107,6 +107,14 @@ static var LEVELS: Array = [
 		"unlocks": ["multiply", "merger"], "grow": Vector2i(40, 22),
 		"view": ViewMode.Mode.BIN,
 	},
+	{
+		"id": "lab_l12", "title": "Two Sticks",
+		"brief": "A second stick holds the key. Shift every letter by it — in step.",
+		"contract": {"kind": "paired", "pair": ["text", "key"], "ops": [{"op": "encode_char", "width": 5}, {"op": "add_src", "src": "key"}, {"op": "mod", "k": 26}, {"op": "decode_char"}], "count": 24, "accept_format": "text"},
+		"streams": {"text": {"values": ["TWOSTICKSMEET"]}, "key": {"values": [5]}},
+		"devices": ["key"], "unlocks": ["adder"],
+		"view": ViewMode.Mode.CHAR,
+	},
 ]
 
 

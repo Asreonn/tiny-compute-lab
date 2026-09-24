@@ -189,11 +189,9 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 |---|---|
 | Core: BitVector / ViewMode / Charset; explicit widths; deterministic sim | done |
 | Tutorial missions a1, a2 (3-bit), b1–b3 (5-bit characters, Caesar) | done |
-| Views: machines from Penpot exports, Signal V1 wires, continuous packet motion, progress ring, stats silk, MSDF text | done |
-| Tools: place / live-routed WYSIWYG wires / rewire / move / delete / rotate; canonical HUD V2 | done |
-| Lab (main game): persistent expanding factory, USB in/out, "deliver N × value" levels L1–L6, live editing, save | done |
-| Lab HUD: request panel, level banner, main menu (Lab + tutorial) | done |
-| Components: Add, Modulo, Bit Splitter, Demux (+ legacy machines) | done |
-| Checks | `make test` (246) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke}.gd` |
-| Systems expansion design | **locked 2026-09-24** (Penpot pages 15–19, `systems_v1.js`, STYLE_GUIDE §14); Status LED V2 assets regenerated |
-| Next | Checkpoint D (USB, encoding, contracts) through scoped DS jobs D1–D5, then E (power/heat) and F (QoL) |
+| Views: machines from Penpot exports, Signal V1 wires, continuous packet motion, progress ring, resource indicators, MSDF text | done |
+| Checkpoint D: raw boundary, USB sockets + data modules, codecs, contracts, port racks, desk zones, levels L1–L11, save v2, laptop intro | done |
+| Checkpoint E: work units + clock modes, PSU + brownout (from L16), thermal grid + cooling family (from L17), heat strip / LEDs, T / P overlays | done |
+| Checkpoint F: undo/redo, hotkeys + camera, hover card, quick action bar, duplicate, copy/paste settings, smart wiring, connected move, palette QoL | done (multi-select pending) |
+| Checks | `make test` (612) + `tools/{tools_smoke,motion_check,menu_smoke,views_smoke,desk_smoke}.gd`; visual: `tools/{systems_shot,qol_shot,lab_shot}.gd` |
+| Next | G (component groups) and H (progression L12–L21: Two Sticks, Power Cap, Heat, BYTE) |
