@@ -10,6 +10,7 @@ var _cat := ""
 var _tabs := {}  # cat -> [box, icon]
 var _items: Control
 var _item_boxes := {}  # type -> Panel
+var _pulsed := {}  # type -> true (a New dot already pulsed this mission)
 
 
 func _ready() -> void:
@@ -87,12 +88,14 @@ func _item(type: String, pos: Vector2, d: MissionDef) -> void:
 	HudKit.label(b, str(def["name"]), Vector2(44, 8), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY if allowed else Palette.TEXT_MUTED, 110)
 	var sub := "%d tick · %d power" % [int(def["ticks"]), int(def["power"])] if allowed else "Locked"
 	HudKit.label(b, sub, Vector2(44, 26), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 120)
-	if is_new:
-		HudKit.dot(b, Vector2(164, 12), 6, Palette.STATE_VALID)
 	if not allowed:
 		HudKit.icon(b, "icon_lock", Vector2(150, 16), 16, Palette.TEXT_MUTED)
 		return
-	HudKit.hit(_items, pos, Vector2(176, 48), func(): if tools: tools.begin_place(type), str(def["desc"]))
+	var hb := HudKit.hit(_items, pos, Vector2(176, 48), func(): if tools: tools.begin_place(type), str(def["desc"]))
+	HudKit.card_hover(b, hb, stroke)
+	if is_new and not _pulsed.has(type):
+		_pulsed[type] = true
+		HudKit.pulse_new(HudKit.dot(b, Vector2(164, 12), 6, Palette.STATE_VALID))
 
 
 func _process(_delta: float) -> void:

@@ -11,6 +11,8 @@ var _banner: Panel
 var _banner_label: Label
 var _banner_sub: Label
 var _banner_t := 0.0
+var _banner_tw: Tween
+var _banner_base := Vector2.ZERO
 var _lab_last_tick := -1
 
 
@@ -86,8 +88,19 @@ func _show_level_banner() -> void:
 	if not names.is_empty():
 		unlocked = " · unlocked: " + ", ".join(names)
 	HudKit.set_text(_banner_sub, "Next: %s%s" % [sm.lab_run.title(), unlocked], Palette.TEXT_SECONDARY)
+	_banner_base = _banner.position
 	_banner.visible = true
 	_banner_t = 3.0
+	HudKit.kill(_banner_tw)
+	if HudKit.REDUCED_MOTION:
+		_banner.modulate.a = 1.0
+		_banner.position = _banner_base
+		return
+	_banner.modulate.a = 0.0
+	_banner.position = _banner_base + Vector2(0, -24)
+	_banner_tw = HudKit.anim(_banner)
+	_banner_tw.tween_property(_banner, "modulate:a", 1.0, 0.26)
+	_banner_tw.parallel().tween_property(_banner, "position", _banner_base, 0.26)
 
 
 func open_menu() -> void:
@@ -96,6 +109,37 @@ func open_menu() -> void:
 		_banner_t = 0.0
 	if _menu:
 		_menu.open()
+
+
+func _exit_banner() -> void:
+	HudKit.kill(_banner_tw)
+	if HudKit.REDUCED_MOTION:
+		_banner.visible = false
+		_banner.modulate.a = 1.0
+		_banner.position = _banner_base
+		return
+	_banner_tw = HudKit.anim(_banner)
+	_banner_tw.tween_property(_banner, "modulate:a", 0.0, 0.2)
+	_banner_tw.parallel().tween_property(_banner, "position", _banner_base + Vector2(0, -24), 0.2)
+	_banner_tw.tween_callback(func():
+		_banner.visible = false
+		_banner.modulate.a = 1.0
+		_banner.position = _banner_base
+	)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return  # a text field is being edited
+	var sm := get_node("/root/SimulationManager")
+	match event.keycode:
+		KEY_1: sm.set_speed(sm.SPEEDS[0])
+		KEY_2: sm.set_speed(sm.SPEEDS[1])
+		KEY_3: sm.set_speed(sm.SPEEDS[2])
+		KEY_4: sm.set_speed(sm.SPEEDS[3])
 
 
 func _notice(text: String, kind: String) -> void:
@@ -114,7 +158,7 @@ func _process(delta: float) -> void:
 	if _banner_t > 0.0:
 		_banner_t -= delta
 		if _banner_t <= 0.0:
-			_banner.visible = false
+			_exit_banner()
 	var sm := get_node("/root/SimulationManager")
 	if sm.in_lab and sm.lab_run != null:
 		var lct: int = sm.lab_run.level_completed_tick

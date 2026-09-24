@@ -93,10 +93,10 @@ func _grid() -> void:
 		@warning_ignore("integer_division")
 		var row: int = i / COLS
 		var pos := Vector2(24 + col * (CARD_W + GAP), y + row * (CARD_H + GAP))
-		_card(pos, missions[i])
+		_card(pos, missions[i], i)
 
 
-func _card(pos: Vector2, d: MissionDef) -> void:
+func _card(pos: Vector2, d: MissionDef, idx: int) -> void:
 	var unlocked := SaveStore.unlocked(d.id)
 	var stars := SaveStore.stars(d.id)
 	var completed := stars > 0
@@ -126,3 +126,4 @@ func _card(pos: Vector2, d: MissionDef) -> void:
 		_mgr().load_mission(d.id))
 	card.set_meta("on_click", cb)
 	HudKit.hit(card, Vector2.ZERO, Vector2(CARD_W, CARD_H), cb, d.title)
+	HudKit.card_entrance(card, idx)

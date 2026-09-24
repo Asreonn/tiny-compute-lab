@@ -43,10 +43,12 @@ func _mgr() -> Node:
 
 
 func _on_selection(machine_id: int, _conn_id: int) -> void:
+	if _mid >= 0 and machine_id < 0:
+		HudKit.panel_hide(self, Vector2(12, 0), 0.14)
 	_mid = machine_id
-	visible = _mid >= 0
-	if visible:
+	if _mid >= 0:
 		_rebuild()
+		HudKit.panel_show(self, Vector2(12, 0), 0.18)
 
 
 func _machine() -> Machine:

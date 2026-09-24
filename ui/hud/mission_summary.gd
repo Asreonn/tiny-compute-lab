@@ -13,6 +13,7 @@ var _track_fill: Panel
 var _progress: Label
 var _last: Label  # "Last: , ✗  expected C" or the stall warning
 var _rejected: Label
+var _last_done := -1  # for the delivered-count roll
 
 
 func _ready() -> void:
@@ -51,6 +52,7 @@ func _rebuild() -> void:
 		HudKit.label(_root, title, Vector2(16, 10), 12, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 240)
 		HudKit.icon(_root, "icon_chevron_right", Vector2(268, 10), 16, Palette.TEXT_MUTED)
 		HudKit.hit(_root, Vector2.ZERO, Vector2(w, h), _toggle, "Show mission")
+		HudKit.panel_show(self, Vector2(0, 12), 0.18)
 		return
 	HudKit.label(_root, title, Vector2(18, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 260)
 	HudKit.icon(_root, "icon_chevron_down", Vector2(286, 14), 20, Palette.TEXT_MUTED)
@@ -77,6 +79,7 @@ func _rebuild() -> void:
 		HudKit.icon(_root, "icon_star_empty", Vector2(150, 188), 16, Palette.TEXT_SECONDARY)
 		HudKit.label(_root, "%d optional goal%s" % [d.goals.size(), "" if d.goals.size() == 1 else "s"], Vector2(172, 189), 10, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
 	_refresh()
+	HudKit.panel_show(self, Vector2(0, 12), 0.18)
 
 
 func _cells(values: Array, width: int, y: float, is_output: bool) -> void:
@@ -132,6 +135,7 @@ func _lab_rebuild(sm: Node) -> void:
 	_rejected = HudKit.label(_root, "", Vector2(18, 208), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 284)
 	_last = HudKit.label(_root, "", Vector2(18, 224), 10, HudKit.W_MEDIUM, Palette.STATE_BLOCKED, 284)
 	_refresh()
+	HudKit.panel_show(self, Vector2(0, 12), 0.18)
 
 
 func lr_brief(lr: LabRun) -> String:
@@ -164,8 +168,8 @@ func _refresh() -> void:
 			l.add_theme_color_override("font_color", Palette.TEXT_MUTED)
 	var total := maxi(d.expected_total(), 1)
 	var correct: int = sm.run.correct_total()
-	_track_fill.size = Vector2(284.0 * correct / total, 4)
-	_progress.text = "%d / %d" % [correct, d.expected_total()]
+	HudKit.progress_bar(_track_fill, 284.0 * correct / total)
+	_roll_done(correct, d.expected_total())
 	# Last arrival (rejected values are shown, never fatal) or the stall warning.
 	if sm.run.warning != "":
 		HudKit.set_text(_last, "⚠ " + sm.run.warning, Palette.STATE_BLOCKED)
@@ -182,12 +186,25 @@ func _refresh() -> void:
 		HudKit.set_text(_last, "", Palette.TEXT_MUTED)
 
 
+func _roll_done(done: int, total: int) -> void:
+	if done == _last_done:
+		_progress.text = "%d / %d" % [done, total]
+		return
+	var from: int = maxi(_last_done, 0)
+	_last_done = done
+	if HudKit.REDUCED_MOTION or done <= from:
+		_progress.text = "%d / %d" % [done, total]
+		return
+	HudKit.roll_value(self, "roll_done", float(from), float(done),
+		func(v: float): _progress.text = "%d / %d" % [roundi(v), total])
+
+
 func _lab_refresh(sm: Node) -> void:
 	var lr: LabRun = sm.lab_run
 	var total := maxi(lr.request_count(), 1)
 	var done := clampi(lr.delivered, 0, lr.request_count())
-	_track_fill.size = Vector2(284.0 * done / total, 4)
-	_progress.text = "%d / %d" % [lr.delivered, lr.request_count()]
+	HudKit.progress_bar(_track_fill, 284.0 * done / total)
+	_roll_done(lr.delivered, lr.request_count())
 	if lr.rejected > 0:
 		HudKit.set_text(_rejected, "Rejected: %d" % lr.rejected, Palette.TEXT_MUTED)
 	else:

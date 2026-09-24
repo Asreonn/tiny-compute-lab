@@ -14,9 +14,17 @@ var _state_dot: Panel
 var _state_label: Label
 var _btn_boxes := {}  # "reset"/"step"/"play" -> Panel
 var _play_icon: TextureRect
+var _play_running := false
 var _speed_pill: Panel
-var _speed_labels := []
+var _speed_sel: Panel
+var _speed_labels := []  # [Label, speed]
+var _speed_tw: Tween
 var _metric := {}  # kind -> {box, value, unit}
+var _metric_last := {}  # kind -> float target, to detect change for the roll
+var _state_c := Palette.STATE_BUILD
+var _last_state := ""
+var _breathe_tw: Tween
+var _state_tw: Tween
 
 
 func _ready() -> void:
@@ -52,23 +60,24 @@ func _ready() -> void:
 	var acts := [func(): sm.reset_run(), func(): sm.step_once(), func(): sm.toggle()]
 	for i in 3:
 		var p := Vector2(836 + i * 48, 8)
-		var b := HudKit.box(self, p, Vector2(36, 36), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER, 1, 4)
+		var b := HudKit.icon_button(self, p, Vector2(36, 36), icons[i], Vector2(6, 6), 24, acts[i], ["Reset (Backspace)", "Step (.)", "Run / pause (Space)"][i], 4)
 		_btn_boxes[names[i]] = b
-		var ic := HudKit.icon(b, icons[i], Vector2(6, 6), 24, Palette.TEXT_PRIMARY)
 		if names[i] == "play":
-			_play_icon = ic
-		HudKit.hit(self, p, Vector2(36, 36), acts[i], ["Reset (Backspace)", "Step (.)", "Run / pause (Space)"][i])
+			_play_icon = b.get_meta("ib_icon")
 
-	# speed segmented 984,10 120×32
+	# speed segmented 984,10 120×32: one sliding selection pill behind 4 static labels
 	_speed_pill = HudKit.box(self, Vector2(984, 10), Vector2(120, 32), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 16)
+	_speed_sel = HudKit.box(_speed_pill, Vector2.ZERO, Vector2(28, 24), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER_STRONG, 1, 12)
+	_speed_sel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var speeds: Array = sm.SPEEDS
 	for i in speeds.size():
 		var s: int = speeds[i]
 		var seg_pos := Vector2(4 + i * 28, 4)
-		var seg := HudKit.box(_speed_pill, seg_pos, Vector2(28, 24), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 12)
-		var l := HudKit.label(seg, "%d×" % s, Vector2(0, 5), 10, HudKit.W_XBOLD, Palette.TEXT_MUTED, 28, HORIZONTAL_ALIGNMENT_CENTER)
-		_speed_labels.append([seg, l, s])
+		var l := HudKit.label(_speed_pill, "%d×" % s, seg_pos + Vector2(0, 5), 10, HudKit.W_XBOLD, Palette.TEXT_MUTED, 28, HORIZONTAL_ALIGNMENT_CENTER)
+		_speed_labels.append([l, s])
 		HudKit.hit(_speed_pill, seg_pos, Vector2(28, 24), func(): sm.set_speed(s), "Speed %d×" % s)
+	_position_speed_pill(sm.speed, true)
+	sm.speed_changed.connect(_on_speed)
 
 	# right group: metrics (−420/−304/−188 from the right edge) + menu (−56)
 	var right := Control.new()
@@ -85,9 +94,11 @@ func _ready() -> void:
 		var v := HudKit.label(mb, "—", Vector2(36, 9), 13, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
 		var u := HudKit.label(mb, kinds[i][2], Vector2(80, 11), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED)
 		_metric[kinds[i][0]] = {"box": mb, "value": v, "unit": u, "icon": ic}
-	var menu := HudKit.box(right, Vector2(364, 8), Vector2(36, 36), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER, 1, 4)
-	HudKit.icon(menu, "icon_menu", Vector2(6, 6), 24, Palette.TEXT_PRIMARY)
-	HudKit.hit(right, Vector2(364, 8), Vector2(36, 36), func(): menu_pressed.emit(), "Menu")
+	_metric["throughput"]["display"] = func(vf: float): _metric["throughput"]["value"].text = ("%.1f" % vf) if vf >= 0.0 else "—"
+	_metric["power"]["display"] = func(vf: float): _metric["power"]["value"].text = str(roundi(vf))
+	_metric["latency"]["display"] = func(vf: float): _metric["latency"]["value"].text = ("%d" % roundi(vf)) if vf >= 0.0 else "—"
+	HudKit.icon_button(right, Vector2(364, 8), Vector2(36, 36), "icon_menu", Vector2(6, 6), 24, func(): menu_pressed.emit(), "Menu", 4)
+
 
 	sm.mission_loaded.connect(func(_d): _refresh_mission())
 	_refresh_mission()
@@ -122,25 +133,71 @@ func _refresh_mission() -> void:
 	_mission_formula.size.x = 264.0 - _mission_formula.position.x
 
 
+func _on_speed(s: int) -> void:
+	_position_speed_pill(s, false)
+
+
+func _position_speed_pill(s: int, snap: bool) -> void:
+	var idx := 0
+	for i in _speed_labels.size():
+		if _speed_labels[i][1] == s:
+			idx = i
+			break
+	var x := 4.0 + idx * 28.0
+	HudKit.kill(_speed_tw)
+	for e in _speed_labels:
+		var on: bool = e[1] == s
+		e[0].add_theme_color_override("font_color", Palette.TEXT_PRIMARY if on else Palette.TEXT_MUTED)
+	if HudKit.REDUCED_MOTION or snap:
+		_speed_sel.position.x = x
+		_speed_sel.size.x = 28.0
+		return
+	_speed_tw = HudKit.anim(self)
+	_speed_tw.tween_property(_speed_sel, "position:x", x, 0.18)
+	_speed_tw.parallel().tween_property(_speed_sel, "size:x", 28.0, 0.18)
+	for e in _speed_labels:
+		var on: bool = e[1] == s
+		var target := Palette.TEXT_PRIMARY if on else Palette.TEXT_MUTED
+		var from := Palette.TEXT_MUTED if on else Palette.TEXT_PRIMARY
+		var l: Label = e[0]
+		HudKit.kill_meta(l, "sp_tw")
+		var tw := HudKit.anim(self)
+		l.set_meta("sp_tw", tw)
+		tw.tween_method(func(t: float): _apply_speed_color(l, from, target, t), 0.0, 1.0, 0.12)
+
+
+func _apply_speed_color(l: Label, from: Color, to: Color, t: float) -> void:
+	l.add_theme_color_override("font_color", from.lerp(to, t))
+
+
 func _process(_delta: float) -> void:
 	var sm := _mgr()
 	if sm.sim == null:
 		return
-	# state badge
+	# state badge: colour cross-fade 200 ms on change + RUNNING dot breathe
 	var st := HudKit.sim_state()
 	var c := HudKit.state_color(st)
-	HudKit.set_text(_state_label, st, c)
-	HudKit.restyle(_state_box, Palette.SURFACE_SUNKEN, c, 1.5, 16)
-	HudKit.restyle(_state_dot, c, Color(0, 0, 0, 0), 0, 7)
-	# play/pause: the active control is lit
-	_play_icon.texture = Art.icon("icon_pause" if sm.running else "icon_play")
-	HudKit.restyle(_btn_boxes["play"], Palette.DATA_NUMBER_DIM if sm.running else Palette.SURFACE_RAISED,
-		Palette.DATA_NUMBER if sm.running else Palette.SURFACE_BORDER, 1, 4)
-	# speed
-	for e in _speed_labels:
-		var on: bool = e[2] == sm.speed
-		HudKit.restyle(e[0], Palette.SURFACE_RAISED if on else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 12)
-		e[1].add_theme_color_override("font_color", Palette.TEXT_PRIMARY if on else Palette.TEXT_MUTED)
+	if st != _last_state:
+		_last_state = st
+		HudKit.set_text(_state_label, st, c)
+		_cross_fade_state(c)
+	_update_breathe(sm.running)
+	# play/pause: the active control is lit (event-driven, so hover still works at rest)
+	if sm.running != _play_running:
+		_play_running = sm.running
+		_play_icon.texture = Art.icon("icon_pause" if _play_running else "icon_play")
+		var sb: StyleBoxFlat = _btn_boxes["play"].get_meta("sb")
+		HudKit.kill_meta(_btn_boxes["play"], "ib_hover_tw")
+		if _play_running:
+			sb.bg_color = Palette.DATA_NUMBER_DIM
+			sb.border_color = Palette.DATA_NUMBER
+			sb.set_border_width_all(1)
+			_play_icon.modulate = Palette.TEXT_PRIMARY
+		else:
+			sb.bg_color = Color(0, 0, 0, 0)
+			sb.border_color = Color(0, 0, 0, 0)
+			sb.set_border_width_all(0)
+			_play_icon.modulate = Palette.TEXT_SECONDARY
 	# metrics
 	var thr: float = sm.sim.throughput()
 	var warn := false
@@ -148,8 +205,48 @@ func _process(_delta: float) -> void:
 		if g["kind"] == "throughput" and g.has("min") and sm.sim.tick > 0 and thr < float(g["min"]):
 			warn = true
 	var mt: Dictionary = _metric["throughput"]
-	HudKit.set_text(mt["value"], "%.1f" % sm.real_rate(thr) if thr > 0.0 else "—", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
+	_roll_metric("throughput", sm.real_rate(thr) if thr > 0.0 else -1.0)
+	mt["value"].add_theme_color_override("font_color", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
 	HudKit.restyle(mt["box"], Palette.SURFACE_SUNKEN, Palette.STATE_BLOCKED if warn else Color(0, 0, 0, 0), 1 if warn else 0, 18)
-	HudKit.set_text(_metric["power"]["value"], str(sm.sim.total_power()))
+	_roll_metric("power", float(sm.sim.total_power()))
 	var lat: float = sm.sim.avg_latency()
-	HudKit.set_text(_metric["latency"]["value"], "%d" % roundi(lat) if lat > 0.0 else "—")
+	_roll_metric("latency", lat if lat > 0.0 else -1.0)
+
+
+func _roll_metric(kind: String, target: float) -> void:
+	var last: float = _metric_last.get(kind, target)
+	_metric_last[kind] = target
+	HudKit.roll_value(self, "roll_" + kind, last, target, _metric[kind]["display"])
+
+
+func _cross_fade_state(c: Color) -> void:
+	HudKit.kill(_state_tw)
+	var sb: StyleBoxFlat = _state_box.get_meta("sb")
+	var dot_sb: StyleBoxFlat = _state_dot.get_meta("sb")
+	var from: Color = sb.border_color
+	var from_label: Color = _state_label.get_theme_color("font_color")
+	_state_c = c
+	sb.bg_color = Palette.SURFACE_SUNKEN
+	sb.set_border_width_all(2)
+	if HudKit.REDUCED_MOTION:
+		sb.border_color = c
+		dot_sb.bg_color = c
+		_state_label.add_theme_color_override("font_color", c)
+		return
+	_state_tw = HudKit.anim(self)
+	_state_tw.tween_method(func(t: float):
+		var col := from.lerp(c, t)
+		sb.border_color = col
+		dot_sb.bg_color = col
+		_state_label.add_theme_color_override("font_color", from_label.lerp(c, t)), 0.0, 1.0, 0.2)
+
+
+func _update_breathe(running: bool) -> void:
+	if running and _breathe_tw == null:
+		_breathe_tw = self.create_tween().set_loops()
+		_breathe_tw.tween_property(_state_dot, "modulate:a", 0.6, 0.8).set_trans(Tween.TRANS_SINE)
+		_breathe_tw.tween_property(_state_dot, "modulate:a", 1.0, 0.8).set_trans(Tween.TRANS_SINE)
+	elif not running:
+		HudKit.kill(_breathe_tw)
+		_breathe_tw = null
+		_state_dot.modulate.a = 1.0

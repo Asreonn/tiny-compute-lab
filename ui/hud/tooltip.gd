@@ -21,8 +21,11 @@ func _on_hover(info: Dictionary) -> void:
 	if _box:
 		_box.queue_free()
 		_box = null
-	visible = false
 	if info.is_empty() or tools._dragging():
+		if visible:
+			HudKit.panel_hide(self, Vector2(0, 4), 0.14)
+		else:
+			visible = false
 		return
 	var sim: Simulation = get_node("/root/SimulationManager").sim
 	var kind: String = info.get("kind", "")
@@ -87,7 +90,7 @@ func _on_hover(info: Dictionary) -> void:
 	var sp: Vector2 = info.get("screen_pos", Vector2.ZERO)
 	var vp := get_viewport_rect().size
 	position = Vector2(minf(sp.x + 16, vp.x - sz.x - 8), minf(sp.y + 16, vp.y - sz.y - 8))
-	visible = true
+	HudKit.panel_show(self, Vector2(0, 4), 0.12)
 
 
 func _find_packet(sim: Simulation, pid: int) -> Packet:
