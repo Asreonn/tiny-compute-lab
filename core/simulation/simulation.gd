@@ -1081,3 +1081,137 @@ static func _int_floats(v: Variant) -> Variant:
 	if v is Array:
 		return (v as Array).map(_int_floats)
 	return v
+
+
+# ------------------------------------------------------------------ groups (multi-select)
+
+## Moving the unlocked machines `ids` together by `delta`: each must land on free tiles (the
+## group's own tiles count as free) and every affected wire (theirs and those crossing their new
+## footprints) must re-route. Changes nothing. {ok, routes: {cid: cells}, fail: [cids], error}.
+func group_preview(ids: Array, delta: Vector2i) -> Dictionary:
+	var group := _group_of(ids)
+	if group.is_empty():
+		return {"ok": false, "routes": {}, "fail": [], "error": "Nothing to move"}
+	var err := _group_placement_error(group, delta)
+	if err != "":
+		return {"ok": false, "routes": {}, "fail": [], "error": err}
+	var old := {}
+	var cells := []
+	for id in group:
+		var m: Machine = machines[id]
+		old[id] = m.cell
+		m.cell += delta
+		cells.append_array(m.footprint())
+	var affected := _wires_through(cells)
+	for cid in sorted_connection_ids():
+		var c: Connection = connections[cid]
+		if (group.has(c.from_id) or group.has(c.to_id)) and not cid in affected:
+			affected.append(cid)
+	var routes := {}
+	var fail := []
+	for cid in affected:
+		var c2: Connection = connections[cid]
+		var r := route_between(c2.from_id, c2.from_port, c2.to_id, c2.to_port, cid)
+		if r["ok"]:
+			routes[cid] = r["cells"]
+		else:
+			fail.append(cid)
+	for id in group:
+		machines[id].cell = old[id]
+	if not fail.is_empty():
+		err = "Would cut the wire %s" % _wire_name(int(fail[0]))
+	return {"ok": err == "", "routes": routes, "fail": fail, "error": err}
+
+
+## Commit a group move (exactly group_preview's plan) or change nothing (last_error says why).
+func move_group(ids: Array, delta: Vector2i) -> bool:
+	var pv := group_preview(ids, delta)
+	if not bool(pv["ok"]):
+		last_error = str(pv["error"])
+		return false
+	for id in _group_of(ids):
+		machines[id].cell += delta
+	_apply_plan(pv["routes"])
+	_emit_changed()
+	return true
+
+
+## Copies of the unlocked machines `ids` shifted by `delta` (type, rotation, parameters, width)
+## plus the wires that ran between them. All or nothing: returns the new ids in the order of
+## `ids`, or [] (last_error says why). `changed` fires once.
+func duplicate_group(ids: Array, delta: Vector2i) -> Array:
+	var group := _group_of(ids)
+	if group.is_empty():
+		last_error = "Nothing to duplicate"
+		return []
+	for id in group:
+		var m: Machine = machines[id]
+		var e := placement_error(m.type, m.cell + delta, m.rot)
+		if e != "":
+			last_error = e
+			return []
+	_quiet += 1
+	var map := {}
+	var order := []
+	for id in ids:
+		if not group.has(id):
+			continue
+		var m: Machine = machines[id]
+		var c := place(m.type, m.cell + delta, m.rot, m.params.duplicate(true), m.width)
+		if c == null:
+			for nid in map.values():
+				remove(nid)
+			_quiet -= 1
+			if last_error == "":
+				last_error = placement_error(m.type, m.cell + delta, m.rot)
+			return []
+		map[id] = c.id
+		order.append(c.id)
+	for cid in sorted_connection_ids():
+		var w: Connection = connections[cid]
+		if map.has(w.from_id) and map.has(w.to_id):
+			connect_ports(map[w.from_id], w.from_port, map[w.to_id], w.to_port)
+	_quiet -= 1
+	_emit_changed()
+	return order
+
+
+## Remove every unlocked machine of `ids` (their wires go with them); `changed` fires once.
+func remove_group(ids: Array) -> int:
+	_quiet += 1
+	var n := 0
+	for id in _group_of(ids):
+		if remove(id):
+			n += 1
+	_quiet -= 1
+	if n > 0:
+		_emit_changed()
+	return n
+
+
+func _group_of(ids: Array) -> Dictionary:
+	var g := {}
+	for id in ids:
+		if machines.has(int(id)) and not machines[int(id)].locked:
+			g[int(id)] = true
+	return g
+
+
+func _group_placement_error(group: Dictionary, delta: Vector2i) -> String:
+	var occ := {}
+	for id in machines:
+		if group.has(id):
+			continue
+		for c in machines[id].footprint():
+			occ[c] = id
+	for id in group:
+		var m: Machine = machines[id]
+		for c in m.footprint():
+			var n: Vector2i = c + delta
+			if n.x < 0 or n.y < 0 or n.x >= size.x or n.y >= size.y:
+				return "Outside the board"
+			if occ.has(n):
+				return "Tile occupied by " + machines[occ[n]].label
+			if reserved.has(n):
+				return "Sealed USB bay"
+	return ""

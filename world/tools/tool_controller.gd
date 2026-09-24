@@ -27,6 +27,9 @@ var tool := "select"  # "select" | "wire" | "place" (delete / rotate are actions
 var last_place_type := ""  # E builds this again (SYSTEMS_EXPANSION §9 control map)
 var selected_machine := -1
 var selected_conn := -1
+## Multi-select (SYSTEMS_EXPANSION §9): 2+ machines picked with a box; moved, duplicated or
+## deleted together. Empty when the selection is a single machine / wire.
+var selected_group: Array = []
 
 var _world: Node2D
 var _machine_layer: Node2D
@@ -55,6 +58,9 @@ var _wire_drag := {}  # {from_id: int, from_port: String, error?: String}
 var _preview_cells: Array = []  # route shown by the wire preview (committed as-is on release)
 var _preview_target := {}  # {id, port} of the valid target under the cursor, or {}
 var _hover := {}
+var _box := {}  # box select: {start, cur, active}
+var _group_drag := {}  # {ids, grab: Vector2i, delta: Vector2i, dup, carry, preview}
+var _group_ghosts: Array = []  # ghost pads + MachineViews of a group drag
 
 
 func _ready() -> void:
@@ -99,6 +105,175 @@ func begin_place(type: String) -> void:
 
 func clear_selection() -> void:
 	_set_selection(-1, -1)
+
+
+## Select several machines as a group (2+ unlocked; 1 falls back to a single selection).
+func select_group(ids: Array) -> void:
+	var sim := SimulationManager.sim
+	var keep := []
+	for id in ids:
+		if sim != null and sim.machines.has(id) and not sim.machines[id].locked:
+			keep.append(id)
+	if keep.size() == 1:
+		_set_selection(keep[0], -1)
+		return
+	selected_machine = -1
+	selected_conn = -1
+	selected_group = keep
+	_apply_selection()
+	selection_changed.emit(-1, -1)
+
+
+## Ctrl+D / quick bar on a group: pick up a copy of the whole group; the next click drops it.
+func duplicate_group() -> void:
+	if selected_group.is_empty():
+		return
+	var sim := SimulationManager.sim
+	var first: Machine = sim.machines[selected_group[0]]
+	_group_drag = {"ids": selected_group.duplicate(), "grab": first.cell, "delta": Vector2i(-99999, 0), "dup": true, "carry": true}
+	hover_changed.emit({})
+	_update_group_drag(get_global_mouse_position())
+
+
+## Quick bar "Move" on a group: the group follows the pointer until the next click.
+func move_group_carry() -> void:
+	if selected_group.is_empty():
+		return
+	var sim := SimulationManager.sim
+	var first: Machine = sim.machines[selected_group[0]]
+	_group_drag = {"ids": selected_group.duplicate(), "grab": first.cell, "delta": Vector2i(-99999, 0), "dup": false, "carry": true}
+	hover_changed.emit({})
+	_update_group_drag(get_global_mouse_position())
+
+
+func delete_group() -> void:
+	_delete_selection()
+
+
+## World-space bounds of the selected group (the quick bar docks under it).
+func group_rect() -> Rect2:
+	var sim := SimulationManager.sim
+	var r := Rect2()
+	for id in selected_group:
+		if sim == null or not sim.machines.has(id):
+			continue
+		var m: Machine = sim.machines[id]
+		var fr := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+		r = fr if r.size == Vector2.ZERO else r.merge(fr)
+	return r
+
+
+func _finish_box() -> void:
+	var rect: Rect2 = _move_preview.box
+	_move_preview.box = Rect2()
+	_move_preview.queue_redraw()
+	var sim := SimulationManager.sim
+	if sim == null:
+		return
+	var ids := []
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.locked:
+			continue
+		var fr := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+		if rect.intersects(fr):
+			ids.append(id)
+	if not ids.is_empty():
+		select_group(ids)
+
+
+func _update_group_drag(world: Vector2) -> void:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return
+	var ids: Array = _group_drag["ids"]
+	var delta: Vector2i = _cell_of(world) - (_group_drag["grab"] as Vector2i)
+	if delta == _group_drag.get("delta", Vector2i(-99999, 0)):
+		return
+	_group_drag["delta"] = delta
+	var preview := {"ok": true, "routes": {}, "fail": [], "error": ""}
+	if bool(_group_drag["dup"]):
+		for id in ids:
+			var m: Machine = sim.machines[id]
+			var e := sim.placement_error(m.type, m.cell + delta, m.rot)
+			if e != "":
+				preview = {"ok": false, "routes": {}, "fail": [], "error": e}
+				break
+	elif delta != Vector2i.ZERO:
+		preview = sim.group_preview(ids, delta)
+	_group_drag["preview"] = preview
+	# ghosts
+	_clear_group_ghosts()
+	var ghosts := {}
+	for id in ids:
+		var m: Machine = sim.machines[id]
+		var g := Machine.new(0, m.type, m.cell + delta, m.width, m.rot, m.params)
+		ghosts[id] = g
+		var key := str(Catalog.def(m.type)["size"]).to_lower()
+		var pad := Art.sprite(Art.pad_file("placevalid" if bool(preview["ok"]) else "placeinvalid", key), Vector2(g.cell) * T)
+		_overlay_layer.add_child(pad)
+		var mv := MachineView.new()
+		mv.setup(g, true)
+		mv.position = Vector2(g.cell) * T
+		_overlay_layer.add_child(mv)
+		_group_ghosts.append(pad)
+		_group_ghosts.append(mv)
+	# wire holograms (a move only; a duplicate copies its internal wires as they are)
+	var paths := []
+	var affected := []
+	if not bool(_group_drag["dup"]):
+		var routes: Dictionary = preview.get("routes", {})
+		for cid in routes:
+			affected.append(cid)
+			paths.append([_group_wire_pts(sim, int(cid), ghosts, routes[cid]), "ValidTarget"])
+		for cid in preview.get("fail", []):
+			affected.append(cid)
+			paths.append([_group_wire_pts(sim, int(cid), ghosts, []), "InvalidTarget"])
+	_set_pending_removal(affected)
+	_move_preview.paths = paths
+	_move_preview.origin = Rect2()
+	_move_preview.queue_redraw()
+
+
+func _group_wire_pts(sim: Simulation, cid: int, ghosts: Dictionary, cells: Array) -> PackedVector2Array:
+	var c: Connection = sim.connections[cid]
+	var fm: Machine = ghosts.get(c.from_id, sim.machines[c.from_id])
+	var tm: Machine = ghosts.get(c.to_id, sim.machines[c.to_id])
+	return _route_pts(MachineView.port_world(fm, c.from_port), cells, MachineView.port_world(tm, c.to_port))
+
+
+func _finish_group_drag() -> void:
+	var sim := SimulationManager.sim
+	var ids: Array = _group_drag.get("ids", [])
+	var delta: Vector2i = _group_drag.get("delta", Vector2i.ZERO)
+	var dup := bool(_group_drag.get("dup", false))
+	var preview: Dictionary = _group_drag.get("preview", {})
+	_group_drag = {}
+	_clear_group_ghosts()
+	_clear_move_preview()
+	if sim == null or ids.is_empty() or delta == Vector2i.ZERO or delta.x <= -99999:
+		return
+	if not bool(preview.get("ok", false)):
+		notice.emit(str(preview.get("error", "Can't go there")), "error")
+		return
+	SimulationManager.request_edit()
+	if dup:
+		var copies := sim.duplicate_group(ids, delta)
+		if copies.is_empty():
+			notice.emit(sim.last_error, "error")
+		else:
+			select_group(copies)
+	elif not sim.move_group(ids, delta):
+		notice.emit(sim.last_error, "error")
+	else:
+		select_group(ids)
+
+
+func _clear_group_ghosts() -> void:
+	for n in _group_ghosts:
+		if is_instance_valid(n):
+			n.queue_free()
+	_group_ghosts.clear()
 
 
 ## Quick action bar / Ctrl+D: pick up a copy of the machine (same type, rotation, parameters and
@@ -221,7 +396,7 @@ func _on_mouse_button(mb: InputEventMouseButton, world: Vector2) -> void:
 
 
 func _dragging() -> bool:
-	return not _wire_drag.is_empty() or not _move_drag.is_empty()
+	return not _wire_drag.is_empty() or not _move_drag.is_empty() or not _group_drag.is_empty() or bool(_box.get("active", false))
 
 
 func _cancel_drags() -> void:
@@ -233,6 +408,14 @@ func _cancel_drags() -> void:
 		_move_drag = {}
 		_clear_ghost()
 		_clear_move_preview()
+	if not _group_drag.is_empty():
+		_group_drag = {}
+		_clear_group_ghosts()
+		_clear_move_preview()
+	if not _box.is_empty():
+		_box = {}
+		_move_preview.box = Rect2()
+		_move_preview.queue_redraw()
 	if tool == "place" and place_type != "":
 		_clear_place()
 		set_tool("select")
@@ -245,7 +428,9 @@ func _on_key(k: InputEventKey) -> void:
 	var key := k.keycode
 	if k.is_command_or_control_pressed():
 		# Ctrl+Z / Ctrl+Y live in the HUD
-		if key == KEY_D and selected_machine >= 0:
+		if key == KEY_D and not selected_group.is_empty():
+			duplicate_group()
+		elif key == KEY_D and selected_machine >= 0:
 			duplicate_machine(selected_machine)
 		elif key == KEY_C and k.shift_pressed and selected_machine >= 0:
 			copy_settings(selected_machine)
@@ -319,6 +504,11 @@ func _lmb_press(world: Vector2) -> void:
 		_finish_move_drag()
 		_lmb_down = false
 		return
+	if bool(_group_drag.get("carry", false)):
+		_update_group_drag(world)
+		_finish_group_drag()
+		_lmb_down = false
+		return
 	if _dragging():
 		return
 	_press_hit = _hit_at(world)
@@ -327,10 +517,13 @@ func _lmb_press(world: Vector2) -> void:
 			_lmb_down = true
 			if _press_hit.is_empty():
 				_set_selection(-1, -1)
+				_box = {"start": world, "cur": world, "active": false}  # may become a box select
 			else:
 				match str(_press_hit.get("kind", "")):
 					"machine", "port":
-						_set_selection(int(_press_hit["id"]), -1)
+						# pressing a member of the group keeps the group (it can be dragged)
+						if not (str(_press_hit["kind"]) == "machine" and int(_press_hit["id"]) in selected_group):
+							_set_selection(int(_press_hit["id"]), -1)
 					"wire":
 						_set_selection(-1, int(_press_hit["id"]))
 		"wire":
@@ -354,15 +547,22 @@ func _lmb_release(world: Vector2) -> void:
 		_finish_wire_drag(world)
 	elif not _move_drag.is_empty():
 		_finish_move_drag()
+	elif not _group_drag.is_empty():
+		_finish_group_drag()
+	elif bool(_box.get("active", false)):
+		_finish_box()
 	else:
 		_update_hover(world)
+	_box = {}
 	_press_hit = {}
 	_press_world = Vector2.ZERO
 	_update_hover_immediate()
 
 
 func _on_mouse_motion(world: Vector2) -> void:
-	if not _move_drag.is_empty():
+	if not _group_drag.is_empty():
+		_update_group_drag(world)
+	elif not _move_drag.is_empty():
 		_update_move_ghost(world)
 	elif not _wire_drag.is_empty():
 		_update_wire_preview(world)
@@ -376,13 +576,27 @@ func _on_mouse_motion(world: Vector2) -> void:
 ## In select tool: a press that travels beyond DRAG_START_PX becomes a real drag
 ## (moving an unlocked machine, or wiring from an OUTPUT port).
 func _track_press_drag(world: Vector2) -> void:
-	if not _lmb_down or tool != "select" or _press_hit.is_empty():
+	if not _lmb_down or tool != "select":
+		return
+	if _press_hit.is_empty():
+		# a drag on the empty board draws the selection box
+		if not _box.is_empty() and (bool(_box["active"]) or world.distance_to(_press_world) >= DRAG_START_PX):
+			_box["active"] = true
+			_box["cur"] = world
+			_move_preview.box = Rect2(_box["start"], Vector2.ZERO).expand(world)
+			_move_preview.queue_redraw()
 		return
 	if world.distance_to(_press_world) < DRAG_START_PX:
 		return
 	var kind := str(_press_hit.get("kind", ""))
 	var mid := int(_press_hit.get("id", -1))
 	if mid < 0:
+		return
+	if kind == "machine" and mid in selected_group:
+		# drag the whole group (Alt: a duplicate of it)
+		_group_drag = {"ids": selected_group.duplicate(), "grab": _cell_of(_press_world), "delta": Vector2i(-99999, 0), "dup": Input.is_key_pressed(KEY_ALT), "carry": false}
+		hover_changed.emit({})
+		_update_group_drag(world)
 		return
 	if kind == "port":
 		_begin_wire(mid, str(_press_hit["port"]), world)  # any port: an input starts a reverse wire
@@ -401,6 +615,7 @@ func _track_press_drag(world: Vector2) -> void:
 func _set_selection(mid: int, cid: int) -> void:
 	selected_machine = mid
 	selected_conn = cid
+	selected_group = []
 	_apply_selection()
 	selection_changed.emit(selected_machine, selected_conn)
 
@@ -411,7 +626,7 @@ func _apply_selection() -> void:
 	for c in _machine_layer.get_children():
 		var mv := c as MachineView
 		if mv != null:
-			mv.selected = mv.machine != null and mv.machine.id == selected_machine
+			mv.selected = mv.machine != null and (mv.machine.id == selected_machine or mv.machine.id in selected_group)
 	for c in _wire_layer.get_children():
 		var cv := c as ConnectionView
 		if cv != null:
@@ -419,6 +634,14 @@ func _apply_selection() -> void:
 
 
 func _delete_selection() -> void:
+	if not selected_group.is_empty():
+		var sim := SimulationManager.sim
+		if sim != null:
+			SimulationManager.request_edit()
+			var n := sim.remove_group(selected_group)
+			notice.emit("Deleted %d machines" % n, "info")
+		_set_selection(-1, -1)
+		return
 	if selected_machine >= 0:
 		_delete_machine(selected_machine)
 	elif selected_conn >= 0:
@@ -1019,6 +1242,11 @@ func _apply_highlights(ids: Array) -> void:
 
 
 func _on_layout_changed() -> void:
+	var sim := SimulationManager.sim
+	if sim != null and not selected_group.is_empty():
+		selected_group = selected_group.filter(func(id): return sim.machines.has(id))
+		if selected_group.size() < 2:
+			selected_group = []
 	_apply_selection()
 	_clear_hovered_after_rebuild()
 	_clear_ghost_after_rebuild()
@@ -1060,8 +1288,12 @@ class PreviewLayer extends Node2D:
 class MovePreview extends Node2D:
 	var origin := Rect2()
 	var paths: Array = []  # [[PackedVector2Array, state], ...]
+	var box := Rect2()  # box select marquee
 
 	func _draw() -> void:
+		if box.size != Vector2.ZERO:
+			draw_rect(box, Color(Palette.STATE_SELECT, 0.06))
+			SystemsDraw.rrect_dashed(self, box, 2.0, Color(Palette.STATE_SELECT, 0.8), 1.5, 6.0, 4.0)
 		if origin.size != Vector2.ZERO:
 			SystemsDraw.rrect_dashed(self, origin.grow(-2.0), 8.0, Color(Palette.STATE_HOVER, 0.6), 1.5, 5.0, 4.0)
 		for p in paths:

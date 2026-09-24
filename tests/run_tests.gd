@@ -22,6 +22,7 @@ func _init() -> void:
 	UndoTests.run(self)
 	MoveTests.run(self)
 	ComponentTests.run(self)
+	GroupTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()
