@@ -32,7 +32,11 @@ func _process(_delta: float) -> bool:
 		0: _setup()
 		1: _place()
 		2: _wire_all()
-		3: _run()
+		3: _undo_place()
+		4: _undo_check()
+		5: _redo_check()
+		6: _duplicate_and_settings()
+		7: _run()
 	if _fail != "":
 		return _done(_fail)
 	return false
@@ -131,6 +135,58 @@ func _wire_all() -> void:
 	_step = 3
 
 
+## Undo / redo (F5): history commits once per frame of edits, so each step runs a frame apart.
+func _undo_place() -> void:
+	_tools.begin_place("add")
+	var p := Vector2(6 * 64 + 32, 6 * 64 + 32)
+	_tools._on_mouse_motion(p)
+	_click(p)
+	_tools.set_tool("select")
+	_expect(_count("add") == 2, "a spare Add was placed for the undo check")
+	_step = 4
+
+
+func _undo_check() -> void:
+	_expect(_mgr.can_undo(), "the placement is in the history")
+	_expect(_mgr.undo(), "undo succeeds")
+	_expect(_count("add") == 1 and _mgr.sim.connections.size() == 2, "undo removes the spare Add and keeps the wires")
+	_expect(_mgr.can_redo(), "the undone placement can be redone")
+	_step = 5
+
+
+func _redo_check() -> void:
+	_expect(_mgr.redo(), "redo succeeds")
+	_expect(_count("add") == 2, "redo places the spare Add again")
+	_mgr.undo()
+	_expect(_count("add") == 1, "undo again")
+	_step = 6
+
+
+## F2: Ctrl+D-style duplicate picks up a copy (same params), copy / paste settings, delete.
+func _duplicate_and_settings() -> void:
+	var sim = _mgr.sim
+	var add := _find("add")
+	sim.set_param(add, "k", 3)
+	_tools.duplicate_machine(add)
+	_expect(_tools.tool == "place" and _tools.place_params.get("k", -1) == 3, "duplicate picks up a ghost with the source's parameters")
+	var p := Vector2(6 * 64 + 32, 6 * 64 + 32)
+	_tools._on_mouse_motion(p)
+	_click(p)
+	_expect(_count("add") == 2, "the duplicate was dropped")
+	var dup := -1
+	for id in sim.sorted_machine_ids():
+		if sim.machines[id].type == "add" and id != add:
+			dup = id
+	_expect(dup >= 0 and int(sim.machines[dup].params.get("k", -1)) == 3, "the duplicate keeps k = 3")
+	sim.set_param(dup, "k", 5)
+	_tools.copy_settings(dup)
+	_tools.paste_settings(add)
+	_expect(int(sim.machines[add].params.get("k", -1)) == 5, "paste settings copies k onto the original")
+	_tools.delete_machine(dup)
+	_expect(_count("add") == 1 and sim.connections.size() == 2, "delete removes the duplicate, the wires stay")
+	_step = 7
+
+
 func _run() -> void:
 	var sim = _mgr.sim
 	_mgr.request_edit()
@@ -166,6 +222,14 @@ func _drag(a: Vector2, b: Vector2) -> void:
 func _click(at: Vector2) -> void:
 	_button(true, at)
 	_button(false, at)
+
+
+func _count(type: String) -> int:
+	var n := 0
+	for id in _mgr.sim.machines:
+		if _mgr.sim.machines[id].type == type:
+			n += 1
+	return n
 
 
 func _find(type: String) -> int:

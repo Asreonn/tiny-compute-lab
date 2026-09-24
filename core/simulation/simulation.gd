@@ -24,6 +24,7 @@ var size := Vector2i(20, 12)
 ## Power capacity / demand cached once per step, before the process phase (deterministic).
 var _cap := 0
 var _demand := 0
+var _quiet := 0  # > 0 while a batch edit runs (apply_layout): `changed` fires once at the end
 ## The board heat field (SYSTEMS_EXPANSION §5); null until a run with heat steps.
 var thermal: ThermalGrid = null
 ## Sealed port bays: cell -> view label (docs/SYSTEMS_EXPANSION.md §2.1). Reserved tiles are
@@ -70,7 +71,7 @@ func clear() -> void:
 	_next_machine_id = 1
 	_next_conn_id = 1
 	reset_run()
-	changed.emit()
+	_emit_changed()
 
 
 func sorted_machine_ids() -> Array:
@@ -160,7 +161,7 @@ func place(type: String, cell: Vector2i, rot: int = 0, params: Dictionary = {}, 
 		return null
 	_next_machine_id += 1
 	_apply_plan(plan)
-	changed.emit()
+	_emit_changed()
 	return m
 
 
@@ -180,7 +181,7 @@ func remove(id: int) -> bool:
 		if c.from_id == id or c.to_id == id:
 			disconnect_wire(cid, false)
 	machines.erase(id)
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -228,7 +229,7 @@ func _relayout(m: Machine, cell: Vector2i, rot: int) -> bool:
 		last_error = "Would cut the wire %s" % _wire_name(int(plan["fail"]))
 		return false
 	_apply_plan(plan)
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -291,7 +292,7 @@ func set_param(id: int, key: String, value: Variant) -> bool:
 			last_error = "Unwire the ports first — the widths would change"
 			return false
 	m.params[key] = value
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -317,7 +318,7 @@ func set_width(id: int, w: int) -> Array:
 			removed.append(cid)
 	for cid in removed:
 		disconnect_wire(cid, false)
-	changed.emit()
+	_emit_changed()
 	return removed
 
 
@@ -368,7 +369,7 @@ func insert_device(machine_id: int, kind: String, stream_override: Dictionary = 
 	m.gen_seq = 0
 	m.next_emit = tick + 1
 	events.append({"kind": "device", "machine": machine_id, "device": kind})
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -387,7 +388,7 @@ func _insert_output_device(m: Machine, kind: String) -> bool:
 	if kind != "":
 		m.last_device = kind
 	events.append({"kind": "device", "machine": m.id, "device": kind})
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -400,7 +401,7 @@ func remove_device(machine_id: int) -> bool:
 	if m.type == "usb_output":
 		m.device = ""
 		events.append({"kind": "device", "machine": machine_id, "device": ""})
-		changed.emit()
+		_emit_changed()
 		return true
 	if not m.socket:
 		return false
@@ -410,7 +411,7 @@ func remove_device(machine_id: int) -> bool:
 	m.fifo.clear()
 	m.gen_seq = 0
 	events.append({"kind": "device", "machine": machine_id, "device": ""})
-	changed.emit()
+	_emit_changed()
 	return true
 
 
@@ -519,7 +520,7 @@ func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null
 		machines[b].port_width_override[pb] = c.width
 	if str(machines[a].port_width_spec(pa)) == "*":
 		machines[a].port_width_override[pa] = c.width
-	changed.emit()
+	_emit_changed()
 	return c
 
 
@@ -591,7 +592,7 @@ func disconnect_wire(cid: int, notify := true) -> void:
 		machines[c.from_id].port_width_override.erase(c.from_port)
 	connections.erase(cid)
 	if notify:
-		changed.emit()
+		_emit_changed()
 
 
 func _reroute(cid: int) -> void:
@@ -941,4 +942,108 @@ func load_player_layout(d: Dictionary) -> void:
 	for cd in d.get("connections", []):
 		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
 			connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
-	changed.emit()
+	_emit_changed()
+
+
+func _emit_changed() -> void:
+	if _quiet == 0:
+		changed.emit()
+
+
+## Brings the board to layout `d` in place (undo / redo). Player machines and wires that match
+## the target are kept — with their packets — the rest is removed, then the missing machines are
+## placed and wired and the socket devices re-applied. Locked machines are matched by creation
+## order, like load_player_layout. `changed` fires once.
+func apply_layout(d: Dictionary) -> void:
+	_quiet += 1
+	var pool := {}  # machine key -> [ids] of current player machines
+	var locked_by_index := []
+	for id in sorted_machine_ids():
+		var m: Machine = machines[id]
+		if m.locked:
+			locked_by_index.append(id)
+		else:
+			var k := _layout_key(m.to_dict())
+			if not pool.has(k):
+				pool[k] = []
+			pool[k].append(id)
+	var map := {}
+	var create := []  # target indices still to place
+	var li := 0
+	var entries: Array = d.get("machines", [])
+	for i in entries.size():
+		var md: Dictionary = entries[i]
+		if md.get("locked", false):
+			if li < locked_by_index.size():
+				map[i] = locked_by_index[li]
+			li += 1
+		else:
+			var k2 := _layout_key(md)
+			if pool.has(k2) and not (pool[k2] as Array).is_empty():
+				map[i] = (pool[k2] as Array).pop_front()
+			else:
+				create.append(i)
+	for k3 in pool:
+		for id in pool[k3]:
+			remove(id)
+	# wires the target does not have go before any placement, so a new machine never routes
+	# around a wire that is about to disappear
+	var conns: Array = d.get("connections", [])
+	var keep := {}
+	for cd in conns:
+		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
+			keep["%d:%s>%d:%s" % [map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"]]] = true
+	for cid in sorted_connection_ids():
+		var c: Connection = connections[cid]
+		if not keep.has("%d:%s>%d:%s" % [c.from_id, c.from_port, c.to_id, c.to_port]):
+			disconnect_wire(cid, false)
+	for i in create:
+		var md: Dictionary = entries[i]
+		var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))
+		if m != null:
+			map[i] = m.id
+	# socket devices (a Job drive moving ports is resolved by insert_device itself)
+	for i in entries.size():
+		var md: Dictionary = entries[i]
+		if not md.get("locked", false) or not map.has(i):
+			continue
+		var lm: Machine = machines[map[i]]
+		if md.has("last_device"):
+			lm.last_device = str(md["last_device"])
+		var dev := str(md.get("device", ""))
+		if dev != lm.device:
+			if dev != "":
+				insert_device(lm.id, dev)
+			elif lm.device != "":
+				remove_device(lm.id)
+	# connect the missing wires
+	var have := {}
+	for cid in sorted_connection_ids():
+		var c2: Connection = connections[cid]
+		have["%d:%s>%d:%s" % [c2.from_id, c2.from_port, c2.to_id, c2.to_port]] = true
+	for cd in conns:
+		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
+			var k4 := "%d:%s>%d:%s" % [map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"]]
+			if not have.has(k4):
+				connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
+	_quiet -= 1
+	_emit_changed()
+
+
+static func _layout_key(md: Dictionary) -> String:
+	var c: Array = md.get("cell", [0, 0])
+	return "%s|%d,%d|%d|%d|%s" % [md.get("type", ""), int(c[0]), int(c[1]), int(md.get("rot", 0)), int(md.get("width", 0)), JSON.stringify(_int_floats(md.get("params", {})), "", true)]
+
+
+## JSON round-trips turn ints into floats (k 1 → 1.0); keys compare integral floats as ints.
+static func _int_floats(v: Variant) -> Variant:
+	if v is float and is_equal_approx(v, roundf(v)):
+		return int(v)
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[k] = _int_floats(v[k])
+		return out
+	if v is Array:
+		return (v as Array).map(_int_floats)
+	return v

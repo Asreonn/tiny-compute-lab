@@ -27,6 +27,8 @@ func _ready() -> void:
 	var inspector := _panel("res://ui/hud/inspector.gd")
 	_panel("res://ui/hud/mission_summary.gd")
 	var tooltip := _panel("res://ui/hud/tooltip.gd")
+	var card := _panel("res://ui/hud/hover_card.gd")
+	var bar := _panel("res://ui/hud/quick_bar.gd")
 	_panel("res://ui/hud/result_panel.gd")
 	_panel("res://ui/hud/overlay_legend.gd")
 	_menu = _panel("res://ui/hud/main_menu.gd")
@@ -35,6 +37,8 @@ func _ready() -> void:
 	if tools:
 		inspector.bind_tools(tools)
 		tooltip.bind_tools(tools)
+		card.bind_tools(tools)
+		bar.tools = tools
 		tools.notice.connect(_notice)
 	top.menu_pressed.connect(open_menu)
 	_build_toast()
@@ -136,6 +140,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if focus is LineEdit or focus is TextEdit:
 		return  # a text field is being edited
 	var sm := get_node("/root/SimulationManager")
+	var k := event as InputEventKey
+	if k.is_command_or_control_pressed():
+		var redo: bool = k.keycode == KEY_Y or (k.keycode == KEY_Z and k.shift_pressed)
+		if k.keycode == KEY_Z or k.keycode == KEY_Y:
+			if tools != null and tools.has_method("clear_selection"):
+				tools.clear_selection()
+			var ok: bool = sm.redo() if redo else sm.undo()
+			_notice(("Redo" if redo else "Undo") if ok else ("Nothing to redo" if redo else "Nothing to undo"), "info")
+			get_viewport().set_input_as_handled()
+		return
 	match event.keycode:
 		KEY_1: sm.set_speed(sm.SPEEDS[0])
 		KEY_2: sm.set_speed(sm.SPEEDS[1])

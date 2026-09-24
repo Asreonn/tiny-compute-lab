@@ -167,11 +167,11 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 ### Checkpoint F: QoL interaction overhaul
 | Job | Route | Scope |
 |---|---|---|
-| F1 | submit | Hover card (180 ms, follows the pointer, hidden during drag/wire/place). |
-| F2 | submit | Quick action bar + duplicate (Ctrl+D, Alt+drag) + copy/paste settings; the Delete mode leaves the rail. |
+| F1 ✓ | submit | Hover card (180 ms, follows the pointer, hidden during drag/wire/place). |
+| F2 ✓ | submit | Quick action bar + duplicate (Ctrl+D, Alt+drag) + copy/paste settings; the Delete mode leaves the rail. |
 | F3 | submit | Smart wiring: drag from a port in Select mode, edge assist, body snap / candidate rings. |
 | F4 | hard | Connected move: live hologram reroute, atomic commit, snap back on failure (replaces the "Would cut the wire" refusal). |
-| F5 | hard | Undo/redo command history (place, delete, move, rotate, wire, rewire, param, device, duplicate, paste). |
+| F5 ✓ | hard | Undo/redo (layout snapshots per frame of edits; `Simulation.apply_layout` restores in place, keeping untouched machines/wires and their packets) command history (place, delete, move, rotate, wire, rewire, param, device, duplicate, paste). |
 | F6 | submit | Camera: middle-drag / Space-drag pan with inertia, smooth zoom to cursor.<br>Hotkeys: `1`–`4`, Q/W/E/R, T/P, X/Del, Esc.<br>Palette QoL: search, favourites, recents, honest locks with requirements. |
 
 ### Checkpoints G–J

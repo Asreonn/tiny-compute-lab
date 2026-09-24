@@ -11,6 +11,7 @@ signal run_finished(status: int)
 signal speed_changed(speed: int)
 signal view_mode_changed(mode: int)
 signal overlay_changed(kind: String)
+signal history_changed
 
 const MAX_STEPS_PER_FRAME := 8
 ## Real-time playback at 1× (player feedback 2026-09-24: 1× should be calm; the former 1× of
@@ -37,6 +38,14 @@ var view_mode := -1
 var overlay := ""
 var _acc := 0.0
 
+# --- undo / redo (SYSTEMS_EXPANSION §9): layout snapshots, one step per frame of edits ---
+const HISTORY_MAX := 100
+var _undo: Array = []  # older snapshots, newest last
+var _redo: Array = []
+var _snap := ""  # JSON of the current snapshot
+var _hist_pending := false
+var _restoring := false
+
 
 func load_mission(id: String) -> void:
 	var def := Missions.by_id(id)
@@ -58,6 +67,7 @@ func load_mission(id: String) -> void:
 	_acc = 0.0
 	alpha = 0.0
 	set_view_mode(def.view_modes[0] if not def.view_modes.is_empty() else -1)
+	_reset_history()
 	mission_loaded.emit(mission)
 
 
@@ -89,6 +99,7 @@ func load_lab() -> void:
 	_acc = 0.0
 	alpha = 0.0
 	set_view_mode(LabDef.view_mode(lvl))
+	_reset_history()
 	mission_loaded.emit(run)
 
 
@@ -98,10 +109,14 @@ func _on_sim_changed() -> void:
 	layout_changed.emit()
 	if sim == null:
 		return
+	if not _restoring and not _hist_pending:
+		_hist_pending = true
+		_commit_history.call_deferred()
 	if in_lab and lab_run != null:
 		if lab_run.level != _lab_level_shown:
 			_lab_level_shown = lab_run.level
 			mission = LabDef.mission_def(lab_run.level)
+			_reset_history()  # never undo across a level-up (the board itself changed)
 			mission_loaded.emit(lab_run)
 		_save_lab()
 	elif mission != null:
@@ -121,6 +136,81 @@ func _save_lab() -> void:
 		"desk": lab_run.desk_to_dict(),
 		"psu_tier": lab_run.psu_tier,
 	})
+
+
+# ------------------------------------------------------------------ undo / redo
+
+func _snapshot() -> String:
+	var d := {"layout": sim.layout_to_dict()}
+	if in_lab and lab_run != null:
+		d["desk"] = lab_run.desk_to_dict()
+	return JSON.stringify(d)
+
+
+func _reset_history() -> void:
+	_undo.clear()
+	_redo.clear()
+	_hist_pending = false
+	_snap = _snapshot() if sim != null else ""
+	history_changed.emit()
+
+
+## Called once per frame after edits: an actual change becomes one undo step.
+func _commit_history() -> void:
+	_hist_pending = false
+	if sim == null:
+		return
+	var s := _snapshot()
+	if s == _snap:
+		return
+	_undo.append(_snap)
+	if _undo.size() > HISTORY_MAX:
+		_undo.pop_front()
+	_redo.clear()
+	_snap = s
+	history_changed.emit()
+
+
+func can_undo() -> bool:
+	return not _undo.is_empty()
+
+
+func can_redo() -> bool:
+	return not _redo.is_empty()
+
+
+## Ctrl+Z: back to the previous layout (packets of the machines and wires that change are
+## dropped, everything else keeps running — Simulation.apply_layout).
+func undo() -> bool:
+	if sim == null or _undo.is_empty():
+		return false
+	_redo.append(_snap)
+	_restore(_undo.pop_back())
+	return true
+
+
+## Ctrl+Y / Ctrl+Shift+Z.
+func redo() -> bool:
+	if sim == null or _redo.is_empty():
+		return false
+	_undo.append(_snap)
+	_restore(_redo.pop_back())
+	return true
+
+
+func _restore(snap: String) -> void:
+	request_edit()
+	var d = JSON.parse_string(snap)
+	if typeof(d) != TYPE_DICTIONARY:
+		return
+	_restoring = true
+	sim.apply_layout(d.get("layout", {}))
+	if in_lab and lab_run != null and d.has("desk"):
+		lab_run.desk_from_dict(d["desk"], sim)
+		sim.changed.emit()  # desk-only differences still refresh the views + autosave
+	_restoring = false
+	_snap = _snapshot()
+	history_changed.emit()
 
 
 func play() -> void:

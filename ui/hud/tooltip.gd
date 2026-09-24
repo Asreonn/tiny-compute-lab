@@ -1,7 +1,7 @@
 extends Control
 ## Tooltip (Penpot 06): Machine 168×60 · Port 150×32 · Wire 168×60 · Packet 120×72. Raised fill,
 ## 1 px border, r6; title 11/800 (width-coloured dot for port/wire/packet), sub 9/500 muted.
-## Follows ToolController.hover_changed; hidden while dragging.
+## Follows ToolController.hover_changed; hidden while dragging. Machines use the hover card.
 
 var tools: Node
 var _box: Panel
@@ -36,15 +36,9 @@ func _on_hover(info: Dictionary) -> void:
 	var sz := Vector2(168, 60)
 	match kind:
 		"machine":
-			var m: Machine = sim.machines.get(info["id"])
-			if m == null:
-				return
-			title = str(m.def()["name"])
-			sub = "%d tick · %d power" % [m.processing_ticks(), m.power()]
-			if m.params.has("k"):
-				big = ("%" if m.type == "modulo" else "+") + HudKit.fmt_const(BitVector.of(int(m.params["k"]), m.width))
-			elif m.locked:
-				big = "%d-bit · mission I/O" % m.width
+			# machines get the hover card (ui/hud/hover_card.gd)
+			visible = false
+			return
 		"port":
 			var m: Machine = sim.machines.get(info["id"])
 			if m == null:

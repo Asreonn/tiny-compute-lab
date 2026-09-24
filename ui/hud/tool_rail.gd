@@ -1,9 +1,9 @@
 extends Control
-## ToolRail (Penpot 06, 56×236 at 16,68): select / wire / delete / rotate. A single selection
+## ToolRail (Penpot 06, 56 wide at 16,68): select / wire. Delete and rotate are actions now
+## (quick action bar, X / Del, R — SYSTEMS_EXPANSION §9), not modes. A single selection
 ## highlight slides to the active tool (160 ms) instead of per-button toggling.
 
-const TOOLS := [["select", "tool_select", "Select / move (V)"], ["wire", "tool_wire", "Wire (W)"],
-	["delete", "tool_delete", "Delete (X)"], ["rotate", "tool_rotate", "Rotate (R)"]]
+const TOOLS := [["select", "tool_select", "Select / move (Q)"], ["wire", "tool_wire", "Wire (W)"]]
 
 var tools: Node
 var _boxes := {}
@@ -15,7 +15,7 @@ var _hl_tw: Tween
 
 func _ready() -> void:
 	position = Vector2(16, 68)
-	size = Vector2(56, 236)
+	size = Vector2(56, 12 + TOOLS.size() * 56)
 	HudKit.box(self, Vector2.ZERO, size, Palette.SURFACE_PANEL, Color(0, 0, 0, 0), 0, 10)
 	_highlight = HudKit.box(self, Vector2(4, 6), Vector2(48, 48), Palette.DATA_NUMBER_DIM, Palette.DATA_NUMBER, 1, 6)
 	_highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE

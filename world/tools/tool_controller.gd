@@ -21,7 +21,8 @@ const WIRE_HIT_PX := 8.0
 const PACKET_HIT_PX := 10.0
 const DRAG_START_PX := 4.0  # world px an LMB must travel before it becomes a drag
 
-var tool := "select"  # "select" | "wire" | "delete" | "rotate" | "place"
+var tool := "select"  # "select" | "wire" | "place" (delete / rotate are actions, not modes)
+var last_place_type := ""  # E builds this again (SYSTEMS_EXPANSION §9 control map)
 var selected_machine := -1
 var selected_conn := -1
 
@@ -35,6 +36,9 @@ var _preview: PreviewLayer
 # --- placement ghost ("place" tool)
 var place_type := ""  # non-empty while a placement ghost is being dragged around
 var place_rot := 0
+var place_params := {}  # duplicate: the source's parameters ({} = defaults)
+var place_width := 0  # duplicate: the source's width (0 = mission default)
+var _settings_clip := {}  # Ctrl+Shift+C: {type, name, params, width}
 var _ghost_view: MachineView = null
 var _ghost_pad: Sprite2D = null
 var _ghost_cell := Vector2i(-1, 0)
@@ -79,13 +83,106 @@ func begin_place(type: String) -> void:
 	if tool == "place":
 		_clear_place()
 	place_type = type
+	last_place_type = type
 	place_rot = 0
+	place_params = {}
+	place_width = 0
 	tool = "place"
 	tool_changed.emit(tool)
 
 
 func clear_selection() -> void:
 	_set_selection(-1, -1)
+
+
+## Quick action bar / Ctrl+D: pick up a copy of the machine (same type, rotation, parameters and
+## width) as a placement ghost; the next click drops it.
+func duplicate_machine(mid: int) -> void:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(mid) or sim.machines[mid].locked:
+		return
+	var m: Machine = sim.machines[mid]
+	begin_place(m.type)
+	place_rot = m.rot
+	place_params = m.params.duplicate(true)
+	place_width = m.width
+	_update_place_ghost(get_global_mouse_position())
+
+
+## Quick action bar "Move": the machine follows the pointer until the next click drops it.
+func begin_move(mid: int) -> void:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(mid) or sim.machines[mid].locked:
+		return
+	var m: Machine = sim.machines[mid]
+	_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "carry": true}
+	hover_changed.emit({})
+	_update_move_ghost(get_global_mouse_position())
+
+
+func rotate_machine(mid: int) -> void:
+	_rotate_machine(mid)
+
+
+func delete_machine(mid: int) -> void:
+	_delete_machine(mid)
+
+
+## Ctrl+Shift+C: remember the machine's parameters and width (never position or wires).
+func copy_settings(mid: int) -> void:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(mid):
+		return
+	var m: Machine = sim.machines[mid]
+	_settings_clip = {"type": m.type, "name": m.label, "params": m.params.duplicate(true), "width": m.width}
+	notice.emit("Copied the settings of %s" % m.label, "info")
+
+
+func has_settings() -> bool:
+	return not _settings_clip.is_empty()
+
+
+## Ctrl+Shift+V: paste the compatible parameters (same key, a valid value for this machine) and
+## the width (only onto an unwired machine: a width change would cut its wires).
+func paste_settings(mid: int) -> void:
+	var sim := SimulationManager.sim
+	if sim == null or not sim.machines.has(mid) or _settings_clip.is_empty():
+		return
+	var m: Machine = sim.machines[mid]
+	if m.locked:
+		notice.emit("Mission I/O has no settings to paste", "error")
+		return
+	var defs: Dictionary = m.def()["params"]
+	var done := []
+	SimulationManager.request_edit()
+	for k in _settings_clip["params"]:
+		if not defs.has(k):
+			continue
+		var v = _settings_clip["params"][k]
+		if not _param_ok(defs[k], v) or m.params.get(k) == v:
+			continue
+		if sim.set_param(mid, k, v):
+			done.append("%s=%s" % [k, str(v)])
+	var w: int = int(_settings_clip.get("width", m.width))
+	var wired := false
+	for p in m.ports():
+		wired = wired or sim.connection_at_port(mid, p["id"]) != null
+	if w != m.width and not wired:
+		sim.set_width(mid, w)
+		done.append("width %d" % w)
+	if done.is_empty():
+		notice.emit("Nothing to paste onto %s" % m.label, "info")
+	else:
+		notice.emit("Pasted %s → %s" % [", ".join(done), m.label], "info")
+
+
+static func _param_ok(pdef: Dictionary, v: Variant) -> bool:
+	match str(pdef.get("kind", "")):
+		"enum":
+			return v in (pdef.get("options", []) as Array)
+		"int":
+			return typeof(v) in [TYPE_INT, TYPE_FLOAT] and int(v) >= int(pdef.get("min", -1000000)) and int(v) <= int(pdef.get("max", 1000000))
+	return true
 
 
 # ============================================================ input
@@ -101,6 +198,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## world: the cursor in world coordinates (a parameter so tests can drive the real path).
 func _on_mouse_button(mb: InputEventMouseButton, world: Vector2) -> void:
+	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and Input.is_key_pressed(KEY_SPACE):
+		return  # Space + drag pans (CameraRig)
 	if mb.pressed:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			_lmb_press(world)
@@ -137,28 +236,33 @@ func _on_key(k: InputEventKey) -> void:
 	if not k.pressed or k.echo:
 		return
 	var key := k.keycode
-	if key == KEY_SPACE:
-		SimulationManager.toggle()
-	elif key == KEY_PERIOD:
+	if k.is_command_or_control_pressed():
+		# Ctrl+Z / Ctrl+Y live in the HUD
+		if key == KEY_D and selected_machine >= 0:
+			duplicate_machine(selected_machine)
+		elif key == KEY_C and k.shift_pressed and selected_machine >= 0:
+			copy_settings(selected_machine)
+		elif key == KEY_V and k.shift_pressed and selected_machine >= 0:
+			paste_settings(selected_machine)
+		return
+	# Space is the CameraRig's (tap = play/pause, hold + drag = pan).
+	if key == KEY_PERIOD:
 		SimulationManager.step_once()
 	elif key == KEY_BACKSPACE:
 		SimulationManager.reset_run()
-	elif key == KEY_V:
+	elif key == KEY_Q or key == KEY_V:
+		if tool == "place":
+			_clear_place()
 		set_tool("select")
 	elif key == KEY_W:
 		set_tool("wire")
-	elif key == KEY_X:
-		set_tool("delete")
+	elif key == KEY_E:
+		if last_place_type != "" and _allowed(last_place_type):
+			begin_place(last_place_type)
+			_update_place_ghost(get_global_mouse_position())
 	elif key == KEY_R:
-		if tool == "place" and place_type != "":
-			place_rot = (place_rot + 1) % 4
-			var cell := _ghost_cell
-			if cell.x < 0:
-				cell = _snap_cell(get_global_mouse_position(), place_type, place_rot)
-			_rebuild_ghost(cell, place_type, place_rot)
-		elif selected_machine >= 0:
-			_rotate_machine(selected_machine)
-	elif key == KEY_DELETE:
+		_rotate_key()
+	elif key == KEY_X or key == KEY_DELETE:
 		_delete_selection()
 	elif key == KEY_ESCAPE:
 		if tool == "place" and place_type != "":
@@ -168,6 +272,25 @@ func _on_key(k: InputEventKey) -> void:
 			_cancel_drags()
 		else:
 			clear_selection()
+
+
+## R rotates the placement ghost, else the selected machine, else the hovered one.
+func _rotate_key() -> void:
+	if tool == "place" and place_type != "":
+		place_rot = (place_rot + 1) % 4
+		var cell := _ghost_cell
+		if cell.x < 0:
+			cell = _snap_cell(get_global_mouse_position(), place_type, place_rot)
+		_rebuild_ghost(cell, place_type, place_rot)
+	elif selected_machine >= 0:
+		_rotate_machine(selected_machine)
+	elif str(_hover.get("kind", "")) in ["machine", "port"]:
+		_rotate_machine(int(_hover["id"]))
+
+
+func _allowed(type: String) -> bool:
+	var sm := SimulationManager
+	return sm.mission != null and type in sm.mission.allowed
 
 
 # ============================================================ click actions
@@ -182,6 +305,11 @@ func _lmb_press(world: Vector2) -> void:
 	if not _wire_drag.is_empty():
 		# Click-click wiring: the source was picked with a click, this click picks the target.
 		_finish_wire_drag(world)
+		_lmb_down = false
+		return
+	if bool(_move_drag.get("carry", false)):
+		_update_move_ghost(world)
+		_finish_move_drag()
 		_lmb_down = false
 		return
 	if _dragging():
@@ -201,14 +329,6 @@ func _lmb_press(world: Vector2) -> void:
 		"wire":
 			if _press_hit.get("kind") == "port" and _port_dir(int(_press_hit["id"]), str(_press_hit.get("port", ""))) == Catalog.DIR_OUT:
 				_begin_wire(int(_press_hit["id"]), str(_press_hit["port"]), world)
-		"delete":
-			if _press_hit.get("kind") == "machine":
-				_delete_machine(int(_press_hit["id"]))
-			elif _press_hit.get("kind") == "wire":
-				_delete_conn(int(_press_hit["id"]))
-		"rotate":
-			if _press_hit.get("kind") == "machine":
-				_rotate_machine(int(_press_hit["id"]))
 		"place":
 			_try_place(world)
 
@@ -259,7 +379,9 @@ func _track_press_drag(world: Vector2) -> void:
 	var sim := SimulationManager.sim
 	if sim != null and sim.machines.has(mid) and not sim.machines[mid].locked and kind == "machine":
 		var m: Machine = sim.machines[mid]
-		_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell}
+		# Alt + drag drags a duplicate; the original stays
+		_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "duplicate": Input.is_key_pressed(KEY_ALT)}
+		hover_changed.emit({})
 		_rebuild_ghost(m.cell, m.type, m.rot)
 
 
@@ -334,12 +456,23 @@ func _finish_move_drag() -> void:
 	var mid := int(_move_drag.get("machine_id", -1))
 	var cell: Vector2i = _move_drag.get("cell", Vector2i(-1, 0))
 	var from: Vector2i = _move_drag.get("from", Vector2i(-1, 0))
+	var dup := bool(_move_drag.get("duplicate", false))
 	_clear_ghost()
 	_move_drag = {}
 	if sim != null and mid >= 0 and sim.machines.has(mid) and cell != from and cell.x >= 0:
 		SimulationManager.request_edit()
-		if sim.machines.has(mid):
-			sim.move(mid, cell)
+		if not sim.machines.has(mid):
+			return
+		var m: Machine = sim.machines[mid]
+		if dup:
+			var copy := sim.place(m.type, cell, m.rot, m.params.duplicate(true), m.width)
+			if copy == null:
+				notice.emit(sim.placement_error(m.type, cell, m.rot), "error")
+			else:
+				_set_selection(copy.id, -1)
+		elif not sim.move(mid, cell):
+			notice.emit(sim.last_error, "error")
+		else:
 			_apply_selection()
 
 
@@ -482,7 +615,7 @@ func _try_place(world: Vector2) -> void:
 		return
 	var cell := _snap_cell(world, place_type, place_rot)
 	SimulationManager.request_edit()
-	var m := sim.place(place_type, cell, place_rot)
+	var m := sim.place(place_type, cell, place_rot, place_params, place_width)
 	if m == null:
 		notice.emit(sim.placement_error(place_type, cell, place_rot), "error")
 		return
@@ -503,6 +636,8 @@ func _update_place_ghost(world: Vector2) -> void:
 func _clear_place() -> void:
 	place_type = ""
 	place_rot = 0
+	place_params = {}
+	place_width = 0
 	_clear_ghost()
 
 
@@ -516,9 +651,11 @@ func _rebuild_ghost(cell: Vector2i, type: String, rot: int) -> void:
 	var sim := SimulationManager.sim
 	if sim == null:
 		return
-	var ghost_m := Machine.new(0, type, cell, sim.default_width, rot % 4, Catalog.default_params(type))
+	var ghost_m := Machine.new(0, type, cell, place_width if place_width > 0 else sim.default_width, rot % 4, place_params if not place_params.is_empty() else Catalog.default_params(type))
 	if _move_drag.has("machine_id") and sim.machines.has(int(_move_drag["machine_id"])):
-		ghost_m.params = sim.machines[int(_move_drag["machine_id"])].params.duplicate()
+		var src: Machine = sim.machines[int(_move_drag["machine_id"])]
+		ghost_m.params = src.params.duplicate()
+		ghost_m.width = src.width
 	var key := str(Catalog.def(type)["size"]).to_lower()
 	var err := sim.placement_error(type, cell, rot)
 	var pad := Art.sprite(Art.pad_file("placevalid" if err == "" else "placeinvalid", key), Vector2(cell) * T)
