@@ -162,7 +162,7 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 |---|---|---|
 | E1 ✓ | hard | **Power + work units + clock.** *(done: `tests/test_power.gd`; PSU gated to L16+)*<br>• Jobs cost `campaign_ticks × 12` work units; normal/fast/overclocked = 12/16/24 per tick.<br>• PSU fixed infrastructure with tiers 8/16/32/64; demand = Σ rated power × clock multiplier.<br>• Brownout = work × capacity/demand (integer); the progress ring stays smooth.<br>• Tests, with existing timings unchanged at normal clock. |
 | E2 ✓ | hard | **Thermal grid + cooling.** *(done: `core/thermal/thermal_grid.gd`, `tests/test_thermal.gd`; model v2 in SYSTEMS_EXPANSION §5)*<br>• `core/thermal/thermal_grid.gd` (PackedInt32Array): generate/diffuse/dissipate.<br>• Stages with hysteresis; THROTTLING ×½, CRITICAL pause.<br>• Heatsink / blower / heat pipe / radiator simulation.<br>• Calibration tests (SYSTEMS_EXPANSION §5 targets). |
-| E3 | submit | **Views.**<br>• Resource indicators replace the stats silk; thermal strip; thermal family views (blower rotates).<br>• PSU gauge; thermal (`T`) and power (`P`) overlays; top-bar power chip. |
+| E3 ✓ | submit | **Views.** *(done: thermal family views, ThermalStrip + LED Throttling/Overheated, SystemsOverlay T/P + legend, top-bar power chip; visual check `tools/systems_shot.gd`. The PSU board machine moves to H with L16.)*<br>• Resource indicators replace the stats silk; thermal strip; thermal family views (blower rotates).<br>• PSU gauge; thermal (`T`) and power (`P`) overlays; top-bar power chip. |
 
 ### Checkpoint F: QoL interaction overhaul
 | Job | Route | Scope |

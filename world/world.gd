@@ -17,6 +17,8 @@ var tools: ToolController
 ## Desk zones + port racks (added after the tools so it sees clicks first; it only claims its
 ## own areas: the desk mats and the modules sticking out of the ports).
 var desk: DeskView
+## Thermal / power overlay (T / P), drawn over the machines, under the tool previews.
+var systems_overlay: SystemsOverlay
 var _fit_sim: Simulation = null
 var _fit_size := Vector2i.ZERO
 ## Lab-expansion reveal: ids of the locked USB Inputs added on the last level-up, plus the
@@ -40,6 +42,10 @@ func _ready() -> void:
 	desk = DeskView.new()
 	desk.name = "DeskView"
 	add_child(desk)
+	systems_overlay = SystemsOverlay.new()
+	systems_overlay.name = "SystemsOverlay"
+	overlay_layer.add_child(systems_overlay)
+	overlay_layer.move_child(systems_overlay, 0)  # under the tool previews
 	SimulationManager.mission_loaded.connect(_rebuild)
 	SimulationManager.layout_changed.connect(_rebuild)
 	_rebuild()
@@ -112,6 +118,9 @@ func _process(delta: float) -> void:
 		var mv := c as MachineView
 		if mv != null:
 			mv.refresh(delta)
+	# an overlay pushes the machines back to α .55 (cross-faded with the overlay)
+	if systems_overlay != null:
+		machine_layer.modulate.a = lerpf(1.0, 0.55, systems_overlay.fade)
 	for c in wire_layer.get_children():
 		var cv := c as ConnectionView
 		if cv != null:

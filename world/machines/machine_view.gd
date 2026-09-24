@@ -53,6 +53,8 @@ var _raw_ports := {}  # port id -> RawPortView (procedural raw receptacle)
 var _codec_slot: CodecSlot = null  # codec token slot (D4)
 var _usb_socket: UsbSocketView = null  # USB socket face + module (D4)
 var _contract: ContractDriveView = null  # locked USB Output contract drive (D4)
+var _thermal: ThermalPartView = null  # thermal family hardware (E3)
+var _strip: ThermalStrip = null  # heat stage strip / critical frame (E3)
 var _tag_nodes: Array = []  # width tag sprites (hidden when the mapped port is raw)
 var _tag_values: Array = []  # width shown by each width tag (upright text)
 var _tag_ports: Array = []  # tag i -> port id whose CURRENT width it shows ("" = layout/instance width)
@@ -93,6 +95,11 @@ func _build() -> void:
 	body.position = _rotated_body_offset()
 	body.rotation = rot * PI / 2.0
 	add_child(body)
+
+	# Thermal family (STYLE_GUIDE §14.7): board-level copper, no chassis / ports / LED / silk.
+	if str(m.def()["family"]) == "thermal":
+		_build_thermal()
+		return
 
 	# 1 InstallPad · 2 Shell (ghosts skip the pad; the tools draw the placement pad under them)
 	if not ghost:
@@ -187,10 +194,35 @@ func _build() -> void:
 			_ri.xr = base.x - 20.0
 			_ri.y = base.y - 15.0
 		body.add_child(_ri)
+	# 12c heat stage strip + CRITICAL frame/badge (player machines; the body is never tinted)
+	if not machine.locked and not ghost:
+		_strip = ThermalStrip.new()
+		_strip.name = "ThermalStrip"
+		_strip.size = Vector2(Catalog.SIZES[machine.def()["size"]]) * T
+		body.add_child(_strip)
 	text_layer = UprightText.new()
 	text_layer.name = "UprightText"
 	add_child(text_layer)
 	_build_texts(ly, area, disp, ro)
+
+
+func _build_thermal() -> void:
+	_thermal = ThermalPartView.new()
+	_thermal.name = "ThermalPart"
+	_thermal.setup(machine)
+	# a heat pipe draws its conduit in board directions, so it must not rotate with the body
+	if machine.type == "heat_pipe":
+		add_child(_thermal)
+	else:
+		body.add_child(_thermal)
+	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
+		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
+		s.modulate.a = 0.0
+		_overlays[overlay] = s
+		body.add_child(s)
+	text_layer = UprightText.new()
+	text_layer.name = "UprightText"
+	add_child(text_layer)
 
 
 func _build_width_tags(ly: Dictionary) -> void:
@@ -465,6 +497,11 @@ func refresh(delta: float) -> void:
 			led_name = "idle"
 		else:
 			led_name = "off"
+	if m.state != Machine.State.ERROR:
+		if m.heat_stage == ThermalGrid.Stage.CRITICAL:
+			led_name = "overheated"
+		elif m.heat_stage == ThermalGrid.Stage.THROTTLING:
+			led_name = "throttling"
 	if _led != null and led_name != _led_rel:
 		_led.texture = Art.tex(Art.led_file(led_name))
 		_led_rel = led_name
@@ -522,6 +559,10 @@ func refresh(delta: float) -> void:
 		_usb_socket.refresh()
 	if _contract != null:
 		_contract.refresh()
+	if _thermal != null:
+		_thermal.refresh(delta)
+	if _strip != null:
+		_strip.refresh(machine.heat_stage, delta)
 	# Upright texts
 	_update_texts(sim, running)
 	# Width tags hide (sprite and silk digits) when their port is a raw receptacle.
@@ -1178,4 +1219,142 @@ class ProcessProgress extends Node2D:
 			var w := area_rect.size.x - 8.0
 			draw_line(Vector2(x0, y), Vector2(x0 + w, y), Color(Palette.MATERIAL_VENT, 0.9 * _a), 2.0, true)
 			draw_line(Vector2(x0, y), Vector2(x0 + w * _p, y), fill, 2.0, true)
+
+
+## Heat stage strip (STYLE_GUIDE §14.8, systems_v1.js): a 2 px bar at (8, 3, w-16) inside the
+## chassis top edge. WARM amber α .3 · HOT amber · THROTTLING amber pulsing α .35↔1 over 1.2 s ·
+## CRITICAL red + 1.5 px red frame + the pause badge (pulses twice on entry). Stage changes
+## cross-fade over 200 ms. The body is never tinted.
+class ThermalStrip extends Node2D:
+	const FADE := 0.2
+	const PULSE := 1.2
+	var size := Vector2(128, 64)
+	var _stage := 0
+	var _alpha := 0.0  # cross-fade of the current look (0 → 1)
+	var _prev := 0
+	var _t := 0.0  # seconds in the current stage
+
+	func refresh(stage: int, delta: float) -> void:
+		if stage != _stage:
+			_prev = _stage
+			_stage = stage
+			_alpha = 0.0
+			_t = 0.0
+		_t += delta
+		_alpha = minf(1.0, _alpha + delta / FADE)
+		if _stage == ThermalGrid.Stage.NORMAL and _alpha >= 1.0 and _prev == _stage:
+			if visible:
+				visible = false
+			return
+		visible = true
+		if _alpha >= 1.0:
+			_prev = _stage
+		queue_redraw()
+
+	func _look(stage: int) -> Color:
+		match stage:
+			ThermalGrid.Stage.WARM: return Color(Palette.STATE_BLOCKED, 0.3)
+			ThermalGrid.Stage.HOT: return Palette.STATE_BLOCKED
+			ThermalGrid.Stage.THROTTLING:
+				var ph := 0.5 - 0.5 * cos(_t / PULSE * TAU)
+				return Color(Palette.STATE_BLOCKED, lerpf(1.0, 0.35, ph))
+			ThermalGrid.Stage.CRITICAL: return Palette.STATE_ERROR
+		return Color(Palette.STATE_BLOCKED, 0.0)
+
+	func _draw() -> void:
+		var bar := Rect2(8, 3, size.x - 16, 2)
+		var a := _look(_prev)
+		var b := _look(_stage)
+		var c := b if _alpha >= 1.0 else Color(a.lerp(b, _alpha), lerpf(a.a, b.a, _alpha))
+		if c.a > 0.0:
+			SystemsDraw.rrect(self, bar, 1.0, c)
+		if _stage == ThermalGrid.Stage.CRITICAL:
+			# frame + badge pulse twice (2 × 400 ms) on entry, then hold
+			var k := 1.0
+			if _t < 0.8:
+				k = lerpf(0.45, 1.0, 0.5 + 0.5 * cos(_t / 0.4 * TAU))
+			var red := Color(Palette.STATE_ERROR, k * minf(1.0, _alpha * 2.0))
+			SystemsDraw.rrect_outline(self, Rect2(Vector2(0.75, 0.75), size - Vector2(1.5, 1.5)), 7.0, red, 1.5)
+			var badge := Rect2(size.x - 12, -10, 16, 16)
+			SystemsDraw.rrect(self, badge, 3.0, red)
+			var inv := Color(Palette.TEXT_INVERSE, red.a)
+			draw_rect(Rect2(badge.position + Vector2(4, 4), Vector2(2, 8)), inv)
+			draw_rect(Rect2(badge.position + Vector2(10, 4), Vector2(2, 8)), inv)
+
+
+## Thermal family hardware (STYLE_GUIDE §14.7, MOTION_SYSTEM §8): heatsink / radiator fin warmth
+## from their tiles' stage; the blower impeller turns at 1 turn/s while the run plays (2 when a
+## tile it cools is HOT or worse) and eases out over 400 ms; a heat pipe draws its conduit
+## towards linked pipes with pads on its open axis ends, warmth smoothed over 500 ms.
+class ThermalPartView extends Node2D:
+	var machine: Machine
+	var _spin := 0.0
+	var _speed := 0.0  # turns per second
+	var _level := 0  # blower: 0 idle · 1 running · 2 high load; heatsink/radiator: warmth 0..2
+	var _warmth := 0.0  # heat pipe, smoothed 0..1
+	var _links: Array = []
+	var _pads: Array = []
+
+	func setup(m: Machine) -> void:
+		machine = m
+		if m.type != "heat_pipe":
+			return
+		var sim := SimulationManager.sim
+		var horiz := m.rot % 2 == 0
+		for d: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var along: bool = (d.x != 0) == horiz
+			var n: Machine = sim.machine_at(m.cell + d) if sim != null else null
+			var linked: bool = n != null and n.type == "heat_pipe" and (along or ((d.x != 0) == (n.rot % 2 == 0)))
+			if linked:
+				_links.append(d)
+			elif along:
+				_pads.append(d)
+
+	func refresh(delta: float) -> void:
+		var sim := SimulationManager.sim
+		var th: ThermalGrid = sim.thermal if sim != null else null
+		match machine.type:
+			"blower":
+				var lvl := 0
+				if SimulationManager.running and sim != null and sim.work_rate(machine) > 0:
+					lvl = 1
+					if th != null and _covered_max(th, 2) >= int(ThermalGrid.ENTER[ThermalGrid.Stage.HOT]):
+						lvl = 2
+				var target := float(lvl)
+				_speed = target if target > _speed else move_toward(_speed, target, delta / 0.4)
+				if _speed > 0.0 or lvl != _level:
+					_level = lvl
+					_spin = fmod(_spin + _speed * TAU * delta, TAU)
+					queue_redraw()
+			"heat_pipe":
+				var goal := 0.0
+				if th != null:
+					goal = clampf(float(th.at(machine.cell) - 250) / 500.0, 0.0, 1.0)
+				var w := move_toward(_warmth, goal, delta / 0.5)
+				if absf(w - _warmth) > 0.001:
+					_warmth = w
+					queue_redraw()
+			_:
+				var lvl2 := 0
+				if th != null:
+					var st := ThermalGrid.stage_for(th.machine_temp(machine), 0)
+					lvl2 = 0 if st == ThermalGrid.Stage.NORMAL else (1 if st == ThermalGrid.Stage.WARM else 2)
+				if lvl2 != _level:
+					_level = lvl2
+					queue_redraw()
+
+	func _covered_max(th: ThermalGrid, r: int) -> int:
+		var hi := 0
+		var s := Catalog.size_of(machine.type, machine.rot)
+		for y in range(machine.cell.y - r, machine.cell.y + s.y + r):
+			for x in range(machine.cell.x - r, machine.cell.x + s.x + r):
+				hi = maxi(hi, th.at(Vector2i(x, y)))
+		return hi
+
+	func _draw() -> void:
+		match machine.type:
+			"heatsink": SystemsDraw.heatsink(self, Vector2.ZERO, _level)
+			"blower": SystemsDraw.blower(self, Vector2.ZERO, _spin, _level)
+			"radiator": SystemsDraw.radiator(self, Vector2.ZERO, _level)
+			"heat_pipe": SystemsDraw.heat_pipe(self, Vector2.ZERO, _links, _pads, _warmth)
 

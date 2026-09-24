@@ -344,3 +344,152 @@ static func monitor(ci: CanvasItem, pos: Vector2, value: String, hist: Array, ac
 	rrect(ci, collar, 1.0, Color(Palette.MATERIAL_PLATE_HI, alpha))
 	rrect_outline(ci, collar, 1.0, Color(Palette.MACHINE_FRAME, alpha), 1.0)
 
+
+
+# ================================================================ PSU gauge (page 15 / 04)
+
+## Power gauge: one cell per power unit in `rows` rows; gold, amber at >= 75 %, red plus an
+## overflow chevron above 100 %. `pos` = top-left, `w` = width (height = rows * 9 + 6).
+static func gauge(ci: CanvasItem, pos: Vector2, w: float, cap: int, used: int, rows: int) -> void:
+	if cap <= 0:
+		return
+	var per := ceili(float(cap) / float(rows))
+	var cw := (w - 6.0 - (per - 1) * 2.0) / float(per)
+	var over := used > cap
+	var near := not over and float(used) / float(cap) >= 0.75
+	var lit := Palette.STATE_ERROR if over else (Palette.STATE_BLOCKED if near else Palette.MATERIAL_GOLD)
+	var box := Rect2(pos, Vector2(w, rows * 9 + 6))
+	rrect(ci, box, 3.0, Palette.MACHINE_SCREEN)
+	rrect_outline(ci, box, 3.0, Palette.MATERIAL_FRAME, 1.0)
+	for i in cap:
+		var r := i / per
+		var c := i % per
+		rrect(ci, Rect2(pos + Vector2(3 + c * (cw + 2.0), 3 + r * 9), Vector2(cw, 7)), 1.0, lit if i < used else Palette.MATERIAL_PLATE_LO)
+	if over:
+		var o := pos + Vector2(w + 4.0, box.size.y * 0.5 - 5.0)
+		for dx in [0.0, 6.0]:
+			ci.draw_polyline(PackedVector2Array([o + Vector2(1 + dx, 1), o + Vector2(5 + dx, 5), o + Vector2(1 + dx, 9)]), Palette.STATE_ERROR, 2.0, true)
+
+
+# ================================================================ thermal family (page 16 / 07)
+# Board-level copper hardware: no chassis, no data ports, no LED. Copper = heat; warmth is only a
+# faint amber gradient (the thermal overlay carries the full picture).
+
+## Fin-tip warmth α by level: 0 cool (< WARM), 1 warm, 2 hot (>= HOT).
+const WARMTH := [0.0, 0.3, 0.75]
+
+
+## `color` at α `from` along the top edge of `rect`, fading to 0 at `stop` of its height.
+static func gradient_down(ci: CanvasItem, rect: Rect2, color: Color, from: float, stop: float) -> void:
+	var mid := rect.position.y + rect.size.y * stop
+	var c0 := Color(color, from)
+	var c1 := Color(color, 0.0)
+	ci.draw_polygon(PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), Vector2(rect.end.x, mid), Vector2(rect.position.x, mid)]), PackedColorArray([c0, c0, c1, c1]))
+
+
+## PCB footprint: board.pad fill, copper-dim outline, silk corner marks.
+static func thermal_footprint(ci: CanvasItem, pos: Vector2, w: float, h: float) -> void:
+	var r := Rect2(pos + Vector2(2, 2), Vector2(w - 4, h - 4))
+	rrect(ci, r, 4.0, Palette.BOARD_PAD)
+	rrect_outline(ci, r, 4.0, Palette.MATERIAL_COPPER_DIM, 1.0)
+	var silk := Palette.BOARD_SILK
+	for c in [[Vector2(2, 8), Vector2(2, 2), Vector2(8, 2)], [Vector2(w - 8, 2), Vector2(w - 2, 2), Vector2(w - 2, 8)],
+			[Vector2(w - 2, h - 8), Vector2(w - 2, h - 2), Vector2(w - 8, h - 2)], [Vector2(8, h - 2), Vector2(2, h - 2), Vector2(2, h - 8)]]:
+		ci.draw_polyline(PackedVector2Array([pos + c[0], pos + c[1], pos + c[2]]), silk, 1.5)
+
+
+## Heatsink (S 64x64, passive, r1): copper spreader, 11 dense fins, 4 screws.
+static func heatsink(ci: CanvasItem, pos: Vector2, warmth: int) -> void:
+	thermal_footprint(ci, pos, 64, 64)
+	var sp := Rect2(pos + Vector2(7, 7), Vector2(50, 50))
+	rrect(ci, sp, 3.0, Palette.MATERIAL_COPPER_DIM)
+	rrect_outline(ci, sp, 3.0, Color(Palette.MATERIAL_COPPER, 0.7), 1.0)
+	for i in 11:
+		rrect(ci, Rect2(pos + Vector2(12 + i * 4, 11), Vector2(2, 42)), 0.6, Palette.MATERIAL_PLATE_HI)
+		ci.draw_rect(Rect2(pos + Vector2(12 + i * 4, 11), Vector2(2, 1.2)), Color(Palette.MATERIAL_COPPER, 0.8))
+	if warmth > 0:
+		gradient_down(ci, Rect2(pos + Vector2(11, 11), Vector2(44, 42)), Palette.STATE_BLOCKED, WARMTH[warmth], 0.45)
+	for s in [Vector2(11, 11), Vector2(53, 11), Vector2(11, 53), Vector2(53, 53)]:
+		ci.draw_circle(pos + s, 2.0, Palette.MATERIAL_FRAME)
+		ci.draw_arc(pos + s, 2.0, 0.0, TAU, 12, Palette.MATERIAL_VENT, 0.5, true)
+
+
+## Blower (S 64x64, active, r2): volute housing, 18-blade impeller rotated by `spin` (radians),
+## hairline airflow at the outlet, 3-pin gold power header. `level`: 0 idle, 1 running, 2 high load.
+static func blower(ci: CanvasItem, pos: Vector2, spin: float, level: int) -> void:
+	thermal_footprint(ci, pos, 64, 64)
+	var ctr := pos + Vector2(30, 31)
+	var vol := PackedVector2Array()
+	for i in 37:
+		var a := -PI / 2.0 - (1.5 * PI) * float(i) / 36.0
+		vol.append(ctr + Vector2(cos(a), sin(a)) * 23.0)
+	for p in [Vector2(53, 18), Vector2(58, 18), Vector2(58, 8), Vector2(30, 8)]:
+		vol.append(pos + p)
+	ci.draw_colored_polygon(vol, Palette.MACHINE_SCREEN)
+	ci.draw_polyline(vol, Palette.MATERIAL_FRAME, 1.5, true)
+	ci.draw_rect(Rect2(pos + Vector2(53, 8), Vector2(5, 10)), Palette.MATERIAL_COPPER_DIM)
+	var run := level > 0
+	var blade := Color(Palette.MATERIAL_SILK, 0.4 if run else 0.6)
+	for i in 18:
+		var a := spin + float(i) / 18.0 * TAU
+		ci.draw_line(ctr + Vector2(cos(a), sin(a)) * 7.0, ctr + Vector2(cos(a + 0.35), sin(a + 0.35)) * 16.0, blade, 1.2, true)
+	ci.draw_circle(ctr, 6.0, Palette.MATERIAL_PLATE_HI)
+	ci.draw_arc(ctr, 6.0, 0.0, TAU, 20, Color(Palette.MATERIAL_COPPER, 0.8), 1.0, true)
+	if run:
+		for i in (3 if level >= 2 else 2):
+			ci.draw_line(pos + Vector2(60, 10 + i * 3), pos + Vector2(70 + i * 2, 10 + i * 3), Color(Palette.MATERIAL_SILK, 0.35), 1.0)
+	for i in 3:
+		ci.draw_rect(Rect2(pos + Vector2(8 + i * 4, 55), Vector2(2, 3)), Color(Palette.MATERIAL_GOLD, 0.95 if run else 0.6))
+
+
+## Radiator (L 128x128, edge panel, r2): 26 fins between copper manifolds, inlets, brackets.
+static func radiator(ci: CanvasItem, pos: Vector2, warmth: int) -> void:
+	thermal_footprint(ci, pos, 128, 128)
+	var core := Rect2(pos + Vector2(10, 22), Vector2(108, 84))
+	rrect(ci, core, 2.0, Palette.MACHINE_SCREEN)
+	rrect_outline(ci, core, 2.0, Palette.MATERIAL_FRAME, 1.0)
+	for i in 26:
+		ci.draw_rect(Rect2(pos + Vector2(13 + i * 4, 24), Vector2(1.6, 80)), Palette.MATERIAL_PLATE_HI)
+	if warmth > 0:
+		gradient_down(ci, Rect2(pos + Vector2(12, 24), Vector2(104, 80)), Palette.STATE_BLOCKED, WARMTH[warmth] * 0.8, 0.35)
+	for my in [12, 106]:
+		var mf := Rect2(pos + Vector2(8, my), Vector2(112, 10))
+		rrect(ci, mf, 3.0, Palette.MATERIAL_COPPER_DIM)
+		rrect_outline(ci, mf, 3.0, Color(Palette.MATERIAL_COPPER, 0.8), 1.0)
+	for ix in [20, 44]:
+		var c := pos + Vector2(ix + 6, 16)
+		ci.draw_circle(c, 6.0, Palette.MATERIAL_COPPER)
+		ci.draw_arc(c, 6.0, 0.0, TAU, 20, Palette.MATERIAL_VENT, 1.0, true)
+		ci.draw_circle(c, 2.5, Palette.MATERIAL_VENT)
+	for b in [Vector2(2, 2), Vector2(118, 2), Vector2(2, 118), Vector2(118, 118)]:
+		rrect(ci, Rect2(pos + b, Vector2(8, 8)), 2.0, Palette.MATERIAL_FRAME)
+
+
+## One heat-pipe tile (64x64 at `pos`), drawn as part of a routed copper conduit: a half segment
+## from the tile centre towards every connected neighbour (`links`, unit directions) and a square
+## thermal pad on each axis end without a pipe (`pads`). Copper only — never a data colour, no
+## ports, no packets. `warmth` 0..1 tints the copper core amber.
+static func heat_pipe(ci: CanvasItem, pos: Vector2, links: Array, pads: Array, warmth: float) -> void:
+	var c := pos + Vector2(32, 32)
+	var ends := []
+	for d in links:
+		ends.append([c + Vector2(d) * 32.0, Vector2(d)])
+	for d in pads:
+		ends.append([c + Vector2(d) * 22.0, Vector2(d)])
+	for layer in [[Palette.MATERIAL_VENT, 12.0], [Palette.MATERIAL_COPPER_DIM, 9.0], [Color(Palette.MATERIAL_COPPER, 0.85), 2.5]]:
+		for e in ends:
+			ci.draw_line(c, e[0], layer[0], layer[1])
+		ci.draw_rect(Rect2(c - Vector2.ONE * layer[1] * 0.5, Vector2.ONE * layer[1]), layer[0])
+	if warmth > 0.01:
+		for e in ends:
+			ci.draw_line(c, e[0], Color(Palette.STATE_BLOCKED, clampf(warmth, 0.0, 1.0) * 0.75), 3.0)
+	for e in ends:
+		var dv: Vector2 = e[1]
+		var off := Vector2(0, -2.5) if absf(dv.x) > 0.0 else Vector2(-2.5, 0)
+		ci.draw_line(c + off, e[0] + off, Color(Palette.MATERIAL_GOLD, 0.35), 0.8)
+	for d in pads:
+		var p := c + Vector2(d) * 22.0
+		var r := Rect2(p - Vector2(8, 8), Vector2(16, 16))
+		rrect(ci, r, 3.0, Palette.MATERIAL_COPPER_DIM)
+		rrect_outline(ci, r, 3.0, Palette.MATERIAL_COPPER, 1.2)
+		ci.draw_circle(p, 3.0, Color(Palette.MATERIAL_COPPER, 0.9))

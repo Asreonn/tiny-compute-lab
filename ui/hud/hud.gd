@@ -28,6 +28,7 @@ func _ready() -> void:
 	_panel("res://ui/hud/mission_summary.gd")
 	var tooltip := _panel("res://ui/hud/tooltip.gd")
 	_panel("res://ui/hud/result_panel.gd")
+	_panel("res://ui/hud/overlay_legend.gd")
 	_menu = _panel("res://ui/hud/main_menu.gd")
 	rail.tools = tools
 	palette.tools = tools
@@ -140,6 +141,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_2: sm.set_speed(sm.SPEEDS[1])
 		KEY_3: sm.set_speed(sm.SPEEDS[2])
 		KEY_4: sm.set_speed(sm.SPEEDS[3])
+		KEY_T: sm.toggle_overlay("thermal")
+		KEY_P: sm.toggle_overlay("power")
 
 
 func _notice(text: String, kind: String) -> void:

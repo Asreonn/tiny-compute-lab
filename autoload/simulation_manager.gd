@@ -10,6 +10,7 @@ signal run_state_changed(running: bool)
 signal run_finished(status: int)
 signal speed_changed(speed: int)
 signal view_mode_changed(mode: int)
+signal overlay_changed(kind: String)
 
 const MAX_STEPS_PER_FRAME := 8
 ## Real-time playback at 1× (player feedback 2026-09-24: 1× should be calm; the former 1× of
@@ -32,6 +33,8 @@ var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation 
 ## Display state only: the ViewMode.Mode the HUD offers for packet/machine values.
 ## -1 = mission default (the mission's first view mode); reset on every mission load.
 var view_mode := -1
+## Board overlay over the machines: "" | "thermal" | "power" (keys T / P; at most one at a time).
+var overlay := ""
 var _acc := 0.0
 
 
@@ -168,6 +171,12 @@ func set_speed(s: int) -> void:
 	if s in SPEEDS and s != speed:
 		speed = s
 		speed_changed.emit(s)
+
+
+## Toggle the thermal / power overlay (pressing the shown one again hides it).
+func toggle_overlay(kind: String) -> void:
+	overlay = "" if overlay == kind else kind
+	overlay_changed.emit(overlay)
 
 
 ## Switch the display view mode (never the data). Emits view_mode_changed when it changes.
