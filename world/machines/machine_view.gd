@@ -915,7 +915,7 @@ class UsbSocketView extends Node2D:
 		SystemsDraw.port_face(self, Vector2(-6, 14), plugged, _lit, false)
 		if _anim_device != "":
 			SystemsDraw.data_module(self, Vector2(-102 + _offset, 4), _anim_device, {
-				"inserted": true, "cursor": _cursor,
+				"inserted": true, "cursor": _cursor, "glyph": SystemsDraw.kind_glyph(_anim_device),
 				"acc": SystemsDraw._kind_accent(_anim_device), "alpha": _alpha,
 			})
 		elif hovered and machine.device == "":
@@ -944,7 +944,7 @@ class ContractDriveView extends Node2D:
 		if sim != null and sim.tick != _last_tick:
 			_last_tick = sim.tick
 			for e in sim.events:
-				if str(e.get("kind", "")) == "output" and int(e.get("machine", -1)) == machine.id:
+				if str(e.get("kind", "")) == "output" and int(e.get("machine", -1)) == machine.id and (not machine.socket or machine.device == "job"):
 					_flash_start = Time.get_ticks_msec() / 1000.0
 					_flash_ok = bool((run.last_ok[0] as Dictionary).get("ok", true)) if run.last_ok.size() > 0 else true
 					_underline = not _flash_ok
@@ -954,6 +954,28 @@ class ContractDriveView extends Node2D:
 			if lct >= 0:
 				_lct_start = Time.get_ticks_msec() / 1000.0
 		queue_redraw()
+
+	## The Monitor shows the last value it received (in the HUD view mode) + a 10-sample history.
+	func _draw_monitor() -> void:
+		var vals: Array = machine.received
+		var value := ""
+		var hist := []
+		var raw := false
+		for p in vals:
+			var pk: Packet = p
+			if pk.is_raw():
+				raw = true
+				hist.append(0.5)
+			else:
+				var w := maxi(pk.data.width, 1)
+				hist.append(float(pk.data.unsigned()) / float((1 << mini(w, 16)) - 1) if w > 0 else 0.0)
+		if not vals.is_empty():
+			var last: Packet = vals[vals.size() - 1]
+			var vm: int = SimulationManager.view_mode if SimulationManager.view_mode >= 0 else ViewMode.Mode.BIN
+			value = last.label(vm) if last.is_raw() else ViewMode.format(last.data, vm).replace(" ", "")
+			if value.length() > 8:
+				value = value.substr(0, 8)
+		SystemsDraw.monitor(self, Vector2(134, 4), value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
 
 	func _glyph(run) -> String:
 		if run.has_method("request_label"):
@@ -972,7 +994,13 @@ class ContractDriveView extends Node2D:
 		var fill := 0.0
 		if run.has_method("request_count") and run.request_count() > 0:
 			fill = clampf(float(run.delivered) / float(run.request_count()), 0.0, 1.0)
-		SystemsDraw.port_face(self, Vector2(118, 14), true, false, true)
+		var dev: String = machine.device if machine.socket else "job"
+		SystemsDraw.port_face(self, Vector2(118, 14), dev != "", false, true)
+		if dev == "monitor":
+			_draw_monitor()
+			return
+		if dev != "job":
+			return  # an empty output port: nothing is there (wires into it stall)
 		SystemsDraw.data_module(self, Vector2(134, 4), "job", {
 			"flip": true, "inserted": true, "glyph": _glyph(run), "fill": fill, "acc": accent,
 		})

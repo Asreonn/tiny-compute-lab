@@ -14,13 +14,17 @@ extends Node2D
 ## The tool layer (Slice A5a): added as the last child so it receives unhandled input
 ## before the CameraRig (RMB never pans while a tool drag is active).
 var tools: ToolController
+## Desk zones + port racks (added after the tools so it sees clicks first; it only claims its
+## own areas: the desk mats and the modules sticking out of the ports).
+var desk: DeskView
 var _fit_sim: Simulation = null
 var _fit_size := Vector2i.ZERO
 ## Lab-expansion reveal: ids of the locked USB Inputs added on the last level-up, plus the
 ## shared reveal start. Views own the fade clock; World just tags the freshly added machines.
 const REVEAL_DURATION := 2.5
-## Horizontal room for the USB data modules outside the grid (module 96 px + plug clearance).
-const IO_OVERHANG := 112.0
+## Horizontal room outside the grid: the plugged USB modules (112 px) + the desk mats beside
+## the laptop (gap 32 + mat 168 + margin 16) — SYSTEMS_EXPANSION §2.2.
+const IO_OVERHANG := 328.0
 var _known_ids: Array = []
 var _prev_size := Vector2i.ZERO
 var _reveal_ids: Array = []
@@ -33,6 +37,9 @@ func _ready() -> void:
 	tools.name = "Tools"
 	add_child(tools)
 	tools.add_to_group("tools")
+	desk = DeskView.new()
+	desk.name = "DeskView"
+	add_child(desk)
 	SimulationManager.mission_loaded.connect(_rebuild)
 	SimulationManager.layout_changed.connect(_rebuild)
 	_rebuild()
@@ -76,6 +83,8 @@ func _rebuild(_def: Variant = null) -> void:
 		cv.packet_positions = packet_layer.comet_arcs.bind(id)
 		wire_layer.add_child(cv)
 	board_view.redraw()
+	if desk != null:
+		desk.redraw()
 	# Refit the camera only for a new board or a board-size change (lab expansion) — never on
 	# ordinary edits, so the player's pan/zoom survives placing machines and wires.
 	if sim != _fit_sim or sim.size != _fit_size:

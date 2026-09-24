@@ -117,6 +117,7 @@ func build_board(sim: Simulation) -> void:
 	sim.mission = self
 	unlocked = LabDef.unlocks_upto(level)
 	_ensure_io(sim)
+	new_devices = PackedStringArray()  # a fresh board is not a level-up: nothing pulses as "New"
 	reset(sim)
 	sim.changed.emit()
 
@@ -466,4 +467,5 @@ func desk_from_dict(d: Dictionary, sim: Simulation) -> void:
 	for k in d.get("out", {}):
 		desk_outputs[int(k)] = str(d["out"][k])
 	sync_desk(sim)
+	new_devices = PackedStringArray()  # restoring a save is not a level-up
 

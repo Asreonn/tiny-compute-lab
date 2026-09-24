@@ -186,7 +186,14 @@ const MOD_END := {
 	"key": "notch",
 	"sensor": "fins",
 	"job": "slant",
+	"monitor": "bezel",
 }
+## The glyph a module shows in its window (systems_v1.js MOD).
+const MOD_GLYPH := {"bit": "010", "number": "42", "text": "Aa", "key": "K#", "sensor": "~"}
+
+
+static func kind_glyph(kind: String) -> String:
+	return str(MOD_GLYPH.get(kind, ""))
 
 
 ## dataModule(kind, opts): 96x56 module with a male USB-A plug. `pos` = top-left of the body.
@@ -283,6 +290,8 @@ static func _mod_path(end: String, flip: bool) -> PackedVector2Array:
 			raw = [[10, 0], [96, 0], [96, 56], [10, 56], [5, 51], [5, 5]]
 		"slant":
 			raw = [[16, 0], [96, 0], [96, 56], [0, 56], [0, 16]]
+		"bezel":
+			raw = [[6, 0], [96, 0], [96, 56], [6, 56], [0, 50], [0, 6]]
 		_:
 			raw = [[5, 0], [96, 0], [96, 56], [5, 56], [0, 51], [0, 5]]
 	var out := PackedVector2Array()
@@ -303,3 +312,35 @@ static func mini_module(ci: CanvasItem, pos: Vector2, kind: String, alpha := 1.0
 
 static func _kind_accent(kind: String) -> Color:
 	return Palette.DATA_NUMBER if kind == "bit" else Palette.FAMILY_IO
+
+
+# ================================================================ monitor (output device)
+
+## Monitor (Penpot 15 / 02c): bezel silhouette, state.select key bar, a wide screen with the last
+## value and a 10-sample history strip. Output-side device, plug on the west (flip) like the job
+## drive. `hist` = up to 10 heights in 0..1 (oldest first). `pos` = top-left of the body.
+static func monitor(ci: CanvasItem, pos: Vector2, value: String, hist: Array, accent: Color, opts: Dictionary = {}) -> void:
+	var alpha: float = opts.get("alpha", 1.0)
+	var inserted: bool = opts.get("inserted", false)
+	if not inserted:
+		male_plug(ci, pos + Vector2(-22, 14), true, alpha)
+	var pts := PackedVector2Array()
+	for p in _mod_path("bezel", true):
+		pts.append(pos + p)
+	ci.draw_colored_polygon(pts, Color(Palette.MATERIAL_PLATE, alpha))
+	ci.draw_polyline(pts, Color(Palette.MACHINE_FRAME, alpha), 1.5, true)
+	ci.draw_rect(Rect2(pos + Vector2(20, 2), Vector2(60, 1)), Color(Palette.MATERIAL_PLATE_HI, alpha))
+	rrect(ci, Rect2(pos + Vector2(54, 6), Vector2(22, 3)), 1.0, Color(Palette.STATE_SELECT, 0.8 * alpha))
+	var scr := Rect2(pos + Vector2(14, 12), Vector2(70, 26))
+	rrect(ci, scr, 3.0, Color(Palette.MACHINE_SCREEN, alpha))
+	rrect_outline(ci, scr, 3.0, Color(Palette.MATERIAL_FRAME, alpha), 1.0)
+	if value != "":
+		text_center(ci, scr, value, 13.0 if value.length() > 4 else 15.0, Color(accent, alpha))
+	var n := hist.size()
+	for i in n:
+		var h := clampf(float(hist[i]), 0.08, 1.0) * 10.0
+		rrect(ci, Rect2(pos + Vector2(18 + i * 6.4, 50 - h), Vector2(4, h)), 0.5, Color(accent, (0.25 + 0.075 * i) * alpha))
+	var collar := Rect2(pos + Vector2(0, 10), Vector2(8, 36))
+	rrect(ci, collar, 1.0, Color(Palette.MATERIAL_PLATE_HI, alpha))
+	rrect_outline(ci, collar, 1.0, Color(Palette.MACHINE_FRAME, alpha), 1.0)
+
