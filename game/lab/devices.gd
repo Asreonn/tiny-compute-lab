@@ -17,9 +17,25 @@ const KINDS := {
 	"sensor": {"name": "Sensor module", "out": "raw", "raw_kind": RawValue.Kind.SENSOR},
 }
 
+## Output devices the player plugs into an output port (docs/SYSTEMS_EXPANSION.md §2.1).
+const OUTPUT_KINDS := {
+	"job": {"name": "Job drive"},
+	"monitor": {"name": "Monitor"},
+}
+
 
 static func has(kind: String) -> bool:
 	return KINDS.has(kind)
+
+
+static func has_output(kind: String) -> bool:
+	return OUTPUT_KINDS.has(kind)
+
+
+static func output_display_name(kind: String) -> String:
+	if not OUTPUT_KINDS.has(kind):
+		return ""
+	return str(OUTPUT_KINDS[kind]["name"])
 
 
 ## "bits" or "raw" for a known kind; an unknown/absent module reads as "bits" so an empty

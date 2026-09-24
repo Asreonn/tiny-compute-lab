@@ -139,7 +139,7 @@ static func _migrate_layout(layout: Dictionary) -> Dictionary:
 		nc["from"] = remap[a]
 		nc["to"] = remap[b]
 		new_conns.append(nc)
-	return {"size": layout.get("size", [20, 12]), "machines": new_machines, "connections": new_conns}
+	return {"size": layout.get("size", [28, 16]), "machines": new_machines, "connections": new_conns}
 
 
 static func _save(data: Dictionary) -> void:

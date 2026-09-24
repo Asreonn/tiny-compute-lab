@@ -81,7 +81,14 @@ func _start_socket(m, sim) -> void:
 func _start_output(m, sim) -> void:
 	if m.inq["in"].is_empty():
 		return
+	if m.type == "usb_output" and m.socket and m.device == "":
+		return  # empty Lab output port: nothing is there (can_accept already refuses)
 	var p: Packet = m.pop("in")
 	m.received.append(p)
 	m.processed += 1
+	if m.type == "usb_output" and m.socket and m.device == "monitor":
+		# The Monitor keeps the last 10 samples and judges nothing (SYSTEMS_EXPANSION §2.1).
+		while m.received.size() > 10:
+			m.received.pop_front()
+		return
 	sim.note_output(m, p)

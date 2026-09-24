@@ -133,9 +133,13 @@ static func _lab_io(sim: Simulation) -> Dictionary:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
 		if m.type == "usb_input":
-			socket = id
+			if socket < 0:
+				socket = id  # the first input port drives the contract's primary origin
 		elif m.type == "usb_output":
-			drive = id
+			if m.device == "job":
+				drive = id
+			elif drive < 0:
+				drive = id
 	return {"socket": socket, "drive": drive}
 
 

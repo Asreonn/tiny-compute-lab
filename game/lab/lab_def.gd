@@ -10,11 +10,15 @@ extends RefCounted
 ##   unlocks   machine types unlocked when this level starts
 ##   grow      board size once this level starts (never smaller than the previous)
 ##   view      ViewMode.Mode used to display the contract
-## ONE socket (column 0, row 5) + ONE Contract Drive (the last two columns, row 5) for all levels.
+## The laptop port racks (docs/SYSTEMS_EXPANSION.md §2.1): 4 input ports on the west edge
+## (column 0) and 4 output ports on the east edge (last two columns). Ports sit at rows 1, 4,
+## 7 and 10; they open top-first and the sealed ones are reserved bays until their level.
 
-const SOCKET_CELL := Vector2i(0, 5)
-const INITIAL_SIZE := Vector2i(20, 12)
+const SOCKET_CELL := Vector2i(0, 1)
+const INITIAL_SIZE := Vector2i(28, 16)
 const OUTPUT_TYPE := "usb_output"
+## Every port row, top to bottom. All are sealed except the open ones for the level.
+const PORT_ROWS := [1, 4, 7, 10]
 
 ## The 8 three-bit words the contract streams cycle through.
 const WORDS_3 := ["010", "101", "111", "000", "011", "110", "001", "100"]
@@ -25,7 +29,7 @@ static var LEVELS: Array = [
 		"brief": "A stick of raw data was plugged in. Hand the words back unchanged.",
 		"contract": {"kind": "deliver", "value": "010", "count": 10},
 		"streams": {"bit": {"values": ["010"], "width": 3, "interval": 4}},
-		"devices": ["bit"], "unlocks": [], "grow": Vector2i(20, 12),
+		"devices": ["bit"], "unlocks": [], "grow": Vector2i(28, 16),
 		"view": ViewMode.Mode.BIN,
 	},
 	{
@@ -52,11 +56,11 @@ static var LEVELS: Array = [
 		"brief": "The stick now speaks numbers. Encode one, add one, hand the bits back.",
 		"contract": {"kind": "map", "ops": [{"op": "encode_num", "width": 3}, {"op": "add", "k": 1}], "count": 20, "accept_format": "bits", "accept_width": 3},
 		"streams": {"number": {"values": [3, 6, 1, 4, 7, 2, 5, 0]}},
-		"devices": ["number"], "unlocks": ["number_encoder", "number_decoder"], "grow": Vector2i(24, 14),
+		"devices": ["number"], "unlocks": ["number_encoder", "number_decoder"],
 		"view": ViewMode.Mode.UDEC,
 	},
 	{
-		"id": "lab_l6", "title": "Letters",
+		"id": "lab_l6", "title": "Letters", "grow": Vector2i(32, 18),
 		"brief": "A text stick carries letters. Shift each one by three.",
 		"contract": {"kind": "map", "ops": [{"op": "encode_char", "width": 5}, {"op": "add", "k": 3}, {"op": "decode_char"}], "count": 24, "accept_format": "text"},
 		"streams": {"text": {"values": ["HELLOCOMPUTE"]}},
@@ -84,7 +88,7 @@ static var LEVELS: Array = [
 		"brief": "A noisy sensor. Keep only the readings above four.",
 		"contract": {"kind": "filter", "ops": [{"op": "encode_num", "width": 3}, {"op": "keep_if", "cmp": ">", "k": 4}], "count": 16, "accept_format": "bits", "accept_width": 3},
 		"streams": {"sensor": {"values": [2, 6, 5, 1, 7, 3, 4, 0, 6, 2]}},
-		"devices": ["sensor"], "unlocks": ["compare", "gate", "splitter"], "grow": Vector2i(32, 18),
+		"devices": ["sensor"], "unlocks": ["compare", "gate", "splitter"], "grow": Vector2i(36, 20),
 		"view": ViewMode.Mode.UDEC,
 	},
 	{
@@ -100,7 +104,7 @@ static var LEVELS: Array = [
 		"brief": "Values arrive fast. Multiply in parallel to keep up.",
 		"contract": {"kind": "map", "ops": [{"op": "mul", "k": 3}], "count": 30, "accept_format": "bits", "accept_width": 3, "min_rate": 4.0},
 		"streams": {"bit": {"values": WORDS_3, "width": 3, "interval": 2}},
-		"unlocks": ["multiply", "merger"], "grow": Vector2i(36, 20),
+		"unlocks": ["multiply", "merger"], "grow": Vector2i(40, 22),
 		"view": ViewMode.Mode.BIN,
 	},
 ]
@@ -119,9 +123,80 @@ static func contract_for(i: int) -> Contract:
 	return Contract.from_level(level(i))
 
 
-## The drive cell once the board is `size`: the east edge, row 5.
+## The cell of the port at `row` on `side` ("in" = west column 0, "out" = east edge).
+static func port_cell(size: Vector2i, side: String, row: int) -> Vector2i:
+	return Vector2i(0 if side == "in" else size.x - 2, row)
+
+
+## The default drive cell once the board is `size`: the east edge, row 1.
 static func drive_cell(size: Vector2i) -> Vector2i:
-	return Vector2i(size.x - 2, 5)
+	return port_cell(size, "out", PORT_ROWS[0])
+
+
+## The input rows open at level index `idx`: row 1 from L1, row 4 from L12, row 7 from L18.
+static func open_input_rows(level_idx: int) -> Array[int]:
+	var out: Array[int] = [PORT_ROWS[0]]
+	if level_idx >= 11:
+		out.append(PORT_ROWS[1])
+	if level_idx >= 17:
+		out.append(PORT_ROWS[2])
+	return out
+
+
+## The output rows open at level index `idx`: row 1 from L1, row 4 from L9, row 7 from L12.
+static func open_output_rows(level_idx: int) -> Array[int]:
+	var out: Array[int] = [PORT_ROWS[0]]
+	if level_idx >= 8:
+		out.append(PORT_ROWS[1])
+	if level_idx >= 11:
+		out.append(PORT_ROWS[2])
+	return out
+
+
+## The rows of `side` still sealed at level index `idx` (row 10 is always sealed).
+static func sealed_rows(level_idx: int, input_side: bool) -> Array[int]:
+	var open := open_input_rows(level_idx) if input_side else open_output_rows(level_idx)
+	var out: Array[int] = []
+	for r in PORT_ROWS:
+		if not open.has(r):
+			out.append(r)
+	return out
+
+
+## Every port of `side` open at level index `idx`, as [{side, row}] in board creation order:
+## [input row 1, output row 1] first (save migration depends on it), then as they open.
+static func ports_upto(level_idx: int) -> Array:
+	var out: Array = [
+		{"side": "in", "row": PORT_ROWS[0]},
+		{"side": "out", "row": PORT_ROWS[0]},
+	]
+	if level_idx >= 8:
+		out.append({"side": "out", "row": PORT_ROWS[1]})
+	if level_idx >= 11:
+		out.append({"side": "out", "row": PORT_ROWS[2]})
+		out.append({"side": "in", "row": PORT_ROWS[1]})
+	if level_idx >= 17:
+		out.append({"side": "in", "row": PORT_ROWS[2]})
+	return out
+
+
+## The view label of a port slot: "USB 2 · opens at L12" or "USB 4 · sealed".
+static func slot_label(side: String, row: int) -> String:
+	var n := PORT_ROWS.find(row) + 1
+	var open_at := -1
+	if side == "in":
+		if row == PORT_ROWS[1]:
+			open_at = 11
+		elif row == PORT_ROWS[2]:
+			open_at = 17
+	else:
+		if row == PORT_ROWS[1]:
+			open_at = 8
+		elif row == PORT_ROWS[2]:
+			open_at = 11
+	if open_at >= 0:
+		return "USB %d · opens at L%d" % [n, open_at + 1]
+	return "USB %d · sealed" % n
 
 
 ## A representative BitVector for the HUD (LabRun.request_bits). deliver: the value. Others:

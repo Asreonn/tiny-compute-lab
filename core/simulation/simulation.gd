@@ -21,6 +21,9 @@ const RATE_WINDOW := 30
 const STALL_TICKS := 60
 
 var size := Vector2i(20, 12)
+## Sealed port bays: cell -> view label (docs/SYSTEMS_EXPANSION.md §2.1). Reserved tiles are
+## not buildable and wires cannot route through them. Mission boards leave it empty.
+var reserved: Dictionary = {}
 var machines: Dictionary = {}  # id -> Machine
 var connections: Dictionary = {}  # id -> Connection
 var _next_machine_id := 1
@@ -58,6 +61,7 @@ func clear() -> void:
 	machines.clear()
 	connections.clear()
 	_conn_at_port.clear()
+	reserved.clear()
 	_next_machine_id = 1
 	_next_conn_id = 1
 	reset_run()
@@ -103,6 +107,16 @@ func machine_at(c: Vector2i) -> Machine:
 	return null
 
 
+## True when `cell` is a sealed port bay (reserved): not buildable, wires cannot cross it.
+func is_reserved(cell: Vector2i) -> bool:
+	return reserved.has(cell)
+
+
+## The view label of a sealed bay, e.g. "USB 2 · opens at L12"; "" when not reserved.
+func reserved_label(cell: Vector2i) -> String:
+	return str(reserved.get(cell, ""))
+
+
 ## Returns "" when placement is valid, otherwise a player-facing reason.
 func placement_error(type: String, cell: Vector2i, rot: int, ignore_id: int = -1) -> String:
 	var s := Catalog.size_of(type, rot)
@@ -114,6 +128,8 @@ func placement_error(type: String, cell: Vector2i, rot: int, ignore_id: int = -1
 				return "Outside the board"
 			if occ.has(c):
 				return "Tile occupied by " + machines[occ[c]].label
+			if reserved.has(c):
+				return "Sealed USB bay"
 	if mission != null and not mission.allows(type):
 		return "Not available in this mission"
 	return ""
@@ -211,6 +227,14 @@ func _relayout(m: Machine, cell: Vector2i, rot: int) -> bool:
 	return true
 
 
+## Machine tiles plus reserved (sealed bay) tiles: what the router treats as walls.
+func _routing_blocked() -> Dictionary:
+	var b := occupancy()
+	for c in reserved:
+		b[c] = -1
+	return b
+
+
 ## Connection ids whose routed tiles overlap `cells`.
 func _wires_through(cells: Array) -> Array:
 	var out := []
@@ -300,9 +324,13 @@ func set_width(id: int, w: int) -> Array:
 ## the mission's contract (`stream_for_device`), or from `stream_override` for a specific
 ## socket (the lab's per-source stream).
 func insert_device(machine_id: int, kind: String, stream_override: Dictionary = {}) -> bool:
-	if not machines.has(machine_id) or not Devices.has(kind):
+	if not machines.has(machine_id):
 		return false
 	var m: Machine = machines[machine_id]
+	if m.type == "usb_output":
+		return _insert_output_device(m, kind)
+	if not Devices.has(kind):
+		return false
 	if not m.socket:
 		return false
 	var spec: Dictionary = stream_override if not stream_override.is_empty() else _device_stream_spec(kind)
@@ -339,12 +367,36 @@ func insert_device(machine_id: int, kind: String, stream_override: Dictionary = 
 	return true
 
 
+## Plug an output device ("job"|"monitor"|"") into an output port. There is exactly one
+## job drive: plugging it elsewhere unplugs the previous port first. An empty port accepts
+## nothing (Machine.can_accept returns false), so a wire into it stalls.
+func _insert_output_device(m: Machine, kind: String) -> bool:
+	if kind != "" and not Devices.has_output(kind):
+		return false
+	if kind == "job":
+		for id in sorted_machine_ids():
+			var o: Machine = machines[id]
+			if o.type == "usb_output" and o.id != m.id and o.device == "job":
+				o.device = ""
+	m.device = kind
+	if kind != "":
+		m.last_device = kind
+	events.append({"kind": "device", "machine": m.id, "device": kind})
+	changed.emit()
+	return true
+
+
 ## Unplug the module: no data flows, but the wire stays and the output role follows
 ## `last_device`, so the wire is never invalidated.
 func remove_device(machine_id: int) -> bool:
 	if not machines.has(machine_id):
 		return false
 	var m: Machine = machines[machine_id]
+	if m.type == "usb_output":
+		m.device = ""
+		events.append({"kind": "device", "machine": machine_id, "device": ""})
+		changed.emit()
+		return true
 	if not m.socket:
 		return false
 	m.device = ""
@@ -430,7 +482,7 @@ func route_between(a: int, pa: String, b: int, pb: String, ignore_conn: int = -1
 		return {"ok": true, "cells": [] as Array[Vector2i]}
 	var sd: Vector2i = Catalog.side_vec(ga["side"])
 	var gd: Vector2i = -Catalog.side_vec(gb["side"])
-	var cells := Router.route(size, occupancy(), wire_tiles(ignore_conn), ga["outside"], sd, gb["outside"], gd)
+	var cells := Router.route(size, _routing_blocked(), wire_tiles(ignore_conn), ga["outside"], sd, gb["outside"], gd)
 	return {"ok": not cells.is_empty(), "cells": cells}
 
 
@@ -511,7 +563,7 @@ func route_error(a: int, pa: String, b: int, pb: String, cells: Array) -> String
 		return "" if ga["outside"] == gb["cell"] and gb["outside"] == ga["cell"] else "No route"
 	if cells[0] != ga["outside"] or cells[cells.size() - 1] != gb["outside"]:
 		return "No route"
-	var occ := occupancy()
+	var occ := _routing_blocked()
 	for i in cells.size():
 		var c: Vector2i = cells[i]
 		if c.x < 0 or c.y < 0 or c.x >= size.x or c.y >= size.y or occ.has(c):

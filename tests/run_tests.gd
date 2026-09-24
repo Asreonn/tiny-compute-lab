@@ -12,6 +12,7 @@ func _init() -> void:
 	BitVectorTests.run(self)
 	SignalGeomTests.run(self)
 	RawTests.run(self)
+	PortTests.run(self)
 	UsbTests.run(self)
 	ContractTests.run(self)
 	SaveStoreTests.run(self)
@@ -489,7 +490,7 @@ func _lab_log(ticks: int) -> String:
 	var sim := Simulation.new()
 	var run := LabRun.new()
 	run.build_board(sim)
-	var src := _lab_source_at(sim, Vector2i(0, 5))
+	var src := _lab_source_at(sim, Vector2i(0, 1))
 	var out := _lab_output(sim)
 	sim.connect_ports(src.id, "out", out.id, "in")
 	var log := PackedStringArray()
@@ -507,10 +508,10 @@ func test_lab_mode() -> void:
 	var sim := Simulation.new()
 	var run := LabRun.new()
 	run.build_board(sim)
-	check(run.level == 0 and sim.size == Vector2i(20, 12), "lab starts at L1 on a 20x12 board")
+	check(run.level == 0 and sim.size == Vector2i(28, 16), "lab starts at L1 on a 28x16 board")
 	check(Catalog.has("usb_output"), "usb_output is in the catalog")
 	var out := _lab_output(sim)
-	var src := _lab_source_at(sim, Vector2i(0, 5))
+	var src := _lab_source_at(sim, Vector2i(0, 1))
 	check(out != null and src != null, "lab starts with a Contract Drive and a USB socket")
 	check(src.socket and src.device == "bit", "L1 plugs the Bit module in automatically")
 	check(run.request_label() == "deliver 010 × 10", "L1's contract is deliver 010 x10 (got '%s')" % run.request_label())
@@ -545,15 +546,17 @@ func test_lab_mode() -> void:
 	check(run.status == MissionRun.Status.RUNNING, "wrong values never fail the lab")
 	check(run.failure.is_empty(), "the lab records no failure")
 
-	# --- L5: the board grows and the drive follows the east edge ---
+	# --- L6: the board grows and the output ports follow the east edge ---
 	var sim4 := Simulation.new()
 	var run4 := LabRun.new()
-	run4.level = 4
+	run4.level = 5
 	run4.build_board(sim4)
-	check(sim4.size == Vector2i(24, 14), "L5 board grows to 24x14 (got %s)" % sim4.size)
-	check(_lab_source_at(sim4, Vector2i(0, 5)) != null, "the socket stays at column 0")
-	check(_lab_output(sim4).cell == Vector2i(22, 5), "the drive sits at the L5 east edge")
-	check(run4.request_bits().width == 3 and run4.view_mode() == ViewMode.Mode.UDEC, "L5 request is a 3-bit number")
+	check(sim4.size == Vector2i(32, 18), "L6 board grows to 32x18 (got %s)" % sim4.size)
+	check(_lab_source_at(sim4, Vector2i(0, 1)) != null, "the socket stays at column 0, row 1")
+	check(_lab_output(sim4).cell == Vector2i(30, 1), "the job drive's port sits at the L6 east edge")
+	var run4b := LabRun.new()
+	run4b.level = 4
+	check(run4b.request_bits().width == 3 and run4b.view_mode() == ViewMode.Mode.UDEC, "L5 request is a 3-bit number")
 
 	# --- width "*": the same drive also accepts a 5-bit wire ---
 	var sim5 := Simulation.new()
@@ -561,7 +564,7 @@ func test_lab_mode() -> void:
 	run5.level = 7
 	run5.build_board(sim5)
 	var out5 := _lab_output(sim5)
-	var src5 := _lab_source_at(sim5, Vector2i(0, 5))
+	var src5 := _lab_source_at(sim5, Vector2i(0, 1))
 	sim5.insert_device(src5.id, "bit")
 	var c5 := sim5.connect_ports(src5.id, "out", out5.id, "in")
 	check(c5 != null and out5.port_width("in") == 5, "the drive accepts a 5-bit wire and resolves its width")
@@ -578,7 +581,7 @@ func test_lab_mode() -> void:
 	sim2.load_player_layout(loaded["layout"])
 	check(sim2.machines.size() == sim.machines.size(), "lab reload keeps every machine")
 	check(sim2.connections.size() == sim.connections.size(), "lab reload keeps every wire")
-	check(_lab_source_at(sim2, Vector2i(0, 5)) != null, "lab reload rebuilds the socket")
+	check(_lab_source_at(sim2, Vector2i(0, 1)) != null, "lab reload rebuilds the socket")
 	var has_add := false
 	for id in sim2.machines:
 		if sim2.machines[id].type == "add":

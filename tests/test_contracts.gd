@@ -55,9 +55,9 @@ static func _io(sim: Simulation) -> Dictionary:
 	var drive := -1
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type == "usb_input":
+		if m.type == "usb_input" and m.cell.y == LabDef.PORT_ROWS[0]:
 			socket = id
-		elif m.type == "usb_output":
+		elif m.type == "usb_output" and m.device == "job":
 			drive = id
 	return {"socket": socket, "drive": drive}
 
@@ -136,7 +136,7 @@ static func _lab_levels(t) -> void:
 		run.level = idx
 		run.build_board(sim)
 		var io := _io(sim)
-		t.check(io["socket"] >= 0 and sim.machines[io["socket"]].cell == LabDef.SOCKET_CELL, "L%d socket sits at column 0, row 5" % (idx + 1))
+		t.check(io["socket"] >= 0 and sim.machines[io["socket"]].cell == LabDef.SOCKET_CELL, "L%d socket sits at column 0, row 1" % (idx + 1))
 		t.check(io["drive"] >= 0 and sim.machines[io["drive"]].cell == LabDef.drive_cell(sim.size), "L%d drive sits at the east edge" % (idx + 1))
 		Solutions.lab_solution(sim, idx)
 		sim.reset_run()
@@ -156,7 +156,8 @@ static func _constraints(t) -> void:
 	run.build_board(sim)
 	var io := _io(sim)
 	sim.insert_device(io["socket"], "bit")
-	var a := sim.place("add", Vector2i(4, 5), 0, {"k": 1}, 3)
+	# right next to the socket: a short wire + the 2-slot FIFO cannot absorb a 12-value burst
+	var a := sim.place("add", Vector2i(3, LabDef.PORT_ROWS[0]), 0, {"k": 1}, 3)
 	sim.connect_ports(io["socket"], "out", a.id, "in")
 	sim.connect_ports(a.id, "out", io["drive"], "in")
 	sim.reset_run()
@@ -189,15 +190,15 @@ static func _drive_move(t) -> void:
 	run.build_board(sim)
 	var io := _io(sim)
 	var drive: Machine = sim.machines[io["drive"]]
-	t.check(drive.cell == Vector2i(18, 5), "L1 drive starts at (18, 5)")
+	t.check(drive.cell == Vector2i(26, 1), "L1 drive starts at (26, 1)")
 	sim.connect_ports(io["socket"], "out", drive.id, "in")
 	t.check(sim.connections.size() == 1, "the socket is wired to the drive")
-	# Walk the levels up to L5, whose grow widens the board.
-	for i in 4:
+	# Walk the levels up to L6, whose grow widens the board.
+	for i in 5:
 		run._advance(sim)
-	t.check(run.level == 4, "four advances reach L5 (got %d)" % run.level)
-	t.check(sim.size == Vector2i(24, 14), "L5 grows the board to 24x14 (got %s)" % sim.size)
-	t.check(drive.cell == Vector2i(22, 5), "the drive moved to the new east edge (got %s)" % drive.cell)
+	t.check(run.level == 5, "five advances reach L6 (got %d)" % run.level)
+	t.check(sim.size == Vector2i(32, 18), "L6 grows the board to 32x18 (got %s)" % sim.size)
+	t.check(drive.cell == Vector2i(30, 1), "the drive moved to the new east edge (got %s)" % drive.cell)
 	t.check(drive.locked, "the drive stays locked after the move")
 	t.check(sim.connection_at_port(drive.id, "in") != null, "the incoming wire survived the move")
 	t.check(sim.connections.size() == 1, "the move kept exactly one wire (got %d)" % sim.connections.size())

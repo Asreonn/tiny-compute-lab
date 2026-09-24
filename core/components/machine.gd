@@ -211,6 +211,9 @@ func reset() -> void:
 func can_accept(port_id: String) -> bool:
 	if not inq.has(port_id):
 		return false
+	# An output port with no device is not there: a wire into it must stall (SYSTEMS_EXPANSION §2.1).
+	if type == "usb_output" and socket and device == "":
+		return false
 	if type == "delay":
 		return delay_line.size() + inq[port_id].size() < int(params.get("ticks", 3))
 	return inq[port_id].size() < in_capacity(port_id)

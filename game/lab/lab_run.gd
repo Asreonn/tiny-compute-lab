@@ -77,6 +77,14 @@ func devices_owned() -> PackedStringArray:
 	return LabDef.devices_upto(level)
 
 
+## The output devices owned from L9 (idx 8) on: the Job drive, then the Monitor.
+func output_devices_owned() -> PackedStringArray:
+	var out := PackedStringArray(["job"])
+	if level >= 8:
+		out.append("monitor")
+	return out
+
+
 func correct_total() -> int:
 	return delivered
 
@@ -103,10 +111,6 @@ func build_board(sim: Simulation) -> void:
 	sim.mission = self
 	unlocked = LabDef.unlocks_upto(level)
 	_ensure_io(sim)
-	if level == 0:
-		var s := _socket(sim)
-		if s != null:
-			sim.insert_device(s.id, "bit")
 	reset(sim)
 	sim.changed.emit()
 
@@ -125,7 +129,7 @@ func reset(_sim: Simulation) -> void:
 
 
 func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
-	if m.type != LabDef.OUTPUT_TYPE:
+	if m.type != LabDef.OUTPUT_TYPE or m.device != "job":
 		return
 	var ok := contract().judge(p, _socket_ids(sim))
 	if ok:
@@ -198,67 +202,116 @@ func _advance(sim: Simulation) -> void:
 	sim.default_width = LabDef.request_bits(level).width
 	_ensure_io(sim)
 	if grew:
-		_move_drive(sim)
+		_move_output_ports(sim)
 	level_completed_tick = sim.tick
 	_sync()
 	sim.changed.emit()
 
 
-## Ensure the locked socket and Contract Drive exist at the grid edges. Sockets never move;
-## the drive follows the east edge (see _move_drive).
+## Ensure the locked port machines and sealed bays match the current level and board size.
 func _ensure_io(sim: Simulation) -> void:
-	if _socket(sim) == null:
-		var s := Machine.new(0, "usb_input", LabDef.SOCKET_CELL, 1)
-		s.locked = true
-		s.socket = true
-		s.loop = true
-		sim.add_machine(s)
-		s.label = "USB Input"
-	if _drive(sim) == null:
-		var d := Machine.new(0, LabDef.OUTPUT_TYPE, LabDef.drive_cell(sim.size), 1)
-		d.locked = true
-		sim.add_machine(d)
-		d.label = "Contract Drive"
+	_sync_reservations(sim)
+	_ensure_ports(sim)
+	if level == 0:
+		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
+		if first_in != null and first_in.device == "":
+			sim.insert_device(first_in.id, "bit")
+	if _job_drive(sim) == null:
+		var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
+		if first_out != null:
+			sim.insert_device(first_out.id, "job")
 
 
-## Move the locked drive to the new east edge, keeping its incoming wire (re-routed through the
-## new, empty tiles). If routing fails, drop that one wire and warn — never crash.
-func _move_drive(sim: Simulation) -> void:
-	var d := _drive(sim)
-	if d == null:
-		return
-	var target := LabDef.drive_cell(sim.size)
-	if d.cell == target:
-		return
-	var was_locked := d.locked
-	d.locked = false
-	if not sim.move(d.id, target):
-		var c := sim.connection_at_port(d.id, "in")
-		if c != null:
-			sim.disconnect_wire(c.id)
-		_io_warning = "The wire to the Contract Drive could not be re-routed."
-		sim.move(d.id, target)
-	d.locked = was_locked
+## Rebuild the sealed bay reservations: every not-yet-open port row reserves its 2x1 footprint
+## at the board edge (SYSTEMS_EXPANSION §2.1). Recomputed on every level/size change.
+func _sync_reservations(sim: Simulation) -> void:
+	sim.reserved.clear()
+	for row in LabDef.sealed_rows(level, true):
+		for c in _bay_cells(sim, "in", row):
+			sim.reserved[c] = LabDef.slot_label("in", row)
+	for row in LabDef.sealed_rows(level, false):
+		for c in _bay_cells(sim, "out", row):
+			sim.reserved[c] = LabDef.slot_label("out", row)
+
+
+func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
+	if side == "in":
+		return [Vector2i(0, row), Vector2i(1, row)]
+	return [Vector2i(sim.size.x - 2, row), Vector2i(sim.size.x - 1, row)]
+
+
+## Add every port open at the current level, in creation order: [input row 1, output row 1]
+## first, then the rest as they open (save migration depends on it).
+func _ensure_ports(sim: Simulation) -> void:
+	for p in LabDef.ports_upto(level):
+		var side := str(p["side"])
+		var row := int(p["row"])
+		if _port_at(sim, side, row) != null:
+			continue
+		var m := Machine.new(0, "usb_input" if side == "in" else LabDef.OUTPUT_TYPE, LabDef.port_cell(sim.size, side, row), 1)
+		m.locked = true
+		m.socket = true  # Lab port semantics on both sides (module/device slot)
+		if side == "in":
+			m.loop = true
+		sim.add_machine(m)
+		var n := LabDef.PORT_ROWS.find(row) + 1
+		m.label = "USB In %d" % n if side == "in" else "USB Out %d" % n
+
+
+func _port_at(sim: Simulation, side: String, row: int) -> Machine:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.cell.y != row:
+			continue
+		if side == "in":
+			if m.type == "usb_input":
+				return m
+		elif m.type == LabDef.OUTPUT_TYPE:
+			return m
+	return null
+
+
+func _input_at(sim: Simulation, row: int) -> Machine:
+	return _port_at(sim, "in", row)
+
+
+func _output_at(sim: Simulation, row: int) -> Machine:
+	return _port_at(sim, "out", row)
+
+
+func _job_drive(sim: Simulation) -> Machine:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == LabDef.OUTPUT_TYPE and m.device == "job":
+			return m
+	return null
+
+
+## Move every output port to the new east edge, keeping its incoming wire (re-routed through
+## the new, empty tiles). If a wire cannot be re-routed, drop that one and warn — never crash.
+## Input ports never move.
+func _move_output_ports(sim: Simulation) -> void:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type != LabDef.OUTPUT_TYPE:
+			continue
+		var target := LabDef.port_cell(sim.size, "out", m.cell.y)
+		if m.cell == target:
+			continue
+		var was_locked := m.locked
+		m.locked = false
+		if not sim.move(m.id, target):
+			var c := sim.connection_at_port(m.id, "in")
+			if c != null:
+				sim.disconnect_wire(c.id)
+			_io_warning = "A wire to an output port could not be re-routed."
+			sim.move(m.id, target)
+		m.locked = was_locked
 
 
 func _trim(tick: int) -> void:
 	while not accepted_ticks.is_empty() and accepted_ticks[0] <= tick - 60:
 		accepted_ticks.pop_front()
-
-
-func _socket(sim: Simulation) -> Machine:
-	for id in sim.sorted_machine_ids():
-		var m: Machine = sim.machines[id]
-		if m.type == "usb_input" and m.socket:
-			return m
-	return null
-
-
-func _drive(sim: Simulation) -> Machine:
-	for id in sim.sorted_machine_ids():
-		if sim.machines[id].type == LabDef.OUTPUT_TYPE:
-			return sim.machines[id]
-	return null
 
 
 func _socket_ids(sim: Simulation) -> Array[int]:
