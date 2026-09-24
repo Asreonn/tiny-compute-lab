@@ -16,16 +16,16 @@ const PALM := 3.2            # palm-rest depth in tiles (trackpad lives here)
 const LID_RATIO := 0.62      # lid height relative to the keyboard height
 
 # Timeline (seconds), MOTION_SYSTEM §10
-const T_CAM := Vector2(0.2, 3.2)     # camera ease from the laptop to the gameplay framing
-const T_LID := Vector2(0.3, 1.4)     # lid slides out of the top
-const T_KEYS := Vector2(1.2, 2.35)   # start of the first / last key dissolve
-const KEY_FADE := 0.25
-const T_DECK := Vector2(2.4, 3.2)    # housing fades to the board edge
-const T_HUD := 3.4                   # HUD entrance start
+const T_CAM := Vector2(0.3, 3.8)     # camera ease from the laptop to the gameplay framing
+const T_LID := Vector2(0.6, 2.0)     # lid slides out of the top
+const T_KEYS := Vector2(1.8, 3.1)   # start of the first / last key dissolve
+const KEY_FADE := 0.3
+const T_DECK := Vector2(3.1, 4.0)    # housing fades to the board edge
+const T_HUD := 4.2                   # HUD entrance start
 const HUD_SLIDE := 24.0
 const HUD_DUR := 0.22
 const HUD_STAGGER := 0.06
-const T_END := 4.15
+const T_END := 5.0
 const LEGENDS := "QWERTYUIOPASDFGHJKLZXCVBNM1234567890"
 
 var _cols := 20
@@ -269,7 +269,7 @@ func _draw() -> void:
 		var bw := tw * 0.5
 		var bar := Rect2(scr.get_center() + Vector2(-bw / 2.0, fs * 0.9), Vector2(bw, 4.0))
 		draw_rect(bar, Color(Palette.MACHINE_RAIL, lid_a))
-		draw_rect(Rect2(bar.position, Vector2(bw * clampf(_t / 1.2, 0.0, 1.0), 4.0)), Color(Palette.DATA_NUMBER, 0.7 * lid_a))
+		draw_rect(Rect2(bar.position, Vector2(bw * clampf(_t / 1.6, 0.0, 1.0), 4.0)), Color(Palette.DATA_NUMBER, 0.7 * lid_a))
 		var hinge := Rect2(Vector2(b.x / 2.0 - 60.0, lid.end.y - 20.0), Vector2(120.0, 6.0))
 		draw_rect(hinge, Color(Palette.MACHINE_RAIL, lid_a))
 

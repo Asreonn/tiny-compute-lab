@@ -169,15 +169,16 @@ UI motion is cubic-out, short, and never bouncy. Nothing in the HUD glows. Every
 
 ## 10. Intro: the laptop (Penpot page `20 Intro · Laptop`)
 
-About 4.1 s, played on game launch only (not on every board load). Any click or key skips to the end state.
+About 5 s, played on game launch only (not on every board load). Any click or key skips to the end state.
 
 | t | Beat |
 |---|---|
-| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + boot bar), and a deck whose keyboard has **one keycap per board tile**, laid exactly on the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
-| 0.0–1.4 s | The camera eases (cubic in-out) from the whole laptop toward the keyboard. The lid slides out of the top. |
-| 1.2–2.6 s | The keycaps dissolve in a left → right sweep, each over ~250 ms, and every key becomes its PCB tile. The factory (machines, wires, packets) is live underneath. |
-| 2.4–3.2 s | The deck housing thins to the board edge and fades out; the camera reaches the gameplay framing. |
-| 3.4–4.1 s | The HUD enters: top bar 24 px down, tool rail 24 px in, palette, request panel. Fade + slide, 220 ms each, 60 ms stagger. |
+| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + a boot bar that fills over 1.6 s), and a deck whose keyboard has **one keycap per board tile**, laid exactly on the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
+| 0.3–3.8 s | The camera slowly eases (cubic in-out) from the whole laptop to the gameplay framing. |
+| 0.6–2.0 s | The lid slides out of the top and fades. |
+| 1.8–3.4 s | The keycaps dissolve in a left → right sweep, each over 300 ms, and every key becomes its PCB tile. The factory is live underneath. |
+| 3.1–4.0 s | The deck housing thins to the board edge and fades out. |
+| 4.2–5.0 s | The HUD enters: every panel slides 24 px in from its docking side (fade + slide, 220 ms, 60 ms stagger). |
 
 **Board edges** (laptop illusion): the locked USB Inputs sit in column 0 and the Contract Drive in
 the last two columns. Their modules protrude past the board edge, through the laptop's side ports.
