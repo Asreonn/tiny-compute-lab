@@ -11,7 +11,7 @@ extends Node2D
 
 const T := Palette.TILE
 const TAG_FONT := 7  # WidthTag digits (Penpot 7.5; Godot font sizes are integers)
-const COMET_TAIL_PX := 40.0  # packet comet tail length, clamped at the wire start
+const COMET_TAIL_PX := 30.0  # packet comet segment length, clamped at the wire start
 const DASH_LEN := 6.0        # boolean core dash length (px of arc)
 const DASH_GAP := 4.0        # boolean core dash gap
 
@@ -246,22 +246,18 @@ func _apply_layers() -> void:
 		ln.default_color = Color(lane_c, 0.9 if lit else 1.0)
 
 
-## One comet: glow (sub 0.35..1, 10 px @ 0.2), tail (sub 0..0.4, 3 px @ 0.35) and a
-## bright head (sub 0.4..1, 3.5 px opaque) that all follow the chamfered path with the
-## head exactly at the packet position s (L.drawWire "comet-*" layers).
+## One brighter core segment: a single 2.5 px stroke from (s − 30 px) to s along the
+## chamfered path, clamped at the wire start, colour at α 0.9 (VFX ladder L1; the old glow
+## layer is retired — no glow blob, no halo). For buses the same segment rides the
+## centreline (_path), so there is no wide chord.
 func _draw_comet(canvas: CanvasItem, s: float) -> void:
 	var plen := SignalGeom.poly_len(_path)
 	if plen <= 0.0:
 		return
-	var w0 := maxf(s - COMET_TAIL_PX, 0.0)
-	var f0 := clampf(w0 / plen, 0.0, 1.0)
+	var f0 := clampf((s - COMET_TAIL_PX) / plen, 0.0, 1.0)
 	var f1 := clampf(s / plen, 0.0, 1.0)
-	var glow := SignalGeom.sub_poly(_path, f0 + (f1 - f0) * 0.35, f1)
-	canvas.draw_polyline(glow, Color(_comet_color, Palette.SIG_COMET_GLOW_OPACITY), float(Palette.SIG_GLOW), true)
-	var tail := SignalGeom.sub_poly(_path, f0, f0 + (f1 - f0) * Palette.SIG_COMET_TAIL_FRACTION)
-	canvas.draw_polyline(tail, Color(_comet_color, Palette.SIG_COMET_TAIL_OPACITY), float(Palette.SIG_CORE_LIT), true)
-	var head := SignalGeom.sub_poly(_path, f0 + (f1 - f0) * Palette.SIG_COMET_TAIL_FRACTION, f1)
-	canvas.draw_polyline(head, _comet_color, float(Palette.SIG_PULSE), true)
+	var seg := SignalGeom.sub_poly(_path, f0, f1)
+	canvas.draw_polyline(seg, Color(_comet_color, 0.9), float(Palette.SIG_CORE), true)
 
 
 func _draw_width_tag(canvas: CanvasItem) -> void:
@@ -348,17 +344,8 @@ class OverlayLayer extends Node2D:
 		if h._dash_on:
 			ConnectionView._draw_dashed(self, h._path, Color(h._core_color, h._core_op), h._core_w, ConnectionView.DASH_LEN, ConnectionView.DASH_GAP)
 		if not h._comets.is_empty():
-			if h._bus:
-				# L.drawBus comet-glow: one wide chord from the comet tail to its head.
-				var s: float = h._comets[0]
-				var plen := SignalGeom.poly_len(h._path)
-				var tail := maxf(s - ConnectionView.COMET_TAIL_PX, 0.0)
-				var a: Vector2 = SignalGeom.sample(h._path, tail / maxf(plen, 1.0))[0]
-				var z: Vector2 = SignalGeom.sample(h._path, s / maxf(plen, 1.0))[0]
-				draw_line(a, z, Color(Palette.DATA_NUMBER, 0.18), 16.0, true)
-			else:
-				for s in h._comets:
-					h._draw_comet(self, s)
+			for s in h._comets:
+				h._draw_comet(self, s)
 		if h._chevrons_on:
 			for ch in SignalGeom.chevrons(h._path, float(Palette.SIG_CHEVRON_SPACING)):
 				draw_polyline(ch, Color(Palette.STATE_SELECT, 0.9), 1.5, true)

@@ -45,6 +45,7 @@ var _port_nodes := {}  # port id -> Sprite2D
 var _port_bus := {}  # port id -> bool
 var _port_dir := {}  # port id -> "in"/"out"/"ctrl"
 var _port_w := {}  # port id -> int
+var _port_contact := {}  # port id -> PortContact (L1 contact ring node)
 var _tag_values: Array = []  # width shown by each width tag (upright text)
 var _tag_ports: Array = []  # tag i -> port id whose CURRENT width it shows ("" = layout/instance width)
 var _tag_fallback: Array = []  # tag i -> layout width used when there is no port mapping
@@ -237,6 +238,14 @@ func _build_ports(ly: Dictionary) -> void:
 		_port_bus[pid] = bus
 		_port_dir[pid] = dir
 		_port_w[pid] = w
+		# L1 port contact ring: follows the sprite (child of the rotating Body, inherits ghost alpha).
+		var ring := PortContact.new()
+		ring.bus = bus
+		ring.width = w
+		ring.position = _v(lp.get("anchor", [0, 0]))
+		ring.name = "PortContact%s" % pid.capitalize()
+		body.add_child(ring)
+		_port_contact[pid] = ring
 
 
 func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictionary) -> void:
@@ -409,10 +418,12 @@ func refresh(delta: float) -> void:
 		var t := Art.tex(rel)
 		if _area.texture != t:
 			_area.texture = t
-	# State overlays (alpha tween 0.12 s); hover/selected driven by the tools
+	# State overlays (alpha tween 0.12 s); hover/selected driven by the tools. The
+	# processing/outputready body overlays stay at alpha 0 always (VFX ladder L2 is the
+	# ActivityArea / LED only, never a body glow).
 	var want := {
-		"processing": 1.0 if m.state == Machine.State.PROCESSING else 0.0,
-		"outputready": 1.0 if m.state == Machine.State.OUTPUT_READY else 0.0,
+		"processing": 0.0,  # listed so an already-visible sprite still fades out
+		"outputready": 0.0,
 		"blocked": 1.0 if m.state == Machine.State.BLOCKED else 0.0,
 		"error": 1.0 if (m.state == Machine.State.ERROR or highlighted) else 0.0,
 		"hover": 1.0 if hovered and not selected else 0.0,
@@ -431,13 +442,15 @@ func refresh(delta: float) -> void:
 		else:
 			reveal_active = false
 			_overlays["hover"].modulate.a = 0.0
-	# Ports: connected / active / idle from SimulationManager.sim
+	# Ports: connected / idle from SimulationManager.sim (never "active" — the baked halo
+	# texture is retired; L1 transfer is the procedural contact ring instead).
 	for pid in _port_nodes:
 		var st := _port_state(pid, running)
 		var rel2 := Art.port_sprite(_port_dir[pid], _port_bus[pid], _port_w[pid], st)
 		var pt := Art.tex(rel2)
 		if _port_nodes[pid].texture != pt:
 			_port_nodes[pid].texture = pt
+		_update_contact(pid, sim)
 	# Upright texts
 	_update_texts(sim, running)
 	text_layer.queue_redraw()
@@ -592,14 +605,79 @@ func _area_state(running: bool) -> String:
 					return "active"
 
 
-func _port_state(pid: String, running: bool) -> String:
-	var m := machine
-	if running and (pid in m.received_ports or pid in m.sent_ports):
-		return "active"
+func _port_state(pid: String, _running: bool) -> String:
 	var sim := SimulationManager.sim
-	if sim != null and sim.connection_at_port(m.id, pid) != null:
+	if sim != null and sim.connection_at_port(machine.id, pid) != null:
 		return "connected"
 	return "idle"
+
+
+## Edge-detect a port contact on a NEW simulation tick: when the port first becomes part of
+## received_ports/sent_ports for sim.tick, stamp _contact_start so the L1 ring plays once.
+func _update_contact(pid: String, sim: Simulation) -> void:
+	var ring: PortContact = _port_contact.get(pid)
+	if ring == null or sim == null:
+		return
+	var m := machine
+	var now := Time.get_ticks_msec()
+	if pid in m.received_ports or pid in m.sent_ports:
+		# Retrigger at most once per ring duration: at 10× a busy port would otherwise flash
+		# every 30 ms and read as a permanent glow (VFX ladder L1).
+		if ring._seen_tick != sim.tick and (ring._start < 0 or now - ring._start >= PortContact.DURATION):
+			ring._seen_tick = sim.tick
+			ring._start = now
+	else:
+		ring._seen_tick = -1  # idle: next active tick retriggers
+	# Redraw only while the 120 ms window is open (plus one frame to clear it).
+	if ring._start >= 0 and now - ring._start <= PortContact.DURATION + 34:
+		ring.queue_redraw()
+
+
+# ------------------------------------------------------------------ L1 port contact ring
+
+## Procedural 1 px contact ring shown for ≤ 120 ms when a packet enters/exits a port (VFX
+## ladder L1, STYLE_GUIDE §8). A child of the rotating Body so it follows the port sprite
+## through rotation, and inherits the ghost alpha via the MachineView modulate cascade.
+## Drawn only while the window is open; nothing after 120 ms.
+class PortContact extends Node2D:
+	const DURATION := 120.0
+	const RADIUS := 10.0
+	var bus := false
+	var width := 0
+	var _seen_tick := -1
+	var _start := -1
+	var _style: StyleBoxFlat
+
+	func _draw() -> void:
+		if _start < 0:
+			return
+		var el := float(Time.get_ticks_msec() - _start)
+		if el >= DURATION:
+			return
+		var col: Color
+		if el < 40.0:
+			col = Color(Palette.TEXT_PRIMARY, 0.8)
+		else:
+			var base := Palette.datatype(width)
+			var a := 0.55
+			if el >= 80.0:
+				a = 0.55 * (1.0 - (el - 80.0) / 40.0)
+			col = Color(base, a)
+		if bus:
+			# BusPort slot: 1 px rounded-rect ring 21×21, corner 5.
+			if _style == null:
+				_style = StyleBoxFlat.new()
+				_style.bg_color = Color(0, 0, 0, 0)
+				_style.set_border_width_all(1)
+				_style.set_corner_radius_all(5)
+			_style.content_margin_left = 0.0
+			_style.content_margin_top = 0.0
+			_style.content_margin_right = 0.0
+			_style.content_margin_bottom = 0.0
+			_style.border_color = col
+			draw_style_box(_style, Rect2(Vector2(-10.5, -10.5), Vector2(21, 21)))
+		else:
+			draw_arc(Vector2.ZERO, RADIUS, 0.0, TAU, 32, col, 1.0, true)
 
 
 # ------------------------------------------------------------------ upright text
