@@ -228,6 +228,14 @@ static var DEFS := {
 const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modulo", "multiply", "compare", "gate", "splitter", "merger", "bit_splitter", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "processor"]
 
 
+## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it
+## once the run unlocks clock modes (run.clock_unlocked()).
+static func _static_init() -> void:
+	for t in DEFS:
+		if int(DEFS[t].get("power", 0)) > 0 and not DEFS[t]["params"].has("clock"):
+			DEFS[t]["params"]["clock"] = {"label": "Clock", "kind": "enum", "default": "normal", "options": ["normal", "fast", "overclocked"]}
+
+
 static func ticks(type: String, campaign: bool) -> int:
 	var d: Dictionary = DEFS[type]
 	return int(d.get("campaign_ticks", d["ticks"])) if campaign else int(d["ticks"])

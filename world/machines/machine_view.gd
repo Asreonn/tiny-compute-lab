@@ -1135,9 +1135,11 @@ func _update_progress() -> void:
 	if completed_now and t < DONE_HOLD:
 		p = 1.0  # a job finished this tick: show it complete before the next one fills
 	elif not m.job.is_empty():
-		var total := maxf(float(m.job.get("total", 1)), 1.0)
-		var left := float(m.job.get("ticks_left", total))
-		p = clampf((total - left + t) / total, 0.0, 1.0)
+		# work units (clock / brownout / heat change the rate); at the normal clock this equals
+		# the old (total − ticks_left + t) / total
+		var total := maxf(float(m.job.get("work_total", 1)), 1.0)
+		var left := float(m.job.get("work_left", total))
+		p = clampf((total - left + float(m.last_rate) * t) / total, 0.0, 1.0)
 	elif completed_now:
 		p = 1.0
 		alpha = 1.0 - t  # nothing queued: full, fading out towards the next tick

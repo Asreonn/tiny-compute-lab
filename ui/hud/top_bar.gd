@@ -21,6 +21,7 @@ var _speed_labels := []  # [Label, speed]
 var _speed_tw: Tween
 var _metric := {}  # kind -> {box, value, unit}
 var _metric_last := {}  # kind -> float target, to detect change for the roll
+var _power_cap := 0  # PSU capacity shown next to the demand; 0 = no PSU (plain demand)
 var _state_c := Palette.STATE_BUILD
 var _last_state := ""
 var _breathe_tw: Tween
@@ -95,7 +96,7 @@ func _ready() -> void:
 		var u := HudKit.label(mb, kinds[i][2], Vector2(80, 11), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED)
 		_metric[kinds[i][0]] = {"box": mb, "value": v, "unit": u, "icon": ic}
 	_metric["throughput"]["display"] = func(vf: float): _metric["throughput"]["value"].text = ("%.1f" % vf) if vf >= 0.0 else "—"
-	_metric["power"]["display"] = func(vf: float): _metric["power"]["value"].text = str(roundi(vf))
+	_metric["power"]["display"] = func(vf: float): _metric["power"]["value"].text = _power_text(roundi(vf))
 	_metric["latency"]["display"] = func(vf: float): _metric["latency"]["value"].text = ("%d" % roundi(vf)) if vf >= 0.0 else "—"
 	HudKit.icon_button(right, Vector2(364, 8), Vector2(36, 36), "icon_menu", Vector2(6, 6), 24, func(): menu_pressed.emit(), "Menu", 4)
 
@@ -208,9 +209,29 @@ func _process(_delta: float) -> void:
 	_roll_metric("throughput", sm.real_rate(thr) if thr > 0.0 else -1.0)
 	mt["value"].add_theme_color_override("font_color", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
 	HudKit.restyle(mt["box"], Palette.SURFACE_SUNKEN, Palette.STATE_BLOCKED if warn else Color(0, 0, 0, 0), 1 if warn else 0, 18)
-	_roll_metric("power", float(sm.sim.total_power()))
+	# power: demand, or demand/capacity once the Lab has a PSU (amber near capacity, red when
+	# overloaded — a brownout; SYSTEMS_EXPANSION §4)
+	var cap: int = sm.sim.power_capacity()
+	var dem: int = sm.sim.power_demand()
+	_power_cap = cap
+	_roll_metric("power", float(dem))
+	var pc := Color(0, 0, 0, 0)
+	if cap > 0 and dem > cap:
+		pc = Palette.STATE_ERROR
+	elif cap > 0 and dem * 4 >= cap * 3:
+		pc = Palette.STATE_BLOCKED
+	var pm: Dictionary = _metric["power"]
+	pm["value"].add_theme_color_override("font_color", pc if pc.a > 0.0 else Palette.TEXT_PRIMARY)
+	pm["icon"].modulate = pc if pc.a > 0.0 else Palette.TEXT_SECONDARY
+	HudKit.restyle(pm["box"], Palette.SURFACE_SUNKEN, pc, 1 if pc.a > 0.0 else 0, 18)
 	var lat: float = sm.sim.avg_latency()
 	_roll_metric("latency", lat if lat > 0.0 else -1.0)
+
+
+func _power_text(v: int) -> String:
+	if _power_cap <= 0:
+		return str(v)
+	return "%d/%d" % [v, _power_cap]
 
 
 func _roll_metric(kind: String, target: float) -> void:

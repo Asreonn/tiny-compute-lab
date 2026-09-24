@@ -76,6 +76,7 @@ func load_lab() -> void:
 	var lay = saved.get("layout", {})
 	if lay is Dictionary and not (lay as Dictionary).is_empty():
 		sim.load_player_layout(lay)
+	lr.psu_tier = int(saved.get("psu_tier", 0))
 	var desk = saved.get("desk", {})
 	lr.desk_from_dict(desk if desk is Dictionary else {}, sim)
 	lr.delivered = int(saved.get("delivered", 0))
@@ -115,6 +116,7 @@ func _save_lab() -> void:
 		"layout": sim.layout_to_dict(),
 		"devices_owned": Array(lab_run.devices_owned()),
 		"desk": lab_run.desk_to_dict(),
+		"psu_tier": lab_run.psu_tier,
 	})
 
 

@@ -21,6 +21,9 @@ const RATE_WINDOW := 30
 const STALL_TICKS := 60
 
 var size := Vector2i(20, 12)
+## Power capacity / demand cached once per step, before the process phase (deterministic).
+var _cap := 0
+var _demand := 0
 ## Sealed port bays: cell -> view label (docs/SYSTEMS_EXPANSION.md §2.1). Reserved tiles are
 ## not buildable and wires cannot route through them. Mission boards leave it empty.
 var reserved: Dictionary = {}
@@ -678,7 +681,9 @@ func step() -> void:
 	for id in cids:
 		connections[id].advance()
 		activity = activity or connections[id].moved_this_tick
-	# 4. process
+	# 4. process (brownout inputs cached once per step)
+	_cap = power_capacity()
+	_demand = power_demand()
 	for id in mids:
 		var m: Machine = machines[id]
 		var had := not m.job.is_empty()
@@ -792,6 +797,38 @@ func throughput() -> float:
 	if outputs_total < 2 or last_output_tick <= first_output_tick:
 		return 0.0
 	return float(outputs_total - 1) * TICKS_PER_SEC / float(last_output_tick - first_output_tick)
+
+
+## Lab power capacity (the PSU; SYSTEMS_EXPANSION §4). 0 = unlimited (tutorial missions).
+func power_capacity() -> int:
+	if mission != null and mission.has_method("power_capacity"):
+		return int(mission.power_capacity())
+	return 0
+
+
+## Σ power demand (rated power × clock multiplier) of every player machine (locked IO draws none).
+func power_demand() -> int:
+	var d := 0
+	for id in sorted_machine_ids():
+		var m: Machine = machines[id]
+		if not m.locked:
+			d += m.power_demand()
+	return d
+
+
+## Work units a machine applies this tick: its clock rate, scaled evenly by a brownout when the
+## demand exceeds the capacity (integer floor, at least 1), then by its thermal factor (E2).
+func work_rate(m: Machine) -> int:
+	var r := m.clock_rate()
+	if _cap > 0 and _demand > _cap:
+		r = maxi(1, r * _cap / _demand)
+	if m.thermal_den > 0 and m.thermal_num != m.thermal_den:
+		r = r * m.thermal_num / m.thermal_den
+	return r
+
+
+func overloaded() -> bool:
+	return _cap > 0 and _demand > _cap
 
 
 func total_power() -> int:

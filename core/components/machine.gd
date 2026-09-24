@@ -22,7 +22,18 @@ var label: String = ""  # e.g. "Multiply #2" — used in packet paths
 # --- runtime (reset() clears) ---
 var inq: Dictionary = {}  # in/ctrl port id -> Array[Packet]
 var outq: Dictionary = {}  # out port id -> Packet or null
-var job: Dictionary = {}  # {ticks_left, total, results: {port: Packet}, input: Packet}
+var job: Dictionary = {}  # {work_left, work_total, ticks_left, total, results: {port: Packet}, input: Packet}
+## Work units per tick at the normal clock (docs/SYSTEMS_EXPANSION.md §6). A job costs
+## processing_ticks() * WORK_PER_TICK units; clock modes, brownout and heat scale the rate.
+const WORK_PER_TICK := 12
+const CLOCK_RATE := {"normal": 12, "fast": 16, "overclocked": 24}
+const CLOCK_POWER := {"normal": 1.0, "fast": 1.5, "overclocked": 2.0}
+const CLOCK_HEAT := {"normal": 1, "fast": 2, "overclocked": 4}
+## Work units applied on the last advance (the progress ring interpolates with it).
+var last_rate := WORK_PER_TICK
+## Thermal work factor (E2): numerator / denominator; 0 = paused (CRITICAL).
+var thermal_num := 1
+var thermal_den := 1
 var state: int = State.IDLE
 var error_text := ""
 var processed := 0
@@ -87,6 +98,25 @@ func processing_ticks() -> int:
 
 func power() -> int:
 	return int(Catalog.def(type)["power"])
+
+
+## "normal" | "fast" | "overclocked" (the clock param; machines without it run normal).
+func clock_mode() -> String:
+	var c := str(params.get("clock", "normal"))
+	return c if CLOCK_RATE.has(c) else "normal"
+
+
+func clock_rate() -> int:
+	return int(CLOCK_RATE[clock_mode()])
+
+
+## Rated power × the clock multiplier, rounded up (fast Add = 2, overclocked Multiply = 4).
+func power_demand() -> int:
+	return int(ceil(power() * float(CLOCK_POWER[clock_mode()])))
+
+
+func heat_mult() -> int:
+	return int(CLOCK_HEAT[clock_mode()])
 
 
 func in_capacity(port_id: String) -> int:
@@ -263,18 +293,23 @@ func packets_inside() -> Array:
 func job_progress() -> float:
 	if job.is_empty():
 		return 0.0
-	return 1.0 - float(job["ticks_left"]) / float(max(1, job["total"]))
+	return 1.0 - float(job["work_left"]) / float(max(1, job["work_total"]))
 
 
 # ---------------------------------------------------------------- tick phases
 
 ## Phase: advance processing. Completed jobs move their results to output slots.
-func advance(_sim) -> void:
+func advance(sim) -> void:
 	if job.is_empty():
 		return
+	var rate: int = sim.work_rate(self) if sim != null and sim.has_method("work_rate") else WORK_PER_TICK
+	last_rate = rate
+	if rate <= 0:
+		return  # paused (thermal CRITICAL): the job keeps its progress
 	busy_ticks += 1
-	job["ticks_left"] -= 1
-	if job["ticks_left"] <= 0:
+	job["work_left"] = int(job["work_left"]) - rate
+	job["ticks_left"] = int(ceil(maxf(float(job["work_left"]), 0.0) / float(WORK_PER_TICK)))
+	if int(job["work_left"]) <= 0:
 		for port in job["results"]:
 			outq[port] = job["results"][port]
 		job = {}
@@ -292,7 +327,8 @@ func start(sim) -> void:
 ## Called by ComponentLogic to occupy the machine for `ticks` (default: processing time).
 func begin_job(results: Dictionary, input: Packet, ticks: int = -1) -> void:
 	var t := processing_ticks() if ticks < 0 else ticks
-	job = {"ticks_left": t, "total": t, "results": results, "input": input}
+	var w := t * WORK_PER_TICK
+	job = {"work_left": w, "work_total": w, "ticks_left": t, "total": t, "results": results, "input": input}
 
 
 func pop(port: String) -> Packet:

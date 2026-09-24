@@ -208,6 +208,9 @@ keep accumulating as "total"). The HUD shows which constraint broke, and why.
   `capacity/demand`, using integer work units (§6). Nothing breaks. The PSU pulses amber-red and
   the power overlay explains why.
 - **States:** normal (< 75 %), near capacity (75–100 %), overloaded (> 100 %).
+- **When:** the PSU comes online at L16 "Power Cap" (`LabRun.POWER_LEVEL`). Earlier levels have
+  unlimited power (capacity 0), so the L1–L15 factories never brown out; the top bar shows plain
+  demand until then and `demand/capacity` after. `psu_tier` is saved with the Lab.
 
 ## 5. Heat
 

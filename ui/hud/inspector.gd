@@ -75,7 +75,11 @@ func _rebuild() -> void:
 	var y := 72.0
 	# CONFIGURATION
 	y = _section("CONFIGURATION", y, true)
+	var run = _mgr().run
+	var clock_ok: bool = run != null and run.has_method("clock_unlocked") and run.clock_unlocked()
 	for key in def["params"]:
+		if key == "clock" and not clock_ok:
+			continue  # clock modes arrive with the power levels (SYSTEMS_EXPANSION §6)
 		y = _param_row(m, key, def["params"][key], y)
 	y = _row_static("Width", "%d-bit" % m.width, y, true)
 	y = _view_as_row(y)

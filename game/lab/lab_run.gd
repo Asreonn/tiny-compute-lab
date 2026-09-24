@@ -25,6 +25,10 @@ var desk_inputs: Dictionary = {}
 var desk_outputs: Dictionary = {}
 ## Devices that landed on the desk on the last level-up (the views pulse them as "New").
 var new_devices := PackedStringArray()
+## PSU tier (SYSTEMS_EXPANSION §4): 0 Starter 8 · 1 Improved 16 · 2 Desktop 32 · 3 High-Capacity 64.
+var psu_tier := 0
+const PSU_CAPACITY := [8, 16, 32, 64]
+const PSU_NAMES := ["Starter Adapter", "Improved Adapter", "Desktop PSU", "High-Capacity PSU"]
 var _io_warning := ""
 
 
@@ -485,4 +489,35 @@ func module_plugged(sim: Simulation, kind: String) -> bool:
 ## True when the Job drive sits in an output port.
 func job_plugged(sim: Simulation) -> bool:
 	return _job_drive(sim) != null
+
+
+# ------------------------------------------------------------------ power
+
+## First level (index) with a PSU: L16 "Power Cap" (SYSTEMS_EXPANSION §10). Earlier levels have
+## unlimited power, so the L1–L15 factories are never browned out.
+const POWER_LEVEL := 15
+
+
+func has_psu() -> bool:
+	return level >= POWER_LEVEL
+
+
+## The PSU's capacity in power units, 0 = unlimited (Simulation.work_rate brownout uses it).
+func power_capacity() -> int:
+	if not has_psu():
+		return 0
+	return psu_rating()
+
+
+func psu_rating() -> int:
+	return int(PSU_CAPACITY[clampi(psu_tier, 0, PSU_CAPACITY.size() - 1)])
+
+
+func psu_name() -> String:
+	return str(PSU_NAMES[clampi(psu_tier, 0, PSU_NAMES.size() - 1)])
+
+
+## Clock modes are unlocked by the power levels (L16+); the Inspector hides the param until then.
+func clock_unlocked() -> bool:
+	return level >= POWER_LEVEL
 
