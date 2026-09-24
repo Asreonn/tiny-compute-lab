@@ -12,7 +12,7 @@ signal finished
 
 const T := Palette.TILE
 const RIM := 28.0            # deck housing around the keyboard (px, world space)
-const PALM := 3.2            # palm-rest depth in tiles (trackpad lives here)
+const PALM := 0.45           # front lip of the deck below the board, in tiles
 const LID_RATIO := 0.62      # lid height relative to the keyboard height
 
 # Timeline (seconds), MOTION_SYSTEM §10
@@ -26,7 +26,17 @@ const HUD_SLIDE := 24.0
 const HUD_DUR := 0.22
 const HUD_STAGGER := 0.06
 const T_END := 5.0
-const LEGENDS := "QWERTYUIOPASDFGHJKLZXCVBNM1234567890"
+## US ANSI laptop layout, 15 u wide: [height in u, [[legend, width u], ...]]. "↑↓" is the
+## inverted-T arrow pair (two half-height keys stacked in one 1 u slot).
+const US_ROWS := [
+	[0.6, [["esc", 1.0], ["F1", 1.0], ["F2", 1.0], ["F3", 1.0], ["F4", 1.0], ["F5", 1.0], ["F6", 1.0], ["F7", 1.0], ["F8", 1.0], ["F9", 1.0], ["F10", 1.0], ["F11", 1.0], ["F12", 1.0], ["home", 1.0], ["del", 1.0]]],
+	[1.0, [["~", 1.0], ["1", 1.0], ["2", 1.0], ["3", 1.0], ["4", 1.0], ["5", 1.0], ["6", 1.0], ["7", 1.0], ["8", 1.0], ["9", 1.0], ["0", 1.0], ["-", 1.0], ["=", 1.0], ["delete", 2.0]]],
+	[1.0, [["tab", 1.5], ["Q", 1.0], ["W", 1.0], ["E", 1.0], ["R", 1.0], ["T", 1.0], ["Y", 1.0], ["U", 1.0], ["I", 1.0], ["O", 1.0], ["P", 1.0], ["[", 1.0], ["]", 1.0], ["\\", 1.5]]],
+	[1.0, [["caps", 1.75], ["A", 1.0], ["S", 1.0], ["D", 1.0], ["F", 1.0], ["G", 1.0], ["H", 1.0], ["J", 1.0], ["K", 1.0], ["L", 1.0], [";", 1.0], ["'", 1.0], ["return", 2.25]]],
+	[1.0, [["shift", 2.25], ["Z", 1.0], ["X", 1.0], ["C", 1.0], ["V", 1.0], ["B", 1.0], ["N", 1.0], ["M", 1.0], [",", 1.0], [".", 1.0], ["/", 1.0], ["shift", 2.75]]],
+	[1.0, [["fn", 1.0], ["ctrl", 1.0], ["opt", 1.0], ["cmd", 1.25], ["", 5.5], ["cmd", 1.25], ["opt", 1.0], ["←", 1.0], ["↑↓", 1.0], ["→", 1.0]]],
+]
+const KB_UNITS := 15.0
 
 var _cols := 20
 var _rows := 12
@@ -234,22 +244,14 @@ func _draw() -> void:
 		_style_rim.border_color = Color(Palette.MACHINE_FRAME, deck_a)
 		draw_style_box(_style_deck, deck)
 		draw_style_box(_style_rim, deck)
-		var tp := Rect2(Vector2(b.x / 2.0 - 2.2 * T, b.y + RIM + 0.5 * T), Vector2(4.4 * T, 2.2 * T))
-		_draw_round_rect(tp, 16.0, Color(Palette.MACHINE_BODY_HI, deck_a), Color(Palette.MACHINE_FRAME, deck_a), 1.5)
 		for row in _in_rows:
 			_draw_side_port(Vector2(-RIM, row * T + 14.0), deck_a)
 		for row in _out_rows:
 			_draw_side_port(Vector2(b.x + RIM - 16.0, row * T + 14.0), deck_a)
-	# Keycaps: one per tile. Each column dissolves over KEY_FADE, left → right; the dark well
-	# under each key dissolves with it so the key literally becomes its PCB tile.
-	var span := T_KEYS.y - T_KEYS.x
-	for c in _cols:
-		var start := T_KEYS.x + span * (float(c) / maxf(float(_cols - 1), 1.0))
-		var a := 1.0 - _ease_out(clampf((_t - start) / KEY_FADE, 0.0, 1.0))
-		if a <= 0.001:
-			continue
-		for r in _rows:
-			_draw_key(c, r, a)
+	# Keyboard (realistic US layout scaled to the board width) + palm rest with the trackpad,
+	# all INSIDE the board rect. The covering dissolves in vertical strips and the keys by their
+	# centre x, left → right, so the factory emerges from under the keyboard.
+	_draw_keyboard(b)
 	# Lid: slides up out of the frame and fades (tilted-back screen seen from above).
 	var lk := _ease_in_out(_phase(_t, T_LID))
 	var lid_a := 1.0 - lk
@@ -274,14 +276,69 @@ func _draw() -> void:
 		draw_rect(hinge, Color(Palette.MACHINE_RAIL, lid_a))
 
 
-func _draw_key(c: int, r: int, a: float) -> void:
-	var tile := Rect2(Vector2(c * T, r * T), Vector2(T, T))
-	draw_rect(tile, Color(Palette.MATERIAL_VENT, a))
-	var cap := tile.grow(-4.0)
-	_draw_round_rect(cap, 7.0, Color(Palette.MATERIAL_PLATE_HI, a), Color(Palette.MACHINE_FRAME, a), 1.2)
-	draw_rect(Rect2(cap.position + Vector2(5.0, 4.0), Vector2(cap.size.x - 10.0, 1.5)), Color(Palette.MATERIAL_SILK, 0.12 * a))
-	var ch := LEGENDS[(r * _cols + c) % LEGENDS.length()]
-	draw_string(_font, cap.position + Vector2(9.0, 22.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(Palette.MATERIAL_SILK, 0.35 * a))
+## Sweep alpha at board x: 1 before the sweep reaches it, 0 once its KEY_FADE is over.
+func _sweep_alpha(x: float, width: float) -> float:
+	var start := T_KEYS.x + (T_KEYS.y - T_KEYS.x) * clampf(x / maxf(width, 1.0), 0.0, 1.0)
+	return 1.0 - _ease_out(clampf((_t - start) / KEY_FADE, 0.0, 1.0))
+
+
+func _draw_keyboard(b: Vector2) -> void:
+	var u := b.x / (KB_UNITS + 0.7)           # key unit incl. a 0.35 u side margin each side
+	var pad := u * 0.35
+	var gap := u * 0.07
+	var kb_h := pad * 2.0
+	for row in US_ROWS:
+		kb_h += float(row[0]) * u
+	kb_h = minf(kb_h, b.y * 0.8)
+	# covering: keyboard well (dark) over the top, palm rest (deck body) below, per tile strip
+	var strips := int(ceilf(b.x / T))
+	for c in strips:
+		var x := c * T
+		var w := minf(T, b.x - x)
+		var a := _sweep_alpha(x + w * 0.5, b.x)
+		if a <= 0.001:
+			continue
+		draw_rect(Rect2(x, 0.0, w, kb_h), Color(Palette.MATERIAL_VENT, a))
+		draw_rect(Rect2(x, kb_h, w, b.y - kb_h), Color(Palette.MACHINE_BODY, a))
+	# trackpad in the palm rest
+	var palm := b.y - kb_h
+	if palm > u:
+		var tp := Rect2(Vector2(b.x / 2.0 - 2.9 * u, kb_h + palm * 0.14), Vector2(5.8 * u, palm * 0.7))
+		var ta := _sweep_alpha(tp.get_center().x, b.x)
+		if ta > 0.001:
+			_draw_round_rect(tp, u * 0.16, Color(Palette.MACHINE_BODY_HI, ta), Color(Palette.MACHINE_FRAME, ta), 1.5)
+	# keys
+	var y := pad
+	for row in US_ROWS:
+		var rh: float = float(row[0]) * u
+		var x := pad
+		for k in row[1]:
+			var kw: float = float(k[1]) * u
+			var rect := Rect2(Vector2(x, y), Vector2(kw, rh))
+			x += kw
+			var a := _sweep_alpha(rect.get_center().x, b.x)
+			if a <= 0.001:
+				continue
+			if str(k[0]) == "↑↓":
+				var half := Vector2(kw, rh * 0.5)
+				_draw_cap(Rect2(rect.position, half), "↑", u, gap, a, true)
+				_draw_cap(Rect2(rect.position + Vector2(0.0, rh * 0.5), half), "↓", u, gap, a, true)
+			else:
+				_draw_cap(rect, str(k[0]), u, gap, a, float(row[0]) < 1.0)
+		y += rh
+
+
+func _draw_cap(slot: Rect2, legend: String, u: float, gap: float, a: float, small: bool) -> void:
+	var cap := slot.grow(-gap * 0.5)
+	_draw_round_rect(cap, u * 0.09, Color(Palette.MATERIAL_PLATE_HI, a), Color(Palette.MACHINE_FRAME, a), 1.2)
+	draw_rect(Rect2(cap.position + Vector2(u * 0.08, u * 0.05), Vector2(cap.size.x - u * 0.16, 1.5)), Color(Palette.MATERIAL_SILK, 0.12 * a))
+	if legend == "":
+		return
+	var fs := int(clampf(u * (0.13 if small or legend.length() > 1 else 0.2), 7.0, 40.0))
+	var pos := cap.position + Vector2(u * 0.12, u * 0.1 + fs * 0.9)
+	if small and cap.size.y < u * 0.7:
+		pos.y = cap.position.y + cap.size.y * 0.5 + fs * 0.35
+	draw_string(_font, pos, legend, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(Palette.MATERIAL_SILK, 0.4 * a))
 
 
 ## A USB-A port opening on the deck side (port-face geometry, systems_v1.js portFace).

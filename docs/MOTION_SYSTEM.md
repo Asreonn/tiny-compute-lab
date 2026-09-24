@@ -173,10 +173,10 @@ About 5 s, played on game launch only (not on every board load). Any click or ke
 
 | t | Beat |
 |---|---|
-| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + a boot bar that fills over 1.6 s), and a deck whose keyboard has **one keycap per board tile**, laid exactly on the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
+| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + a boot bar that fills over 1.6 s), and a deck whose **realistic US ANSI laptop keyboard** (function row, number row, QWERTY rows with real key widths, 5.5 u space bar, inverted-T arrows) plus palm rest and trackpad cover exactly the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
 | 0.3–3.8 s | The camera slowly eases (cubic in-out) from the whole laptop to the gameplay framing. |
 | 0.6–2.0 s | The lid slides out of the top and fades. |
-| 1.8–3.4 s | The keycaps dissolve in a left → right sweep, each over 300 ms, and every key becomes its PCB tile. The factory is live underneath. |
+| 1.8–3.4 s | The keyboard and palm rest dissolve in a left → right sweep (each key and each tile strip over 300 ms), revealing the PCB board underneath. The factory is live underneath. |
 | 3.1–4.0 s | The deck housing thins to the board edge and fades out. |
 | 4.2–5.0 s | The HUD enters: every panel slides 24 px in from its docking side (fade + slide, 220 ms, 60 ms stagger). |
 
