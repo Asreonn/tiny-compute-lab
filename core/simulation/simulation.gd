@@ -24,6 +24,8 @@ var size := Vector2i(20, 12)
 ## Power capacity / demand cached once per step, before the process phase (deterministic).
 var _cap := 0
 var _demand := 0
+## The board heat field (SYSTEMS_EXPANSION §5); null until a run with heat steps.
+var thermal: ThermalGrid = null
 ## Sealed port bays: cell -> view label (docs/SYSTEMS_EXPANSION.md §2.1). Reserved tiles are
 ## not buildable and wires cannot route through them. Mission boards leave it empty.
 var reserved: Dictionary = {}
@@ -629,6 +631,7 @@ func new_packet_id() -> int:
 
 func reset_run() -> void:
 	tick = 0
+	thermal = null
 	_next_packet_id = 1
 	for id in machines:
 		machines[id].reset()
@@ -691,6 +694,9 @@ func step() -> void:
 		if had and m.job.is_empty():
 			events.append({"kind": "complete", "machine": id})
 			activity = true
+	# 4b. heat: after the machines worked; the stage sets next tick's thermal factor
+	if thermal_enabled():
+		_step_thermal(mids)
 	# 5. emit
 	var blocked_now := {}
 	for id in mids:
@@ -817,14 +823,41 @@ func power_demand() -> int:
 
 
 ## Work units a machine applies this tick: its clock rate, scaled evenly by a brownout when the
-## demand exceeds the capacity (integer floor, at least 1), then by its thermal factor (E2).
+## demand exceeds the capacity (integer floor, at least 1), then by its thermal factor (THROTTLING
+## ×½ with the same floor, CRITICAL 0).
 func work_rate(m: Machine) -> int:
 	var r := m.clock_rate()
 	if _cap > 0 and _demand > _cap:
 		r = maxi(1, r * _cap / _demand)
 	if m.thermal_den > 0 and m.thermal_num != m.thermal_den:
-		r = r * m.thermal_num / m.thermal_den
+		if m.thermal_num <= 0:
+			return 0  # CRITICAL: paused, the job is kept
+		r = maxi(1, r * m.thermal_num / m.thermal_den)
 	return r
+
+
+## Heat is simulated only when the run asks for it (the Lab from L17 "Heat"; tests).
+func thermal_enabled() -> bool:
+	return mission != null and mission.has_method("thermal_enabled") and mission.thermal_enabled()
+
+
+func _step_thermal(mids: Array) -> void:
+	if thermal == null or thermal.size != size:
+		thermal = ThermalGrid.new(size)
+	thermal.step(self, mids)
+	for id in mids:
+		var m: Machine = machines[id]
+		m.temp = thermal.machine_temp(m)
+		var prev := m.heat_stage
+		m.heat_stage = ThermalGrid.stage_for(m.temp, m.heat_stage)
+		m.thermal_num = 1
+		m.thermal_den = 1
+		if m.heat_stage == ThermalGrid.Stage.THROTTLING:
+			m.thermal_den = 2
+		elif m.heat_stage == ThermalGrid.Stage.CRITICAL:
+			m.thermal_num = 0
+		if m.heat_stage != prev:
+			events.append({"kind": "heat", "machine": id, "stage": m.heat_stage})
 
 
 func overloaded() -> bool:

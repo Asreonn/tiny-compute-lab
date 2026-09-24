@@ -18,6 +18,7 @@ func _init() -> void:
 	ContractTests.run(self)
 	SaveStoreTests.run(self)
 	PowerTests.run(self)
+	ThermalTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()

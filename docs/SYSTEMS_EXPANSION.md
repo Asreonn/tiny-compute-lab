@@ -219,15 +219,30 @@ keep accumulating as "total"). The HUD shows which constraint broke, and why.
 - `t` is the temperature above ambient, in tenths of °C; the display value is 25 + t/10 °C.
 - It is a data-oriented `PackedInt32Array` in `core/thermal/thermal_grid.gd`. There are no Nodes.
 
-**Update order,** deterministic, once per tick after machines work:
-1. **Generate:** a machine that did `w` work units this tick adds `heat × w / 12` to its footprint.
-   The heat is split evenly, and the remainder goes to the lowest cell index.
-2. **Diffuse:** `t' = t + Σ₄(t_n − t) × 8 / 64`, which is stable. Board edges are insulated.
-   Heat-pipe cells use the conductance `16/64` along their axis.
-3. **Dissipate:** `t' -= t × d / 1024`, where `d` = 8 (ambient) plus cooling bonuses.
-   - Heatsink: +24 within Chebyshev radius 1.
-   - Fan, while running and powered: +64 within radius 2.
-   - Radiator: +96 within radius 2.
+**Update order,** deterministic, once per tick after machines work (calibrated v2, E2):
+1. **Generate:** a machine that did `w` work units this tick adds
+   `heat × clock heat multiplier × w / clock rate` to its footprint (so a full-rate normal-clock tick
+   adds exactly `heat`). The heat is split evenly, and the remainder goes to the lowest cell index.
+   - Heat per full tick: **84 per rated power unit** (Add 84, Multiply 168), routing 42 per unit,
+     **Processor 440**; IO, viewers and the thermal family 0.
+2. **Diffuse:** per tile edge, `f = trunc((t_a − t_b) × k / 64)` moves heat a → b (exactly
+   conservative). Board edges `k = 8`. A heat pipe conducts `k = 24` along its axis (to the next pipe
+   and into the tile its end pad touches) and is **insulated across its axis** (`k = 0`). Every tile
+   sums to ≤ 64/64, so the explicit step is stable.
+3. **Equalise:** every multi-tile machine footprint and every heat-pipe chain is one isothermal body
+   (its total is spread evenly, remainder to the lowest indices). Chains join straights and elbows
+   (an edge along either pipe's axis).
+4. **Dissipate:** `t' -= ceil(t × d / 1024)`, where `d` = 8 (ambient) + 32 per board side the tile lies
+   on (the chassis leaks a little, so edge builds are not punished) + cooling bonuses:
+   - Heatsink: +128 within Chebyshev radius 1.
+   - Blower (the Fan): +160 × (its work rate / 12) within radius 2, so a browned-out blower moves less
+     air and a fast-clocked one more.
+   - Radiator: +256 × (rate / 12) within radius 2.
+- Why v2: with the v1 numbers (+24 heatsink, pipe 16/64 with open sides) a heat pipe could not move
+  a cluster by a stage — a single tile edge cannot carry enough heat. Isothermal bodies and pads let
+  a pipe draw from a whole machine, which is also how real heat pipes behave.
+- Heat is simulated only when the run asks for it: the Lab from L17 "Heat" (`LabRun.HEAT_LEVEL`),
+  never in the tutorial missions. It resets with the run and is not saved.
 
 **Machine temperature** = the max over its footprint cells. Stages use hysteresis, so each
 stage exits 50 lower than it enters:
@@ -242,7 +257,7 @@ stage exits 50 lower than it enters:
 
 Nothing is ever destroyed.
 
-**Calibration targets** (tests, not guesses; the heat values per machine are tuned to hit them):
+**Calibration targets** (all asserted in `tests/test_thermal.gd`, 100 % duty on a 40×22 board):
 - An isolated Add at 100 % duty settles in NORMAL.
 - Four Adds packed edge to edge at 100 % reach HOT.
 - An isolated Processor at 100 % reaches THROTTLING without cooling.
@@ -253,10 +268,10 @@ Nothing is ever destroyed.
 
 | Machine | Size | Power | Effect | Unlock |
 |---|---|---|---|---|
-| Heatsink | S | 0 | +24 dissipation, r1 | L17 |
-| Fan | S | 2 | +64 dissipation, r2; states idle/running/high load | L17 |
-| Heat Pipe | S (chainable, axis = rotation) | 0 | high conductance along its axis | L21 |
-| Radiator | L | 1 | +96 dissipation, r2 | L21 |
+| Heatsink (`heatsink`) | S | 0 | +128 dissipation, r1 | L17 |
+| Blower / Fan (`blower`) | S | 2 | +160 × rate/12 dissipation, r2; states idle/running/high load | L17 |
+| Heat Pipe (`heat_pipe`) | S (chainable, axis = rotation) | 0 | k 24 along its axis, insulated sides, isothermal chain | L21 |
+| Radiator (`radiator`) | L | 1 | +256 × rate/12 dissipation, r2 | L21 |
 
 ## 6. Clock: machine speed ≠ playback speed
 

@@ -34,6 +34,9 @@ var last_rate := WORK_PER_TICK
 ## Thermal work factor (E2): numerator / denominator; 0 = paused (CRITICAL).
 var thermal_num := 1
 var thermal_den := 1
+var work_done := 0  # work units applied this tick (the ThermalGrid turns them into heat)
+var temp := 0  # hottest footprint tile, tenths of °C above ambient (ThermalGrid)
+var heat_stage := 0  # ThermalGrid.Stage, with hysteresis
 var state: int = State.IDLE
 var error_text := ""
 var processed := 0
@@ -236,6 +239,11 @@ func reset() -> void:
 	lost = 0
 	gen_seq = 0
 	pattern_idx = 0
+	work_done = 0
+	temp = 0
+	heat_stage = 0
+	thermal_num = 1
+	thermal_den = 1
 
 
 func can_accept(port_id: String) -> bool:
@@ -300,6 +308,7 @@ func job_progress() -> float:
 
 ## Phase: advance processing. Completed jobs move their results to output slots.
 func advance(sim) -> void:
+	work_done = 0
 	if job.is_empty():
 		return
 	var rate: int = sim.work_rate(self) if sim != null and sim.has_method("work_rate") else WORK_PER_TICK
@@ -307,6 +316,7 @@ func advance(sim) -> void:
 	if rate <= 0:
 		return  # paused (thermal CRITICAL): the job keeps its progress
 	busy_ticks += 1
+	work_done = mini(rate, int(job["work_left"]))
 	job["work_left"] = int(job["work_left"]) - rate
 	job["ticks_left"] = int(ceil(maxf(float(job["work_left"]), 0.0) / float(WORK_PER_TICK)))
 	if int(job["work_left"]) <= 0:

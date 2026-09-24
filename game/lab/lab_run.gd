@@ -517,6 +517,14 @@ func psu_name() -> String:
 	return str(PSU_NAMES[clampi(psu_tier, 0, PSU_NAMES.size() - 1)])
 
 
+## First level (index) with heat: L17 "Heat" (SYSTEMS_EXPANSION §10).
+const HEAT_LEVEL := 16
+
+
+func thermal_enabled() -> bool:
+	return level >= HEAT_LEVEL
+
+
 ## Clock modes are unlocked by the power levels (L16+); the Inspector hides the param until then.
 func clock_unlocked() -> bool:
 	return level >= POWER_LEVEL

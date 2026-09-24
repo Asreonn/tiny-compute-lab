@@ -33,5 +33,7 @@ static func _make(type: String) -> ComponentLogic:
 			return load("res://core/components/logic/codec_logic.gd").new()
 		"buffer", "delay":
 			return load("res://core/components/logic/storage_logic.gd").new()
+		"heatsink", "blower", "heat_pipe", "radiator":
+			return ComponentLogic.new()  # cooling hardware: no data ports, the ThermalGrid reads it
 	push_error("ComponentLogic.for_type: unknown machine type '%s'" % type)
 	return ComponentLogic.new()

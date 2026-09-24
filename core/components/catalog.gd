@@ -217,10 +217,35 @@ static var DEFS := {
 		"params": {},
 	},
 	"processor": {
-		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "campaign_ticks": 12, "power": 4, "icon": "op_processor",
+		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "campaign_ticks": 12, "power": 4, "heat": 440, "icon": "op_processor",
 		"desc": "Heavy general-purpose unit. Powerful but slow — a classic bottleneck.",
 		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
 		"params": {"op": {"label": "Function", "kind": "enum", "default": "x²", "options": ["x²", "x³", "|x|", "−x"]}},
+	},
+	# --- thermal family (docs/SYSTEMS_EXPANSION.md §5): board-level copper, no data ports ---
+	"heatsink": {
+		"name": "Heatsink", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
+		"desc": "Passive copper fins. Cools every tile within 1.",
+		"ports": [],
+		"params": {},
+	},
+	"blower": {
+		"name": "Blower", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 2, "heat": 0, "icon": "",
+		"desc": "Active airflow. Strongly cools every tile within 2 while it gets power.",
+		"ports": [],
+		"params": {},
+	},
+	"heat_pipe": {
+		"name": "Heat Pipe", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
+		"desc": "Carries heat along its axis to a sink. Chain pipes; rotate one to turn a corner.",
+		"ports": [],
+		"params": {},
+	},
+	"radiator": {
+		"name": "Radiator", "family": "thermal", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 1, "heat": 0, "icon": "",
+		"desc": "The strongest cooler: dumps heat from every tile within 2.",
+		"ports": [],
+		"params": {},
 	},
 }
 
@@ -232,8 +257,18 @@ const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "modul
 ## once the run unlocks clock modes (run.clock_unlocked()).
 static func _static_init() -> void:
 	for t in DEFS:
+		if not DEFS[t].has("heat"):
+			# heat per full-rate tick, tenths of °C (SYSTEMS_EXPANSION §5): 84 per rated power
+			# unit, routing half of that; calibrated in tests/test_thermal.gd
+			var per := 42 if DEFS[t]["family"] == "routing" else 84
+			DEFS[t]["heat"] = per * int(DEFS[t].get("power", 0))
 		if int(DEFS[t].get("power", 0)) > 0 and not DEFS[t]["params"].has("clock"):
 			DEFS[t]["params"]["clock"] = {"label": "Clock", "kind": "enum", "default": "normal", "options": ["normal", "fast", "overclocked"]}
+
+
+## Heat a machine makes per tick at its full normal-clock rate (tenths of °C above ambient).
+static func heat(type: String) -> int:
+	return int(DEFS[type].get("heat", 0))
 
 
 static func ticks(type: String, campaign: bool) -> int:
