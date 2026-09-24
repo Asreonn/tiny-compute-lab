@@ -122,6 +122,7 @@ func _dragging() -> bool:
 func _cancel_drags() -> void:
 	if not _wire_drag.is_empty():
 		_wire_drag = {}
+		_set_pending_removal([])
 		_clear_preview()
 	if not _move_drag.is_empty():
 		_move_drag = {}
@@ -368,25 +369,31 @@ func _update_wire_preview(world: Vector2) -> void:
 	var from := MachineView.port_world(sim.machines[fid], fport)
 	_preview_cells = []
 	_preview_target = {}
+	# The source's current wire will be replaced by any committed drop: show it faded.
+	var doomed := sim.replaced_by(fid, fport, fid, fport)
 	var target := _hit_port(world)
 	if not target.is_empty() and sim.machines.has(int(target["id"])):
 		# Over a port: exactly the route that release would place (WYSIWYG).
 		var tid := int(target["id"])
 		var tport := str(target["port"])
 		var to := MachineView.port_world(sim.machines[tid], tport)
-		var err := sim.connect_error(fid, fport, tid, tport)
+		var old := sim.replaced_by(fid, fport, tid, tport)
+		var err := sim.connect_error(fid, fport, tid, tport, old)
 		var r := sim.route_between(fid, fport, tid, tport)
 		if err == "" and bool(r.get("ok", false)):
 			_preview_cells = r["cells"]
 			_preview_target = {"id": tid, "port": tport}
+			_set_pending_removal(old)
 			_show_preview(_route_pts(from, _preview_cells, to), "ValidTarget")
 			return
+		_set_pending_removal(doomed)
 		_wire_drag["error"] = err if err != "" else "No route"
 		var to_tile: Vector2i = sim.machines[tid].port_geom(tport)["outside"]
 		var bad_route := _route_to_cell(sim, fid, fport, to_tile)
 		_show_preview(_route_pts(from, bad_route, to), "InvalidTarget")
 		return
 	# Free drag: live route from the source to the tile under the cursor.
+	_set_pending_removal(doomed)
 	var cells := _route_to_cell(sim, fid, fport, _cell_of(world))
 	if cells.is_empty():
 		_show_preview(PackedVector2Array([from, world]), "ConnectionPreview")
@@ -394,16 +401,24 @@ func _update_wire_preview(world: Vector2) -> void:
 		_show_preview(_route_pts(from, cells, Vector2.INF), "ConnectionPreview")
 
 
-## Start a wire from an output port. Single-connection ports that already carry a wire refuse:
-## replacing a wire is always an explicit player action (delete it first).
+## Start a wire from an output port. An output that already carries a wire can be rewired:
+## its wire stays until a new connection is committed, then it is replaced (QoL).
 func _begin_wire(mid: int, port: String, world: Vector2) -> void:
-	var sim := SimulationManager.sim
-	if sim != null and sim.connection_at_port(mid, port) != null:
-		notice.emit("Output already wired — delete that wire first (X)", "error")
-		return
 	_wire_drag = {"from_id": mid, "from_port": port}
 	hover_changed.emit({})  # no tooltips while dragging a wire
 	_update_wire_preview(world)
+
+
+## Fade exactly the wires in `ids` (the ones a committed drop would replace); restore the rest.
+func _set_pending_removal(ids: Array) -> void:
+	if _wire_layer == null:
+		return
+	for c in _wire_layer.get_children():
+		var cv := c as ConnectionView
+		if cv != null and cv.connection != null and not cv.is_queued_for_deletion():
+			var on: bool = cv.connection.id in ids
+			if cv.pending_removal != on:
+				cv.pending_removal = on
 
 
 func _cell_of(world: Vector2) -> Vector2i:
@@ -446,9 +461,11 @@ func _finish_wire_drag(world: Vector2) -> void:
 	_preview_target = {}
 	if sim == null or not sim.machines.has(fid):
 		return
+	_set_pending_removal([])
 	if not target.is_empty():
 		SimulationManager.request_edit()
-		if sim.connect_ports(fid, fport, int(target["id"]), str(target["port"]), cells) != null:
+		# commit: replaces the source's / target's old wires atomically (only now)
+		if sim.rewire(fid, fport, int(target["id"]), str(target["port"]), cells) != null:
 			return
 		err = sim.last_error
 	if err == "" and _hit_port(world).is_empty():
@@ -644,15 +661,18 @@ func _hit_wire(world: Vector2) -> Dictionary:
 		return {}
 	var best_id := -1
 	var best_d := WIRE_HIT_PX
-	for c in _wire_layer.get_children():
-		var cv := c as ConnectionView
-		if cv == null or cv.connection == null:
+	# the simulation's connections are the source of truth (views may be mid-rebuild)
+	for cid in sim.sorted_connection_ids():
+		var c: Connection = sim.connections[cid]
+		if not sim.machines.has(c.from_id) or not sim.machines.has(c.to_id):
 			continue
-		var path := _wire_path(cv.connection)
+		var path := _wire_path(c)
+		if path.size() < 2:
+			continue
 		var d := world.distance_to(SignalGeom.sample(path, SignalGeom.project(path, world))[0])
 		if d <= best_d:
 			best_d = d
-			best_id = cv.connection.id
+			best_id = cid
 	return {"kind": "wire", "id": best_id, "screen_pos": _screen_pos(world)} if best_id >= 0 else {}
 
 

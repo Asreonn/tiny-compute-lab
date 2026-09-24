@@ -83,11 +83,32 @@ func _wire_all() -> void:
 	_tools._on_mouse_motion(_mv.port_world(sim.machines[out], "in"))
 	_click(_mv.port_world(sim.machines[out], "in"))
 	_expect(sim.connections.size() == 2, "two wires exist (got %d)" % sim.connections.size())
-	# occupancy: an occupied output does not start a wire; an occupied input rejects the drop.
+	# Rewiring (player QoL): dragging from / onto occupied ports is allowed. The old wires stay
+	# (faded) until the drop commits; cancelling leaves them untouched.
 	var before := {}
 	for cid in sim.connections:
 		before[cid] = Array(sim.connections[cid].cells)
-	_drag(_mv.port_world(sim.machines[usb], "out"), _mv.port_world(sim.machines[out], "in"))
+	var usb_out: Vector2 = _mv.port_world(sim.machines[usb], "out")
+	var out_in: Vector2 = _mv.port_world(sim.machines[out], "in")
+	_tools._on_mouse_motion(usb_out)
+	_button(true, usb_out)
+	_tools._on_mouse_motion(out_in)
+	_expect(_tools._preview.state == "ValidTarget", "rewire onto an occupied input previews as valid")
+	var faded := 0
+	for cv in _world.get_node("WireLayer").get_children():
+		if cv.pending_removal and not cv.is_queued_for_deletion():
+			faded += 1
+	_expect(faded == 2, "both wires that would be replaced are faded (got %d)" % faded)
+	_expect(sim.connections.size() == 2, "old wires still exist while previewing")
+	_tools._cancel_drags()
+	_button(false, out_in)
+	var same: bool = sim.connections.size() == 2
+	for cid in before:
+		same = same and sim.connections.has(cid) and Array(sim.connections[cid].cells) == before[cid]
+	_expect(same, "cancelled rewire leaves every wire untouched")
+	for cv in _world.get_node("WireLayer").get_children():
+		_expect(not cv.pending_removal, "cancel restores faded wires")
+	# committed rewire: a second Add takes over the Output's input; the old wire is replaced
 	_tools.set_tool("place")
 	_tools.begin_place("add")
 	var p2 := Vector2(6 * 64 + 32, 6 * 64 + 32)
@@ -97,15 +118,16 @@ func _wire_all() -> void:
 	for id in sim.sorted_machine_ids():
 		if sim.machines[id].type == "add" and id != add:
 			add2 = id
+	_expect(add2 >= 0, "second Add placed")
 	_tools.set_tool("wire")
-	if add2 >= 0:
-		_drag(_mv.port_world(sim.machines[add2], "out"), _mv.port_world(sim.machines[out], "in"))
-	var same: bool = sim.connections.size() == 2
-	for cid in before:
-		same = same and sim.connections.has(cid) and Array(sim.connections[cid].cells) == before[cid]
-	_expect(same, "occupied ports reject new wires and the existing wires stay untouched")
-	if add2 >= 0:
-		sim.remove(add2)
+	_drag(_mv.port_world(sim.machines[add2], "out"), out_in)
+	var to_out: Connection = sim.connection_at_port(out, "in")
+	_expect(to_out != null and to_out.from_id == add2, "committed rewire replaces the Output's old wire")
+	_expect(sim.connection_at_port(add, "out") == null, "the replaced wire is gone")
+	# restore the solution: remove the second Add, rewire Add -> Output
+	sim.remove(add2)
+	_drag(_mv.port_world(sim.machines[add], "out"), out_in)
+	_expect(sim.connections.size() == 2, "solution restored (got %d wires)" % sim.connections.size())
 	_step = 3
 
 

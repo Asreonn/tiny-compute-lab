@@ -18,6 +18,7 @@ extends Node2D
 const T := Palette.TILE
 const QUEUE_STACK := 6.0  # px between packets stacked inside an input queue
 const DOCK_IN := 10.0  # px a docked packet sits inside its port
+const GHOST_ALPHA := 0.35  # a value passing through a machine while it is processed
 const EXIT_IN := 12.0  # px inside the output port where a finished value waits to leave
 const LONG_LABEL := 5  # labels longer than this flip into a small tag above the packet
 const LABEL_SIZE := 9  # close-tier packet value font size
@@ -142,22 +143,18 @@ func _locations(sim: Simulation) -> Dictionary:
 				out[p.id] = {"k": "dock", "pos": _dock(m, port, DOCK_IN + float(j) * QUEUE_STACK), "packet": p, "machine": mid}
 				j += 1
 		if not m.job.is_empty() and m.job.get("input", null) != null:
-			# In the core while processing; over the job's last two ticks the value glides
-			# toward the output port it will leave from, so exiting never needs a long hop.
+			# Processing: the value passes THROUGH the machine as a ghost, from just inside its
+			# input port to just inside the output it will leave from, over the job duration
+			# (position = processing progress). It emerges transformed at that output.
 			var jp: Packet = m.job["input"]
 			var left := int(m.job.get("ticks_left", 0))
-			var pos := _core(mid)
+			var total := maxi(int(m.job.get("total", 1)), 1)
+			var in_port := _input_port_of(m, jp)
 			var res: Dictionary = m.job.get("results", {})
-			var total := int(m.job.get("total", 1))
-			if left >= total and total >= 3:
-				# started this tick: dock at the input first; it moves into the core next tick
-				var in_port := _input_port_of(m, jp)
-				if in_port != "":
-					pos = _dock(m, in_port, DOCK_IN)
-			elif left <= 2 and not res.is_empty():
-				var exit_pos := _dock(m, str(res.keys()[0]), EXIT_IN)
-				pos = pos.lerp(exit_pos, 0.5 if left == 2 else 1.0)
-			out[jp.id] = {"k": "core", "pos": pos, "packet": jp, "machine": mid, "glide": left <= 2}
+			var a := _dock(m, in_port, DOCK_IN) if in_port != "" else _core(mid)
+			var b := _dock(m, str(res.keys()[0]), EXIT_IN) if not res.is_empty() else _core(mid)
+			var k := float(total - left) / float(maxi(total - 1, 1))
+			out[jp.id] = {"k": "core", "pos": a.lerp(b, clampf(k, 0.0, 1.0)), "packet": jp, "machine": mid, "ghost": true}
 		for i in m.delay_line.size():
 			var dp: Packet = m.delay_line[i][0]
 			out[dp.id] = {"k": "core", "pos": _core(mid), "packet": dp, "machine": mid}
@@ -180,8 +177,11 @@ func _spawn(sim: Simulation, cur: Dictionary) -> Dictionary:
 		if int(e.get("packet", -1)) == p.id and str(e.get("kind", "")) == "emit":
 			var mid := int(e.get("machine", -1))
 			if sim.machines.has(mid):
-				# emerges just inside the port it leaves from (where the job input glided to)
-				return {"k": "core", "pos": _dock(sim.machines[mid], str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid}
+				# emerges just inside the port it leaves from (where the ghost ended), fading
+				# back to solid on its way onto the wire
+				var src: Machine = sim.machines[mid]
+				var from_job: bool = not src.inq.is_empty()  # machines with inputs emit job results; sources do not
+				return {"k": "core", "pos": _dock(src, str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid, "ghost": from_job}
 	if cur.has("port") and sim.machines.has(int(cur["machine"])):
 		# a fresh value in an output slot (sources): appears just inside that port
 		return {"k": "core", "pos": _dock(sim.machines[int(cur["machine"])], str(cur["port"]), EXIT_IN), "packet": p, "machine": cur["machine"]}
@@ -218,7 +218,7 @@ func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 			"queued": state = "queued"
 	if poly.is_empty():
 		poly.append(_point(b))
-	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "from_glide": a.get("glide", false) and kb != "wire"}
+	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "from_ghost": a.get("ghost", false)}
 
 
 func _point(loc: Dictionary) -> Vector2:
@@ -347,13 +347,21 @@ func _draw() -> void:
 		elif state == "entering":
 			mod = Color(1, 1, 1, lerpf(1.0, Palette.PKT_ENTERING_OPACITY, t))
 		elif state == "processing":
-			mod = Color(1, 1, 1, 0.85)
+			mod = Color(1, 1, 1, GHOST_ALPHA)
 		var label := true
-		if mv["to"].get("glide", false) or mv.get("from_glide", false):
-			# crossing the machine's face toward the exit: muted, unlabeled, so the
-			# machine's own display stays readable
-			mod = Color(1, 1, 1, 0.6)
-			label = false
+		var to_ghost: bool = mv["to"].get("ghost", false)
+		var from_ghost: bool = mv.get("from_ghost", false)
+		if to_ghost or from_ghost:
+			# inside the machine: a ghost (canonical "processing" variant, faded, no label);
+			# fades in on entry and back to solid as the result leaves
+			var ga := GHOST_ALPHA
+			if to_ghost and not from_ghost:
+				ga = lerpf(1.0, GHOST_ALPHA, t)
+			elif from_ghost and not to_ghost:
+				ga = lerpf(GHOST_ALPHA, 1.0, t)
+			state = "processing" if ga < 0.99 else state
+			mod = Color(1, 1, 1, ga)
+			label = ga >= 0.99
 		_draw_packet(mv["packet"], pos, state, scale_k, mod, label)
 
 

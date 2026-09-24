@@ -287,7 +287,9 @@ func output_connected(m: Machine, port: String) -> bool:
 
 
 ## Why a connection from (a, pa) to (b, pb) is impossible, or "" when it is valid.
-func connect_error(a: int, pa: String, b: int, pb: String) -> String:
+## `ignore`: connection ids that are about to be replaced (rewiring) and do not count as
+## occupying their ports.
+func connect_error(a: int, pa: String, b: int, pb: String, ignore: Array = []) -> String:
 	if not machines.has(a) or not machines.has(b):
 		return "Missing machine"
 	if a == b:
@@ -302,9 +304,11 @@ func connect_error(a: int, pa: String, b: int, pb: String) -> String:
 		return "Target must be an input or control port"
 	if ga["width"] != gb["width"]:
 		return "%d-bit output cannot connect to a %d-bit input. Use a width converter." % [ga["width"], gb["width"]]
-	if connection_at_port(a, pa) != null:
+	var ca := connection_at_port(a, pa)
+	if ca != null and not ca.id in ignore:
 		return "Output already wired"
-	if connection_at_port(b, pb) != null:
+	var cb := connection_at_port(b, pb)
+	if cb != null and not cb.id in ignore:
 		return "Input already wired"
 	return ""
 
@@ -347,6 +351,41 @@ func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null
 	_conn_at_port["%d:%s" % [b, pb]] = c.id
 	changed.emit()
 	return c
+
+
+## Wires a new (a, pa) -> (b, pb) connection would replace: the wire already on the source
+## output and the wire already on the target input (rewiring, player QoL).
+func replaced_by(a: int, pa: String, b: int, pb: String) -> Array:
+	var out := []
+	for c in [connection_at_port(a, pa), connection_at_port(b, pb)]:
+		if c != null and not c.id in out:
+			out.append(c.id)
+	return out
+
+
+## Rewire: validate the new connection as if the replaced wires were gone, and only if it is
+## valid remove them and connect — atomically. On failure nothing changes (last_error says why).
+func rewire(a: int, pa: String, b: int, pb: String, route: Variant = null) -> Connection:
+	var old := replaced_by(a, pa, b, pb)
+	last_error = connect_error(a, pa, b, pb, old)
+	if last_error != "":
+		return null
+	# Resolve the route BEFORE removing anything, so a failure leaves the board untouched.
+	var cells: Array[Vector2i] = []
+	if route == null:
+		var r := route_between(a, pa, b, pb)
+		if not r["ok"]:
+			last_error = "No route"
+			return null
+		cells = r["cells"]
+	else:
+		cells.assign(route)
+	last_error = route_error(a, pa, b, pb, cells)
+	if last_error != "":
+		return null
+	for cid in old:
+		disconnect_wire(cid, false)
+	return connect_ports(a, pa, b, pb, cells)
 
 
 ## Why an explicit route cannot be used, or "": it must start on the tile outside the source

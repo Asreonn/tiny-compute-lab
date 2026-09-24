@@ -60,13 +60,14 @@ func _ready() -> void:
 
 	# speed segmented 984,10 120×32
 	_speed_pill = HudKit.box(self, Vector2(984, 10), Vector2(120, 32), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 16)
-	for i in 3:
-		var s: int = [1, 2, 4][i]
-		var seg_pos := Vector2(4 + i * 38, 4)
-		var seg := HudKit.box(_speed_pill, seg_pos, Vector2(36, 24), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 12)
-		var l := HudKit.label(seg, "%d×" % s, Vector2(0, 5), 10, HudKit.W_XBOLD, Palette.TEXT_MUTED, 36, HORIZONTAL_ALIGNMENT_CENTER)
+	var speeds: Array = sm.SPEEDS
+	for i in speeds.size():
+		var s: int = speeds[i]
+		var seg_pos := Vector2(4 + i * 28, 4)
+		var seg := HudKit.box(_speed_pill, seg_pos, Vector2(28, 24), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 12)
+		var l := HudKit.label(seg, "%d×" % s, Vector2(0, 5), 10, HudKit.W_XBOLD, Palette.TEXT_MUTED, 28, HORIZONTAL_ALIGNMENT_CENTER)
 		_speed_labels.append([seg, l, s])
-		HudKit.hit(_speed_pill, seg_pos, Vector2(36, 24), func(): sm.set_speed(s))
+		HudKit.hit(_speed_pill, seg_pos, Vector2(28, 24), func(): sm.set_speed(s), "Speed %d×" % s)
 
 	# right group: metrics (−420/−304/−188 from the right edge) + menu (−56)
 	var right := Control.new()

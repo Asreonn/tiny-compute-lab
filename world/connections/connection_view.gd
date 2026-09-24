@@ -22,6 +22,11 @@ var packet_positions: Callable = Callable()
 ## Set by tools (future wire tool / selection): interaction states layer over Idle.
 var hovered := false
 var selected := false
+## Rewiring preview: this wire will be replaced if the drag is committed (faded, not removed).
+var pending_removal := false:
+	set(v):
+		pending_removal = v
+		modulate.a = 0.3 if v else 1.0
 
 var connection: Connection
 

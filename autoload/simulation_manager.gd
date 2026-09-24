@@ -12,16 +12,16 @@ signal speed_changed(speed: int)
 signal view_mode_changed(mode: int)
 
 const MAX_STEPS_PER_FRAME := 8
-## Real-time playback at 1×: the intended sim rate. Readability comes from continuous visual
-## interpolation between ticks + campaign dwell times, never from slowing the simulation.
-const TICK_RATE := float(Simulation.TICKS_PER_SEC)
-const SPEEDS := [1, 2, 4]
+## Real-time playback at 1× (player feedback 2026-09-24: 1× should be calm; the former 1× of
+## 10 ticks/s is now 3×). Visual motion is continuous between ticks at every speed.
+const TICK_RATE := float(Simulation.TICKS_PER_SEC) / 3.0
+const SPEEDS := [1, 2, 5, 10]
 
 var sim: Simulation
 var run: MissionRun
 var mission: MissionDef
 var running := false
-var speed := 1  # allowed 1, 2, 4
+var speed := 1  # allowed: SPEEDS
 var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation only
 ## Display state only: the ViewMode.Mode the HUD offers for packet/machine values.
 ## -1 = mission default (the mission's first view mode); reset on every mission load.
