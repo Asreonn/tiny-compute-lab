@@ -173,7 +173,7 @@ About 5 s, played on game launch only (not on every board load). Any click or ke
 
 | t | Beat |
 |---|---|
-| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + a boot bar that fills over 1.6 s), and a deck whose **realistic US ANSI laptop keyboard** (function row, number row, QWERTY rows with real key widths, 5.5 u space bar, inverted-T arrows) plus palm rest and trackpad cover exactly the current grid. The deck's side USB ports sit on the rows of the locked USB Input (west) and Contract Drive (east). |
+| 0.0 s | A top-down laptop sits on `bg.void`: lid at the top with a screen wordmark (`TINY COMPUTE LAB` + a boot bar that fills over 1.6 s), and a deck whose **realistic US ANSI laptop keyboard** (function row, number row, QWERTY rows with real key widths, 5.5 u space bar, inverted-T arrows) plus palm rest and trackpad cover exactly the current grid. The deck's sides carry the two **port racks** (4 USB ports each at rows 1/4/7/10). Open ports show their plugged modules; sealed ones show capped ports. |
 | 0.3–3.8 s | The camera slowly eases (cubic in-out) from the whole laptop to the gameplay framing. |
 | 0.6–2.0 s | The lid slides out of the top and fades. |
 | 1.8–3.4 s | The keyboard and palm rest dissolve in a left → right sweep (each key and each tile strip over 300 ms), revealing the PCB board underneath. The factory is live underneath. |

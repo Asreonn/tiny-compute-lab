@@ -97,6 +97,36 @@
   - Socket 3 unlocks with the BYTE milestone (L18), for a configuration/metadata stream.
   - Sockets never unlock as a plain throughput upgrade.
 
+
+### 2.1 Laptop port racks (player request 2026-09-24; supersedes "one socket at (0,5)")
+
+- The Lab board is a laptop's keyboard area, and each side has a **port rack of 4 USB ports**:
+  - **left (input ports):** `usb_input` sockets in column 0;
+  - **right (output ports):** `usb_output` ports in the last two columns.
+- **Port rows are 1, 4, 7 and 10:** the racks sit at the top of the keyboard area. Ports open top
+  first and later ones open downward. Board growth may add rows 13, 16 … below.
+- **Open vs sealed:**
+  - Port 1 on each side is open at the start.
+  - The other ports are **sealed bays**: a reserved 2×1 footprint (not buildable, dashed silk outline,
+    "USB n · opens at Lx") with a capped port face.
+  - Opening schedule: input port 2 at L12 (Two Sticks), input port 3 at L18 (BYTE), output port 2 at L9,
+    output port 3 at L12. The rest stay sealed.
+- **Any module into any open port:**
+  - Input modules (Bit, Number, Text, Key, Sensor) plug into any open input port and can be swapped at
+    any time through the Device Tray.
+  - The contract binds to a module kind, not to a port.
+- **Output devices** (Drive Tray) plug into any open output port and can be swapped:
+  - **Job drive:** the current contract. There is exactly one job drive for now, and it can be moved to
+    any output port.
+  - **Monitor:** shows what arrives (value + 10-sample history, in the chosen view mode) and judges nothing.
+    It is owned from L9.
+  - **Logger:** future.
+  - An empty output port accepts nothing (wires into it stall), and a Monitor accepts everything.
+- **Bigger laptop:** the grid starts at **28 × 16** and grows to 32 × 18 (L6), 36 × 20 (L9) and 40 × 22 (L11).
+  - The board grows east/south only.
+  - Output ports stay glued to the east edge and move with their wires.
+  - Port rows never move.
+
 ## 3. Contract Drive and contracts
 
 **Contract Drive** (`contract_drive`, replaces `usb_output`, locked, east board edge):

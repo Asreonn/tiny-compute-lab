@@ -268,6 +268,13 @@ tooltips. Planned extensions, in the same components:
   - Each module has a key bar, a screen window with its glyph and a 10×3 data store (read cursor or
     fill progress).
   - Plugged in, the plug fills the port opening and the module sits flush at the board edge.
+- **Port racks (page `15 / 02c`):**
+  - There are 4 ports per side at rows 1/4/7/10, the top open first.
+  - A **sealed bay** is a dashed `board.silk` 2×1 footprint with "USB n · opens at Lx" silk and a
+    capped port face (a `material.plate` cap + 2 screws in the port frame).
+  - The output side takes a **Job drive** or a **Monitor**. The Monitor is a bezel-silhouette module,
+    `state.select` key bar, a wide screen with the last value, and a 10-sample history strip.
+  - The **Drive Tray** mirrors the Device Tray for output ports.
 - **Device Tray:** a world-anchored popover with module thumbnails, available/in-use/hover/locked rows
   (locked rows state their unlock) and Unplug.
 
