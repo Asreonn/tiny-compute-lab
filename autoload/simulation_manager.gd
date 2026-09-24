@@ -111,6 +111,7 @@ func _save_lab() -> void:
 		"rejected": lab_run.rejected,
 		"size": [sim.size.x, sim.size.y],
 		"layout": sim.layout_to_dict(),
+		"devices_owned": Array(lab_run.devices_owned()),
 	})
 
 

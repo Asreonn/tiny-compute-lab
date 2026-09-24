@@ -58,7 +58,13 @@ func _start_socket(m, sim) -> void:
 		var seq: int = m.gen_seq
 		m.fifo.append([m.stream[seq % m.stream.size()], seq])
 		m.gen_seq += 1
-		m.next_emit = sim.tick + m.interval
+		# An optional pattern cycles the emission intervals (bursty contracts); otherwise the
+		# module's plain interval applies.
+		var wait: int = m.interval
+		if not m.pattern.is_empty():
+			wait = int(m.pattern[m.pattern_idx % m.pattern.size()])
+			m.pattern_idx += 1
+		m.next_emit = sim.tick + maxi(1, wait)
 		if m.fifo.size() > 2:
 			m.fifo.pop_front()
 			m.lost += 1

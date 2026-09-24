@@ -41,6 +41,8 @@ var dropped := 0  # codec: values dropped this run (unencodable or of the wrong 
 # Input/Output machines are configured by the mission.
 var stream: Array = []  # input: Array[BitVector|RawValue] to emit
 var interval := 1  # input: ticks between packets
+var pattern: Array = []  # socket: optional intervals cycled per emitted value (bursts)
+var pattern_idx := 0  # socket: next pattern slot to use
 var strict := false  # input: drop (and fail) instead of waiting when blocked
 var loop := false  # input: repeat the stream until the mission passes (campaign sources)
 var campaign_timing := false  # set by the Simulation: campaign dwell times (Catalog.ticks)
@@ -203,6 +205,7 @@ func reset() -> void:
 	fifo = []
 	lost = 0
 	gen_seq = 0
+	pattern_idx = 0
 
 
 func can_accept(port_id: String) -> bool:
