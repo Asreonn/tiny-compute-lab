@@ -1,9 +1,11 @@
 class_name SystemsOverlay
 extends Node2D
-## Thermal (T) and power (P) board overlays (docs/VISUAL_SYSTEM.md §21.2, systems_v1.js
-## OVERLAYS). Read-only: it draws SimulationManager.sim every frame while shown, visible tiles
-## only. At most one overlay at a time with a 150 ms cross-fade; World fades the machines to
-## α .55 by `fade`. The legend is a HUD panel (ui/hud/overlay_legend.gd).
+## The board VIEWS drawn over the machines (docs/VISUAL_SYSTEM.md §21.2, systems_v1.js
+## OVERLAYS): Data (B: what kind of data every wire carries, and how wide), Flow (F: how busy or
+## blocked every machine is, the bottleneck, stuck wires), Heat (T) and Power (P). Read-only: it
+## draws SimulationManager.sim every frame while shown, visible tiles only. One view at a time
+## with a 150 ms cross-fade; World fades the machines to α .55 by `fade`. The dock and the legend
+## are HUD panels (ui/hud/view_dock.gd, ui/hud/overlay_legend.gd).
 
 const T := Palette.TILE
 const FADE := 0.15
@@ -40,10 +42,95 @@ func _draw() -> void:
 	var sim := SimulationManager.sim
 	if sim == null:
 		return
-	if _kind == "thermal":
-		_draw_thermal(sim)
-	elif _kind == "power":
-		_draw_power(sim)
+	match _kind:
+		"thermal": _draw_thermal(sim)
+		"power": _draw_power(sim)
+		"data": _draw_data(sim)
+		"flow": _draw_flow(sim)
+
+
+func _route_pts(c: Connection) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for cell in c.cells:
+		pts.append((Vector2(cell) + Vector2(0.5, 0.5)) * T)
+	return pts
+
+
+func _chip(center: Vector2, text: String, col: Color, bold := true) -> void:
+	var f := TclTheme.font("ExtraBold" if bold else "Medium")
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 10.0
+	var r := Rect2(center - Vector2(w * 0.5, 8.0), Vector2(w, 16.0))
+	SystemsDraw.rrect(self, r, 4.0, Palette.SURFACE_SUNKEN)
+	SystemsDraw.rrect_outline(self, r, 4.0, Color(col, 0.8), 1.0)
+	draw_string(f, r.position + Vector2(5.0, 12.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
+
+
+# ------------------------------------------------------------------ data
+
+## Every wire as a wide band in the colour of what it carries (bits: data.number, raw values:
+## family.io) with its width at the middle: "3b", "5b", "RAW".
+func _draw_data(sim: Simulation) -> void:
+	for cid in sim.sorted_connection_ids():
+		var c: Connection = sim.connections[cid]
+		var src: Machine = sim.machines.get(c.from_id)
+		if src == null or c.cells.is_empty():
+			continue
+		var raw := src.port_role(c.from_port) == Catalog.ROLE_RAW
+		var col := Palette.FAMILY_IO if raw else Palette.DATA_NUMBER
+		var pts := _route_pts(c)
+		if pts.size() >= 2:
+			draw_polyline(pts, Color(col, 0.3), 12.0, true)
+		_chip(pts[pts.size() / 2], "RAW" if raw else "%db" % c.width, col)
+	# each USB stick names what it streams
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "usb_input" and m.device != "":
+			var raw := Devices.out_kind(m.device) == "raw"
+			var fp := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+			_chip(Vector2(fp.get_center().x, fp.end.y + 10.0), Devices.display_name(m.device).replace(" module", ""), Palette.FAMILY_IO if raw else Palette.DATA_NUMBER)
+
+
+# ------------------------------------------------------------------ flow
+
+## How the factory flows: a busy / blocked bar on every machine (share of the run so far), the
+## bottleneck outlined, wires that are stuck (their head could not move) in state.blocked, and
+## values lost at a USB stick.
+func _draw_flow(sim: Simulation) -> void:
+	for cid in sim.sorted_connection_ids():
+		var c: Connection = sim.connections[cid]
+		if c.cells.is_empty():
+			continue
+		var full := 0
+		for sl in c.slots:
+			if sl != null:
+				full += 1
+		var load := float(full) / float(maxi(c.slots.size(), 1))
+		var col := Palette.STATE_BLOCKED if c.blocked else Palette.STATE_VALID
+		var pts := _route_pts(c)
+		if pts.size() >= 2 and (c.blocked or load > 0.0):
+			draw_polyline(pts, Color(col, 0.18 + 0.4 * load), 6.0 + 8.0 * load, true)
+	var ticks := maxi(sim.tick, 1)
+	var bn := sim.bottleneck()
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		var fp := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+		if m.type == "usb_input":
+			if m.lost > 0:
+				_chip(Vector2(fp.get_center().x, fp.position.y + 10.0), "lost %d" % m.lost, Palette.STATE_ERROR)
+			continue
+		if m.locked:
+			continue
+		var busy := clampf(float(m.busy_ticks) / ticks, 0.0, 1.0)
+		var blocked := clampf(float(m.blocked_ticks) / ticks, 0.0, 1.0 - busy)
+		var bar := Rect2(Vector2(fp.get_center().x - 30.0, fp.position.y + 6.0), Vector2(60.0, 12.0))
+		SystemsDraw.rrect(self, bar.grow(2.0), 4.0, Palette.SURFACE_SUNKEN)
+		SystemsDraw.rrect(self, Rect2(bar.position, Vector2(bar.size.x * busy, bar.size.y)), 2.0, Palette.STATE_VALID)
+		SystemsDraw.rrect(self, Rect2(bar.position + Vector2(bar.size.x * busy, 0), Vector2(bar.size.x * blocked, bar.size.y)), 2.0, Palette.STATE_BLOCKED)
+		var pct := "%d%%" % roundi(busy * 100.0)
+		draw_string(TclTheme.font("ExtraBold"), Vector2(bar.end.x + 5.0, bar.position.y + 10.0), pct, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.TEXT_PRIMARY if busy >= 0.05 else Palette.TEXT_MUTED)
+		if bn != null and bn.id == m.id:
+			SystemsDraw.rrect_outline(self, fp.grow(-2.0), 8.0, Palette.STATE_BLOCKED, 2.0)
+			_chip(Vector2(fp.get_center().x, fp.end.y - 10.0), "BOTTLENECK", Palette.STATE_BLOCKED)
 
 
 # ------------------------------------------------------------------ thermal

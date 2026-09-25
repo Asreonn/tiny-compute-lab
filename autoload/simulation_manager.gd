@@ -34,7 +34,7 @@ var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation 
 ## Display state only: the ViewMode.Mode the HUD offers for packet/machine values.
 ## -1 = mission default (the mission's first view mode); reset on every mission load.
 var view_mode := -1
-## Board overlay over the machines: "" | "thermal" | "power" (keys T / P; at most one at a time).
+## The board view: "" (normal) | "data" | "flow" | "thermal" | "power" (VIEWS; keys N B F T P).
 var overlay := ""
 var _acc := 0.0
 
@@ -322,9 +322,20 @@ func set_speed(s: int) -> void:
 		speed_changed.emit(s)
 
 
-## Toggle the thermal / power overlay (pressing the shown one again hides it).
+## The board VIEWS (a main mechanic, the View dock): [overlay id, name, key]. "" is the normal
+## view; the others draw their layer over the machines (world/overlays/systems_overlay.gd).
+const VIEWS := [["", "Normal", "N"], ["data", "Data", "B"], ["flow", "Flow", "F"], ["thermal", "Heat", "T"], ["power", "Power", "P"]]
+
+
+## Toggle a view (pressing the shown one again goes back to the normal view).
 func toggle_overlay(kind: String) -> void:
-	overlay = "" if overlay == kind else kind
+	set_overlay("" if overlay == kind else kind)
+
+
+func set_overlay(kind: String) -> void:
+	if kind == overlay:
+		return
+	overlay = kind
 	overlay_changed.emit(overlay)
 
 

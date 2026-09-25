@@ -201,6 +201,25 @@
   Old saves get the defaults, and `LabRun.migrate_plain` turns plugged plain modules into the
   current quest's sticks.
 
+### 2.4 Views (player request 2026-09-25): a main mechanic
+
+The board has five **views**. The View dock at the bottom centre switches them; the keys are
+N B F T P.
+
+| View | Key | What it shows |
+|---|---|---|
+| Normal | N | the factory as it is |
+| Data | B | every wire as a band in the colour of what it carries (bits: data.number; raw: family.io), with its width (`3b`, `RAW`); each stick names its stream |
+| Flow | F | a busy / blocked bar on every machine (share of the run), the bottleneck outlined, stuck wires in state.blocked, wire load, values lost at a stick |
+| Heat | T | the thermal overlay |
+| Power | P | power pips per machine plus the PSU gauge |
+
+- One view is shown at a time, with a 150 ms cross-fade. The machines fade to α .55 under it.
+- The legend sits right above the dock.
+- A thin frame in the view's colour rims the screen while a view is on.
+- Code: `SimulationManager.VIEWS` / `set_overlay`, `world/overlays/systems_overlay.gd`,
+  `ui/hud/view_dock.gd`, `ui/hud/overlay_legend.gd`.
+
 ## 3. Contract Drive and contracts
 
 **Contract Drive** (`contract_drive`, replaces `usb_output`, locked, east board edge):

@@ -31,6 +31,7 @@ func _ready() -> void:
 	var bar := _panel("res://ui/hud/quick_bar.gd")
 	_panel("res://ui/hud/result_panel.gd")
 	_panel("res://ui/hud/overlay_legend.gd")
+	_panel("res://ui/hud/view_dock.gd")
 	_menu = _panel("res://ui/hud/main_menu.gd")
 	rail.tools = tools
 	palette.tools = tools
@@ -59,7 +60,7 @@ func _build_toast() -> void:
 	holder.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(holder)
-	_toast = HudKit.box(holder, Vector2(-240, -84), Vector2(480, 36), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER, 1, 6)
+	_toast = HudKit.box(holder, Vector2(-240, -112), Vector2(480, 36), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER, 1, 6)
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast_label = HudKit.label(_toast, "", Vector2(0, 10), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 480, HORIZONTAL_ALIGNMENT_CENTER)
 	_toast.visible = false
@@ -161,6 +162,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_2: sm.set_speed(sm.SPEEDS[1])
 		KEY_3: sm.set_speed(sm.SPEEDS[2])
 		KEY_4: sm.set_speed(sm.SPEEDS[3])
+		KEY_N: sm.set_overlay("")
+		KEY_B: sm.toggle_overlay("data")
+		KEY_F: sm.toggle_overlay("flow")
 		KEY_T: sm.toggle_overlay("thermal")
 		KEY_P: sm.toggle_overlay("power")
 

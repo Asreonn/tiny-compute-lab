@@ -1,7 +1,7 @@
 extends Control
-## Overlay legend (VISUAL_SYSTEM §21.2): a 264x64 panel at the top right while the thermal (T) or
-## power (P) overlay is shown. Thermal: the four stage swatches; power: the PSU gauge enlarged
-## with demand / capacity. It steps left of the Inspector while a machine is selected.
+## View legend (VISUAL_SYSTEM §21.2): a 264x64 panel right above the View dock while a view is
+## on. Heat: the four stage swatches; power: the PSU gauge enlarged with demand / capacity; data:
+## bits vs raw; flow: busy / blocked and the bottleneck.
 
 const W := 264.0
 const H := 64.0
@@ -32,10 +32,10 @@ func _process(delta: float) -> void:
 	visible = _a > 0.0
 	if not visible:
 		return
-	var tools := get_tree().get_first_node_in_group("tools")
-	var inspector_open: bool = tools != null and int(tools.get("selected_machine")) >= 0
-	var vw := get_viewport_rect().size.x
-	position = Vector2(vw - W - 16.0 - (308.0 if inspector_open else 0.0), 68.0)
+	# right above the View dock (bottom centre): the views live together
+	var vs := get_viewport_rect().size
+	var dock: Vector2 = load("res://ui/hud/view_dock.gd").dock_size()
+	position = Vector2(roundf((vs.x - W) * 0.5), vs.y - 16.0 - dock.y - 8.0 - H)
 	queue_redraw()
 
 
@@ -46,10 +46,11 @@ func _draw() -> void:
 	var sim: Simulation = get_node("/root/SimulationManager").sim
 	if sim == null:
 		return
-	if _kind == "thermal":
-		_thermal(sim)
-	elif _kind == "power":
-		_power(sim)
+	match _kind:
+		"thermal": _thermal(sim)
+		"power": _power(sim)
+		"data": _data(sim)
+		"flow": _flow(sim)
 
 
 func _text(pos: Vector2, s: String, px: int, weight: String, c: Color) -> void:
@@ -72,6 +73,32 @@ func _thermal(sim: Simulation) -> void:
 		SystemsDraw.rrect(self, sw, 3.0, Color(col, SystemsOverlay.TILE_A[st] * 1.6))
 		_text(Vector2(x + 18, 41), str(STAGES[i][0]), 8, "ExtraBold", Palette.TEXT_SECONDARY)
 	_text(Vector2(12, 58), "hot tiles throttle ×½ · critical pauses", 8, "Medium", Palette.TEXT_MUTED)
+
+
+func _swatch(x: float, col: Color, label: String) -> void:
+	SystemsDraw.rrect(self, Rect2(x, 30, 14, 14), 3.0, Color(col, 0.55))
+	SystemsDraw.rrect_outline(self, Rect2(x, 30, 14, 14), 3.0, col, 1.0)
+	_text(Vector2(x + 18, 41), label, 8, "ExtraBold", Palette.TEXT_SECONDARY)
+
+
+func _data(sim: Simulation) -> void:
+	_text(Vector2(12, 18), "DATA", 10, "ExtraBold", Palette.TEXT_PRIMARY)
+	_text(Vector2(W - 24, 18), "B", 10, "ExtraBold", Palette.TEXT_MUTED)
+	_text(Vector2(64, 18), "%d wires" % sim.connections.size(), 10, "Medium", Palette.TEXT_SECONDARY)
+	_swatch(12, Palette.DATA_NUMBER, "BITS · width")
+	_swatch(132, Palette.FAMILY_IO, "RAW values")
+	_text(Vector2(12, 58), "an Encoder turns raw into bits, a Decoder back", 8, "Medium", Palette.TEXT_MUTED)
+
+
+func _flow(sim: Simulation) -> void:
+	_text(Vector2(12, 18), "FLOW", 10, "ExtraBold", Palette.TEXT_PRIMARY)
+	_text(Vector2(W - 24, 18), "F", 10, "ExtraBold", Palette.TEXT_MUTED)
+	var bn := sim.bottleneck()
+	_text(Vector2(64, 18), "bottleneck: %s" % (bn.label if bn != null else "none"), 10, "Medium", Palette.STATE_BLOCKED if bn != null else Palette.TEXT_SECONDARY)
+	_swatch(12, Palette.STATE_VALID, "BUSY")
+	_swatch(82, Palette.STATE_BLOCKED, "BLOCKED")
+	_text(Vector2(170, 41), "wire = load", 8, "ExtraBold", Palette.TEXT_SECONDARY)
+	_text(Vector2(12, 58), "share of the run each machine was busy", 8, "Medium", Palette.TEXT_MUTED)
 
 
 func _power(sim: Simulation) -> void:
