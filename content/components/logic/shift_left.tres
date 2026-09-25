@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/logic_logic.gd" id="1_k04aa"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_5qs5n"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_yvwpm"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_7o2ty"]
+
+[sub_resource type="Resource" id="Resource_f72hn"]
+script = ExtResource("2_5qs5n")
+key = "n"
+label = "Places"
+default_int = 1
+min_value = 1
+max_value = 7
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_bpxuu"]
+script = ExtResource("3_yvwpm")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_26spn"]
+script = ExtResource("3_yvwpm")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_7o2ty")
+id = "shift_left"
+display_name = "Shift Left"
+family = "logic"
+campaign_ticks = 2
+power = 1
+glyph_text = "«"
+description = "Moves every bit n places up; the top bits fall off. The same as × 2ⁿ, far cheaper."
+ports = Array[ExtResource("3_yvwpm")]([SubResource("Resource_bpxuu"), SubResource("Resource_26spn")])
+params = Array[ExtResource("2_5qs5n")]([SubResource("Resource_f72hn")])
+logic = ExtResource("1_k04aa")
+menu_order = 150

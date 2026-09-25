@@ -201,11 +201,9 @@ const MOD_END := {
 	"monitor": "bezel",
 }
 ## The glyph a module shows in its window (systems_v1.js MOD).
-const MOD_GLYPH := {"bit": "010", "number": "42", "text": "Aa", "key": "K#", "sensor": "~"}
-
-
+## The silk glyph of a stick (its DeviceDef): "010", "Aa", "42" …
 static func kind_glyph(kind: String) -> String:
-	return str(MOD_GLYPH.get(Devices.base(kind), ""))
+	return "" if Devices.has_output(kind) else Devices.glyph(kind)
 
 
 ## dataModule(kind, opts): 96x56 module with a male USB-A plug. `pos` = top-left of the body.
@@ -330,7 +328,7 @@ static func mini_module(ci: CanvasItem, pos: Vector2, kind: String, alpha := 1.0
 
 
 static func _kind_accent(kind: String) -> Color:
-	return Palette.DATA_NUMBER if Devices.base(kind) == "bit" else Palette.FAMILY_IO
+	return Palette.DATA_NUMBER if Devices.accent(kind) == "data" else Palette.FAMILY_IO
 
 
 # ================================================================ monitor (output device)

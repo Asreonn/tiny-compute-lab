@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DeviceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/device_def.gd" id="1_rc3qs"]
+
+[resource]
+script = ExtResource("1_rc3qs")
+id = "number"
+display_name = "Number module"
+out = "raw"
+raw_kind = 1
+glyph = "42"

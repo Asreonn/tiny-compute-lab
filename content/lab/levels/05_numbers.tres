@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_y831q"]
+
+[resource]
+script = ExtResource("1_y831q")
+id = "lab_l5"
+title = "Numbers"
+brief = "The stick now speaks numbers. Encode one, add one, hand the bits back."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 20,
+"kind": "map",
+"ops": [{
+"op": "encode_num",
+"width": 3
+}, {
+"k": 1,
+"op": "add"
+}]
+}
+streams = {
+"number": {
+"values": [3, 6, 1, 4, 7, 2, 5, 0]
+}
+}
+devices = PackedStringArray("number")
+unlocks = PackedStringArray("number_encoder", "number_decoder")
+view = 1

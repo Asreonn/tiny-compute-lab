@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/routing_logic.gd" id="1_6emhl"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_crd58"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_sluin"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_b40ry"]
+
+[sub_resource type="Resource" id="Resource_lwmmj"]
+script = ExtResource("3_sluin")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_ssbqn"]
+script = ExtResource("3_sluin")
+id = "sel"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+
+[sub_resource type="Resource" id="Resource_4edgm"]
+script = ExtResource("3_sluin")
+id = "a"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[sub_resource type="Resource" id="Resource_x4fwq"]
+script = ExtResource("3_sluin")
+id = "b"
+dir = "out"
+cell = Vector2i(1, 1)
+
+[resource]
+script = ExtResource("4_b40ry")
+id = "demux"
+display_name = "Demux"
+family = "routing"
+size = "L"
+campaign_ticks = 3
+power = 1
+icon = "op_split"
+description = "Sends each value to A when the select bit is 0, to B when it is 1."
+ports = Array[ExtResource("3_sluin")]([SubResource("Resource_lwmmj"), SubResource("Resource_ssbqn"), SubResource("Resource_4edgm"), SubResource("Resource_x4fwq")])
+logic = ExtResource("1_6emhl")
+menu_order = 300

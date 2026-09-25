@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/io_logic.gd" id="1_howsw"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_vo4br"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_87w7n"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_50k8j"]
+
+[sub_resource type="Resource" id="Resource_wirx3"]
+script = ExtResource("3_87w7n")
+id = "in"
+width = "*"
+bus = true
+side = 2
+label = "USB"
+
+[resource]
+script = ExtResource("4_50k8j")
+id = "usb_output"
+display_name = "USB Output"
+family = "io"
+icon = "io_output"
+description = "Hands processed data back out through the lab's USB line."
+ports = Array[ExtResource("3_87w7n")]([SubResource("Resource_wirx3")])
+logic = ExtResource("1_howsw")
+menu_order = 45

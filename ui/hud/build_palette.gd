@@ -111,7 +111,7 @@ func _select_cat(cat: String) -> void:
 func _listable(d: MissionDef) -> Array:
 	var out := []
 	var lab: bool = _mgr().in_lab
-	for t in Catalog.ORDER + ["heatsink", "blower", "heat_pipe", "radiator"]:
+	for t in Catalog.ORDER:
 		if t in IO_TYPES or not Catalog.has(t):
 			continue
 		if t in d.allowed or (lab and LabDef.unlock_level(t) >= 0):

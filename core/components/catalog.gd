@@ -1,7 +1,10 @@
 class_name Catalog
 extends RefCounted
-## Static machine definitions. Mirrors the Penpot "05 Machines" page: every machine is
-## MachineShell(size) + family accent + operation icon + ports. Behaviour lives in Machine.
+## The machine registry. Every machine is an asset — content/components/<family>/<id>.tres, a
+## ComponentDef — and every variant a ContentVariant of one (docs/CONTENT.md); this class loads
+## them once and serves the definition dictionaries the simulation reads. Visually a machine is
+## MachineShell(size) + family accent + operation icon + ports (Penpot "05 Machines"); its
+## behaviour is the ComponentLogic script its asset names.
 ##
 ## Ports are PortDefinitions: {id, dir, role, width, bus, cell, side, label}.
 ## width is an explicit int (1 for control/flag) or "W" = the instance width.
@@ -30,7 +33,7 @@ const MAX_WIDTH := 64
 
 const SIZES := {"S": Vector2i(1, 1), "M": Vector2i(2, 1), "L": Vector2i(2, 2)}
 
-const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "compute"]
+const FAMILIES := ComponentDef.FAMILIES
 const CATEGORIES := [
 	{"id": "io", "label": "IO"},
 	{"id": "math", "label": "Math"},
@@ -40,417 +43,109 @@ const CATEGORIES := [
 ]
 
 
-static func _p(id: String, dir: String, role: String, width: Variant, cell: Vector2i, side: int, label := "", bus := false) -> Dictionary:
-	return {
-		"id": id, "dir": dir, "role": role, "width": width, "bus": bus,
-		"cell": cell, "side": side, "label": label if label != "" else id.to_upper(),
-	}
+## Heat per full-rate tick per rated power unit (tenths of °C, SYSTEMS_EXPANSION §5) for a
+## machine whose asset leaves `heat` derived; routing makes half. Calibrated in
+## tests/test_thermal.gd.
+const HEAT_PER_POWER := 84
+const HEAT_PER_POWER_ROUTING := 42
+## Every powered machine gets this param (SYSTEMS_EXPANSION §6); the Inspector only shows it once
+## the run unlocks clock modes (run.clock_unlocked()).
+const CLOCK_PARAM := {"label": "Clock", "kind": "enum", "default": "normal", "options": ["normal", "fast", "overclocked"]}
+
+## type -> ComponentDefinition dictionary, built from the content assets (docs/CONTENT.md):
+## {name, family, size, ticks, campaign_ticks, power, heat, icon, glyph_text?, desc, ports,
+##  params, logic, order, base?}. params: key -> {label, kind ("int"|"enum"|"text"), default,
+## min, max, options}. A variant carries "base": the machine it derives from.
+static var DEFS := {}
+## Build-menu order: every type by its asset's menu_order (a variant right after its base).
+static var ORDER: Array = []
 
 
-## params: key -> {label, kind ("int"|"enum"), default, min, max, options}
-static var DEFS := {
-	"input": {
-		"name": "Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
-		"desc": "Feeds the mission's data stream into your machine.",
-		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
-		"params": {},
-	},
-	"usb_input": {
-		"name": "USB Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
-		"desc": "Streams raw bits from the lab's USB line.",
-		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true)],
-		"params": {},
-	},
-	"output": {
-		"name": "Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
-		"desc": "Collects results and checks them against the expected stream.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
-		"params": {},
-	},
-	"usb_output": {
-		"name": "USB Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
-		"desc": "Hands processed data back out through the lab's USB line.",
-		# width "*" = accepts any width (the ONE exception to the width-match rule,
-		# docs/ARCHITECTURE.md §4.3): the Lab USB Output validates bits + width itself.
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "*", Vector2i(0, 0), Side.W, "USB", true)],
-		"params": {},
-	},
-	"add": {
-		"name": "Add", "family": "math", "size": "M", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "op_add",
-		"desc": "Adds a constant value to each packet.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
-		"params": {"k": {"label": "Constant", "kind": "int", "default": 1, "min": 0, "max": 255}},
-	},
-	"modulo": {
-		"name": "Modulo", "family": "math", "size": "M", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "", "glyph_text": "%",
-		"desc": "Keeps the remainder after dividing by a constant.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
-		"params": {"k": {"label": "Modulus", "kind": "int", "default": 26, "min": 1, "max": 255}},
-	},
-	"terminal_output": {
-		"name": "Terminal", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
-		"desc": "Collects results as characters and checks them against the expected stream.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN")],
-		"params": {},
-	},
-	"multiply": {
-		"name": "Multiply", "family": "math", "size": "M", "ticks": 2, "campaign_ticks": 6, "power": 2, "icon": "op_multiply",
-		"desc": "Multiplies each packet by a constant.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
-		"params": {"k": {"label": "Factor", "kind": "int", "default": 2, "min": -9, "max": 9}},
-	},
-	"compare": {
-		"name": "Compare", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_compare",
-		"desc": "Tests each value and emits a 1-bit result.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_FLAG, 1, Vector2i(0, 0), Side.E, "?")],
-		"params": {
-			"op": {"label": "Operation", "kind": "enum", "default": ">", "options": [">", "<", "=", "≥", "≤", "≠"]},
-			"k": {"label": "Threshold", "kind": "int", "default": 10, "min": -99, "max": 99},
-		},
-	},
-	"and_gate": {
-		"name": "AND", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "&",
-		"desc": "Bitwise AND of two words: a bit is 1 only where both are 1. Masks bits off.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"or_gate": {
-		"name": "OR", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "|",
-		"desc": "Bitwise OR of two words: a bit is 1 where either is 1. Sets bits.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"xor_gate": {
-		"name": "XOR", "family": "logic", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "^",
-		"desc": "Bitwise XOR of two words: a bit is 1 where they differ. Flips bits.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"shift_left": {
-		"name": "Shift Left", "family": "logic", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "«",
-		"desc": "Moves every bit n places up; the top bits fall off. The same as × 2ⁿ, far cheaper.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
-		"params": {"n": {"label": "Places", "kind": "int", "default": 1, "min": 1, "max": 7}},
-	},
-	"shift_right": {
-		"name": "Shift Right", "family": "logic", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "»",
-		"desc": "Moves every bit n places down, filling with 0; the low bits fall off. The same as ÷ 2ⁿ.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
-		"params": {"n": {"label": "Places", "kind": "int", "default": 1, "min": 1, "max": 7}},
-	},
-	"not_gate": {
-		"name": "NOT", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "!",
-		"desc": "Flips every bit of a word.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "OUT")],
-		"params": {},
-	},
-	"bus_combiner": {
-		"name": "Bus Combiner", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
-		"desc": "Joins a high part and a low part into one wider word. Waits for both.",
-		"ports": [
-			_p("hi", DIR_IN, ROLE_DATA, "R:lo", Vector2i(0, 0), Side.W, "HI", true),
-			_p("lo", DIR_IN, ROLE_DATA, "P:lo", Vector2i(0, 1), Side.W, "LO", true),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true),
-		],
-		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 4, "min": 1, "max": 63}},
-	},
-	"gate": {
-		"name": "Gate", "family": "logic", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_gate",
-		"desc": "Passes the data packet only when the control signal is TRUE; otherwise discards it.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
-			_p("ctrl", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "EN"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "Q"),
-		],
-		"params": {},
-	},
-	"splitter": {
-		"name": "Splitter", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
-		"desc": "One stream in, two out. Alternate balances load; Duplicate copies every packet.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
-			_p("a", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "A"),
-			_p("b", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 1), Side.E, "B"),
-		],
-		"params": {"mode": {"label": "Mode", "kind": "enum", "default": "Alternate", "options": ["Alternate", "Duplicate"]}},
-	},
-	"merger": {
-		"name": "Merger", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
-		"desc": "Two streams in, one out. Takes turns fairly between inputs.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"bit_splitter": {
-		"name": "Bit Splitter", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
-		"desc": "Splits a word into its high bits and its low bits.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true),
-			_p("hi", DIR_OUT, ROLE_DATA, "R:lo", Vector2i(1, 0), Side.E, "HI", true),
-			_p("lo", DIR_OUT, ROLE_DATA, "P:lo", Vector2i(1, 1), Side.E, "LO", true),
-		],
-		"params": {"lo": {"label": "Low bits", "kind": "int", "default": 3, "min": 1, "max": 63}},
-	},
-	"zero_extend": {
-		"name": "Zero Extend", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "ZX",
-		"desc": "Widens a word, filling the new high bits with 0. The value stays the same.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
-		"params": {"to": {"label": "To bits", "kind": "int", "default": 5, "min": 1, "max": 64}},
-	},
-	"sign_extend": {
-		"name": "Sign Extend", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "SX",
-		"desc": "Widens a signed word, copying its top bit into the new bits. −3 stays −3.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
-		"params": {"to": {"label": "To bits", "kind": "int", "default": 5, "min": 1, "max": 64}},
-	},
-	"truncate": {
-		"name": "Truncate", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "TR",
-		"desc": "Narrows a word, keeping only its low bits.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN", true), _p("out", DIR_OUT, ROLE_DATA, "P:to", Vector2i(1, 0), Side.E, "OUT", true)],
-		"params": {"to": {"label": "To bits", "kind": "int", "default": 3, "min": 1, "max": 64}},
-	},
-	"number_encoder": {
-		"name": "Number Encoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
-		"desc": "Turns a raw number into bits of the chosen width. A value that does not fit sets the overflow LED.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
-			_p("out", DIR_OUT, ROLE_DATA, "P:width", Vector2i(1, 0), Side.E, "OUT", true),
-		],
-		"params": {"width": {"label": "Width", "kind": "int", "default": 3, "min": 1, "max": 16}},
-	},
-	"char_encoder": {
-		"name": "Character Encoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
-		"desc": "Turns a raw character into its charset code. 5 bits use TCL-5; an unencodable char is dropped.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
-			_p("out", DIR_OUT, ROLE_DATA, "P:width", Vector2i(1, 0), Side.E, "OUT", true),
-		],
-		"params": {"width": {"label": "Width", "kind": "int", "default": 5, "min": 5, "max": 8}},
-	},
-	"number_decoder": {
-		"name": "Number Decoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
-		"desc": "Turns bits into a raw number, unsigned or signed.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),
-			_p("out", DIR_OUT, ROLE_RAW, 0, Vector2i(1, 0), Side.E, "RAW"),
-		],
-		"params": {
-			"width": {"label": "Width", "kind": "int", "default": 3, "min": 1, "max": 16},
-			"signed": {"label": "Signed", "kind": "enum", "default": "Unsigned", "options": ["Unsigned", "Signed"]},
-		},
-	},
-	"char_decoder": {
-		"name": "Character Decoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
-		"desc": "Turns bits into a raw character using the charset of the width.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),
-			_p("out", DIR_OUT, ROLE_RAW, 0, Vector2i(1, 0), Side.E, "RAW"),
-		],
-		"params": {"width": {"label": "Width", "kind": "int", "default": 5, "min": 5, "max": 8}},
-	},
-	"demux": {
-		"name": "Demux", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_split",
-		"desc": "Sends each value to A when the select bit is 0, to B when it is 1.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
-			_p("sel", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "SEL"),
-			_p("a", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "A"),
-			_p("b", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 1), Side.E, "B"),
-		],
-		"params": {},
-	},
-	"mux": {
-		"name": "Mux", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_merge",
-		"desc": "Two streams in, one out: the select bit picks A (0) or B (1) for each value.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("sel", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "SEL"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"cond_router": {
-		"name": "Conditional Router", "family": "routing", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_split",
-		"desc": "Sends each value to A when the test holds, otherwise to B.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
-			_p("a", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "A"),
-			_p("b", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 1), Side.E, "B"),
-		],
-		"params": {
-			"op": {"label": "Test", "kind": "enum", "default": ">", "options": [">", "<", "=", "bit"]},
-			"k": {"label": "Value", "kind": "int", "default": 3, "min": 0, "max": 255},
-		},
-	},
-	"buffer": {
-		"name": "Buffer", "family": "storage", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_buffer",
-		"desc": "Queues packets so bursts don't back up the line.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT")],
-		"params": {"capacity": {"label": "Capacity", "kind": "int", "default": 4, "min": 1, "max": 8}},
-	},
-	"delay": {
-		"name": "Delay", "family": "storage", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 1, "icon": "op_delay",
-		"desc": "Holds each packet for a fixed number of ticks.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "OUT")],
-		"params": {"ticks": {"label": "Delay", "kind": "int", "default": 3, "min": 1, "max": 9}},
-	},
-	"adder": {
-		"name": "Adder", "family": "math", "size": "L", "ticks": 1, "campaign_ticks": 4, "power": 1, "icon": "op_add",
-		"desc": "Adds two streams: a + b, one pair at a time. Waits for both.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"counter": {
-		"name": "Counter", "family": "storage", "size": "S", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "op_counter",
-		"desc": "Counts packets. Emits the running count for each one received.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "N")],
-		"params": {},
-	},
-	"register": {
-		"name": "Register", "family": "memory", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "R",
-		"desc": "Remembers one value. Echo: each write is passed on (it starts by sending its initial value — a feedback loop's seed). A pulse on READ sends the stored value again.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "IN"),
-			_p("read", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "RD"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {
-			"mode": {"label": "Mode", "kind": "enum", "default": "echo", "options": ["echo", "on read"]},
-			"init": {"label": "Initial", "kind": "int", "default": 0, "min": 0, "max": 255},
-		},
-	},
-	"register_bank": {
-		"name": "Register Bank", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 2, "icon": "", "glyph_text": "R4",
-		"desc": "Four registers. Each operation takes an address, a value and the WE bit: WE 1 writes the value, WE 0 reads the addressed register out.",
-		"ports": [
-			_p("d", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
-			_p("a", DIR_IN, ROLE_DATA, 2, Vector2i(0, 1), Side.W, "A"),
-			_p("we", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "WE"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"ram": {
-		"name": "RAM", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 2, "icon": "", "glyph_text": "RAM",
-		"desc": "Sixteen cells. Each operation takes a 4-bit address, a value and the WE bit: WE 1 writes, WE 0 reads the cell out (the value input is used up either way).",
-		"ports": [
-			_p("d", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "D"),
-			_p("a", DIR_IN, ROLE_DATA, 4, Vector2i(0, 1), Side.W, "A"),
-			_p("we", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(0, 0), Side.N, "WE"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {},
-	},
-	"rom": {
-		"name": "ROM", "family": "memory", "size": "L", "ticks": 1, "campaign_ticks": 3, "power": 1, "icon": "", "glyph_text": "ROM",
-		"desc": "A table you type in: the value at the incoming address comes out. Up to 16 entries.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "ADDR"),
-			_p("out", DIR_OUT, ROLE_DATA, "P:out", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {
-			"table": {"label": "Table", "kind": "text", "default": "0 1 2 3 4 5 6 7"},
-			"out": {"label": "Out bits", "kind": "int", "default": 3, "min": 1, "max": 16},
-		},
-	},
-	"alu": {
-		"name": "ALU", "family": "compute", "size": "L", "ticks": 1, "campaign_ticks": 4, "power": 2, "icon": "", "glyph_text": "ALU",
-		"desc": "Arithmetic-logic unit: combines A and B with operation 0 or operation 1, picked by the OP bit of each step.",
-		"ports": [
-			_p("a", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "A"),
-			_p("b", DIR_IN, ROLE_DATA, "W", Vector2i(0, 1), Side.W, "B"),
-			_p("op", DIR_CTRL, ROLE_CONTROL, 1, Vector2i(1, 0), Side.N, "OP"),
-			_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT"),
-		],
-		"params": {
-			"op0": {"label": "Op 0", "kind": "enum", "default": "ADD", "options": ["ADD", "SUB", "AND", "OR", "XOR"]},
-			"op1": {"label": "Op 1", "kind": "enum", "default": "SUB", "options": ["ADD", "SUB", "AND", "OR", "XOR"]},
-		},
-	},
-	"program_counter": {
-		"name": "Program Counter", "family": "control", "size": "S", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "PC",
-		"desc": "Counts steps: each 1-bit clock pulse sends the next address — start, start + 1, … wrapping at its width.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, 1, Vector2i(0, 0), Side.W, "CLK"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(0, 0), Side.E, "PC")],
-		"params": {"start": {"label": "Start", "kind": "int", "default": 0, "min": 0, "max": 255}},
-	},
-	"instruction_decoder": {
-		"name": "Instruction Decoder", "family": "control", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "", "glyph_text": "DEC",
-		"desc": "Reads an instruction word: its top bit comes out on A, the next bit on B — control lines for WE or OP.",
-		"ports": [
-			_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "INSTR"),
-			_p("a", DIR_OUT, ROLE_CONTROL, 1, Vector2i(1, 0), Side.E, "A"),
-			_p("b", DIR_OUT, ROLE_CONTROL, 1, Vector2i(1, 1), Side.E, "B"),
-		],
-		"params": {},
-	},
-	"processor": {
-		"name": "Processor", "family": "compute", "size": "L", "ticks": 4, "campaign_ticks": 12, "power": 4, "heat": 440, "icon": "op_processor",
-		"desc": "Heavy general-purpose unit. Powerful but slow — a classic bottleneck.",
-		"ports": [_p("in", DIR_IN, ROLE_DATA, "W", Vector2i(0, 0), Side.W, "X"), _p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "Y")],
-		"params": {"op": {"label": "Function", "kind": "enum", "default": "x²", "options": ["x²", "x³", "|x|", "−x"]}},
-	},
-	# --- thermal family (docs/SYSTEMS_EXPANSION.md §5): board-level copper, no data ports ---
-	"heatsink": {
-		"name": "Heatsink", "glyph_text": "HS", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
-		"desc": "Passive copper fins. Cools every tile within 1.",
-		"ports": [],
-		"params": {},
-	},
-	"blower": {
-		"name": "Blower", "glyph_text": "BL", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 2, "heat": 0, "icon": "",
-		"desc": "Active airflow. Strongly cools every tile within 2 while it gets power.",
-		"ports": [],
-		"params": {},
-	},
-	"heat_pipe": {
-		"name": "Heat Pipe", "glyph_text": "HP", "family": "thermal", "size": "S", "ticks": 1, "campaign_ticks": 1, "power": 0, "heat": 0, "icon": "",
-		"desc": "Carries heat along its axis to a sink. Chain pipes; rotate one to turn a corner.",
-		"ports": [],
-		"params": {},
-	},
-	"radiator": {
-		"name": "Radiator", "glyph_text": "RD", "family": "thermal", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 1, "heat": 0, "icon": "",
-		"desc": "The strongest cooler: dumps heat from every tile within 2.",
-		"ports": [],
-		"params": {},
-	},
-}
-
-## Build-menu order within each category.
-const ORDER := ["input", "usb_input", "output", "terminal_output", "add", "adder", "modulo", "multiply", "compare", "gate", "and_gate", "or_gate", "xor_gate", "not_gate", "shift_left", "shift_right", "splitter", "merger", "mux", "cond_router", "bit_splitter", "bus_combiner", "zero_extend", "sign_extend", "truncate", "number_encoder", "char_encoder", "number_decoder", "char_decoder", "demux", "buffer", "delay", "counter", "register", "register_bank", "ram", "rom", "program_counter", "instruction_decoder", "alu", "processor"]
-
-
-## Every powered machine gets a "clock" param (SYSTEMS_EXPANSION §6). The Inspector only shows it
-## once the run unlocks clock modes (run.clock_unlocked()).
 static func _static_init() -> void:
+	reload()
+
+
+## (Re)build DEFS / ORDER from content/components (tests call it after registering fixtures).
+static func reload() -> void:
+	DEFS = {}
+	var table := ContentDB.table(ContentDB.COMPONENTS_DIR, ComponentDef)
+	var ids := table.keys()
+	ids.sort()
+	for t in ids:
+		var d: Dictionary = table[t]
+		if d.has("base") and not _valid_variant(t, d, table):
+			continue
+		DEFS[t] = _finish(d)
 	for t in DEFS:
-		if not DEFS[t].has("heat"):
-			# heat per full-rate tick, tenths of °C (SYSTEMS_EXPANSION §5): 84 per rated power
-			# unit, routing half of that; calibrated in tests/test_thermal.gd
-			var per := 42 if DEFS[t]["family"] == "routing" else 84
-			DEFS[t]["heat"] = per * int(DEFS[t].get("power", 0))
-		if int(DEFS[t].get("power", 0)) > 0 and not DEFS[t]["params"].has("clock"):
-			DEFS[t]["params"]["clock"] = {"label": "Clock", "kind": "enum", "default": "normal", "options": ["normal", "fast", "overclocked"]}
+		var d: Dictionary = DEFS[t]
+		if d.has("base") and DEFS.has(d["base"]) and int(d["order"]) == int(DEFS[d["base"]]["order"]):
+			d["order"] = int(d["order"]) + 1  # a variant lists right after its base
+	_sort_order()
+
+
+## Register one more definition at run time (a ComponentDef or a machine ContentVariant).
+static func register(r: Resource) -> bool:
+	var id := ""
+	var d := {}
+	if r is ContentVariant:
+		id = (r as ContentVariant).id
+		d = (r as ContentVariant).resolve()
+		if int(d.get("order", 0)) == int(DEFS.get(d.get("base", ""), {}).get("order", -1)):
+			d["order"] = int(d["order"]) + 1
+		if not _valid_variant(id, d, DEFS):
+			return false
+	elif r is ComponentDef:
+		id = (r as ComponentDef).id
+		d = (r as ComponentDef).to_dict()
+	if id == "":
+		return false
+	DEFS[id] = _finish(d)
+	_sort_order()
+	return true
+
+
+## Derived fields every definition gets: heat from the power, the Clock param when powered.
+static func _finish(d: Dictionary) -> Dictionary:
+	if not d.has("heat"):
+		var per := HEAT_PER_POWER_ROUTING if d["family"] == "routing" else HEAT_PER_POWER
+		d["heat"] = per * int(d.get("power", 0))
+	if int(d.get("power", 0)) > 0 and not d["params"].has("clock"):
+		d["params"]["clock"] = CLOCK_PARAM.duplicate(true)
+	return d
+
+
+## A machine variant keeps its base's shape: size, ports and behaviour (and so its art).
+static func _valid_variant(id: String, d: Dictionary, table: Dictionary) -> bool:
+	var b: Dictionary = table.get(d["base"], {})
+	if b.is_empty():
+		push_error("Catalog: variant '%s' has an unknown base '%s'" % [id, d["base"]])
+		return false
+	if d["size"] != b["size"] or var_to_str(d["ports"]) != var_to_str(b["ports"]) or d.get("logic") != b.get("logic"):
+		push_error("Catalog: variant '%s' changes the shape of '%s' (size / ports / logic)" % [id, d["base"]])
+		return false
+	return true
+
+
+static func _sort_order() -> void:
+	ORDER = DEFS.keys()
+	ORDER.sort_custom(func(a, b):
+		var oa := int(DEFS[a]["order"])
+		var ob := int(DEFS[b]["order"])
+		return oa < ob if oa != ob else str(a) < str(b))
+
+
+## The machine a type derives from: a variant's base, else the type itself.
+static func base_type(type: String) -> String:
+	return str(DEFS[type].get("base", type)) if DEFS.has(type) else type
+
+
+static func is_variant(type: String) -> bool:
+	return DEFS.has(type) and DEFS[type].has("base")
+
+
+## The type's ComponentLogic script (null: no behaviour).
+static func logic_script(type: String) -> Script:
+	return DEFS[type].get("logic") if DEFS.has(type) else null
 
 
 ## Heat a machine makes per tick at its full normal-clock rate (tenths of °C above ambient).

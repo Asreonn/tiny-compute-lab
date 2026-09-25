@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_dw3pb"]
+
+[resource]
+script = ExtResource("1_dw3pb")
+id = "lab_l26"
+title = "Playback"
+brief = "Play the melody 3 5 8 5 10 8 12 1 — one note per clock pulse, in order, again and again."
+contract = {
+"accept_format": "bits",
+"accept_width": 4,
+"count": 24,
+"kind": "map",
+"ops": [{
+"op": "seq_table",
+"values": [3, 5, 8, 5, 10, 8, 12, 1],
+"width": 4
+}]
+}
+streams = {
+"bit": {
+"interval": 3,
+"values": ["1"],
+"width": 1
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("program_counter")
+view = 1

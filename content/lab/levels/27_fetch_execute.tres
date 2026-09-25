@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_wwgjl"]
+
+[resource]
+script = ExtResource("1_wwgjl")
+id = "lab_l27"
+title = "Fetch & Execute"
+brief = "A tiny CPU. Program: ADD 5, ADD 12, SUB 3, ADD 20, SUB 7, ADD 1, SUB 30, ADD 9 (ADD k = k, SUB k = 128 + k). Each clock pulse fetches the next instruction and runs it on a 6-bit accumulator; deliver the accumulator after every step."
+contract = {
+"accept_format": "bits",
+"accept_width": 6,
+"count": 16,
+"kind": "map",
+"ops": [{
+"imm_bits": 6,
+"op": "cpu_trace",
+"program": [5, 12, 131, 20, 135, 1, 158, 9],
+"sub_bit": 7,
+"width": 6
+}]
+}
+streams = {
+"bit": {
+"interval": 36,
+"values": ["1"],
+"width": 1
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()
+view = 1

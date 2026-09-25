@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/math_logic.gd" id="1_bwbt1"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_kl4ab"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_cvgk6"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_1evnr"]
+
+[sub_resource type="Resource" id="Resource_up7kj"]
+script = ExtResource("3_cvgk6")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_25x0q"]
+script = ExtResource("3_cvgk6")
+id = "out"
+dir = "out"
+label = "N"
+
+[resource]
+script = ExtResource("4_1evnr")
+id = "counter"
+display_name = "Counter"
+family = "storage"
+size = "S"
+campaign_ticks = 3
+power = 1
+icon = "op_counter"
+description = "Counts packets. Emits the running count for each one received."
+ports = Array[ExtResource("3_cvgk6")]([SubResource("Resource_up7kj"), SubResource("Resource_25x0q")])
+logic = ExtResource("1_bwbt1")
+menu_order = 330

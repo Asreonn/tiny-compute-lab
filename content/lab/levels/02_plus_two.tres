@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_x4ikm"]
+
+[resource]
+script = ExtResource("1_x4ikm")
+id = "lab_l2"
+title = "Plus Two"
+brief = "Someone needs 100s. Your source only gives 010."
+contract = {
+"count": 20,
+"kind": "deliver",
+"value": "100"
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("add")

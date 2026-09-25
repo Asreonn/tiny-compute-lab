@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_gdids"]
+
+[resource]
+script = ExtResource("1_gdids")
+id = "lab_l6"
+title = "Letters"
+brief = "A text stick carries letters. Shift each one by three."
+contract = {
+"accept_format": "text",
+"count": 24,
+"kind": "map",
+"ops": [{
+"op": "encode_char",
+"width": 5
+}, {
+"k": 3,
+"op": "add"
+}, {
+"op": "decode_char"
+}]
+}
+streams = {
+"text": {
+"values": ["HELLOCOMPUTE"]
+}
+}
+devices = PackedStringArray("text")
+unlocks = PackedStringArray("char_encoder", "char_decoder")
+grow = Vector2i(32, 18)
+view = 3

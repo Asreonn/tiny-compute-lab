@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/memory_logic.gd" id="1_yrvq7"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_bkouw"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_tupw5"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_0xlvp"]
+
+[sub_resource type="Resource" id="Resource_oinry"]
+script = ExtResource("2_bkouw")
+key = "start"
+label = "Start"
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_y2jj1"]
+script = ExtResource("3_tupw5")
+id = "in"
+width = "1"
+side = 2
+label = "CLK"
+
+[sub_resource type="Resource" id="Resource_8mc5r"]
+script = ExtResource("3_tupw5")
+id = "out"
+dir = "out"
+label = "PC"
+
+[resource]
+script = ExtResource("4_0xlvp")
+id = "program_counter"
+display_name = "Program Counter"
+family = "control"
+size = "S"
+campaign_ticks = 2
+power = 1
+glyph_text = "PC"
+description = "Counts steps: each 1-bit clock pulse sends the next address — start, start + 1, … wrapping at its width."
+ports = Array[ExtResource("3_tupw5")]([SubResource("Resource_y2jj1"), SubResource("Resource_8mc5r")])
+params = Array[ExtResource("2_bkouw")]([SubResource("Resource_oinry")])
+logic = ExtResource("1_yrvq7")
+menu_order = 380

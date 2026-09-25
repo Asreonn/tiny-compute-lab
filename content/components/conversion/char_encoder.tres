@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/codec_logic.gd" id="1_yq4kw"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_blxgq"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_yjkei"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_4nr8h"]
+
+[sub_resource type="Resource" id="Resource_7yodk"]
+script = ExtResource("2_blxgq")
+key = "width"
+label = "Width"
+default_int = 5
+min_value = 5
+max_value = 8
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_jkr21"]
+script = ExtResource("3_yjkei")
+id = "in"
+role = "raw"
+width = "0"
+side = 2
+label = "RAW"
+
+[sub_resource type="Resource" id="Resource_jviad"]
+script = ExtResource("3_yjkei")
+id = "out"
+dir = "out"
+width = "P:width"
+bus = true
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_4nr8h")
+id = "char_encoder"
+display_name = "Character Encoder"
+family = "conversion"
+size = "L"
+campaign_ticks = 2
+power = 1
+icon = "op_counter"
+description = "Turns a raw character into its charset code. 5 bits use TCL-5; an unencodable char is dropped."
+ports = Array[ExtResource("3_yjkei")]([SubResource("Resource_jkr21"), SubResource("Resource_jviad")])
+params = Array[ExtResource("2_blxgq")]([SubResource("Resource_7yodk")])
+logic = ExtResource("1_yq4kw")
+menu_order = 270

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DeviceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/device_def.gd" id="1_fv5ie"]
+
+[resource]
+script = ExtResource("1_fv5ie")
+id = "sensor"
+display_name = "Sensor module"
+out = "raw"
+raw_kind = 3
+glyph = "~"

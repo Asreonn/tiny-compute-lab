@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_278i8"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_acnxl"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_622gc"]
+
+[resource]
+script = ExtResource("3_622gc")
+id = "heat_pipe"
+display_name = "Heat Pipe"
+family = "thermal"
+size = "S"
+heat = 0
+glyph_text = "HP"
+description = "Carries heat along its axis to a sink. Chain pipes; rotate one to turn a corner."
+menu_order = 1030

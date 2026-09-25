@@ -327,7 +327,7 @@ func _update_group_drag(world: Vector2) -> void:
 	var ghosts := {}
 	for id in ids:
 		var m: Machine = sim.machines[id]
-		var g := Machine.new(0, m.type, m.cell + delta, m.width, m.rot, m.params)
+		var g := Machine.new(0, m.def_id(), m.cell + delta, m.width, m.rot, m.params)
 		ghosts[id] = g
 		var key := str(Catalog.def(m.type)["size"]).to_lower()
 		var pad := Art.sprite(Art.pad_file("placevalid" if bool(preview["ok"]) else "placeinvalid", key), Vector2(g.cell) * T)
@@ -404,7 +404,7 @@ func duplicate_machine(mid: int) -> void:
 	if sim == null or not sim.machines.has(mid) or sim.machines[mid].locked:
 		return
 	var m: Machine = sim.machines[mid]
-	begin_place(m.type)
+	begin_place(m.def_id())
 	place_rot = m.rot
 	place_params = m.params.duplicate(true)
 	place_width = m.width
@@ -436,7 +436,7 @@ func copy_settings(mid: int) -> void:
 	if sim == null or not sim.machines.has(mid):
 		return
 	var m: Machine = sim.machines[mid]
-	_settings_clip = {"type": m.type, "name": m.label, "params": m.params.duplicate(true), "width": m.width}
+	_settings_clip = {"type": m.def_id(), "name": m.label, "params": m.params.duplicate(true), "width": m.width}
 	notice.emit("Copied the settings of %s" % m.label, "info")
 
 
@@ -738,7 +738,7 @@ func _track_press_drag(world: Vector2) -> void:
 		# Alt + drag drags a duplicate; the original stays (never for a USB hub: there is one each)
 		_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "duplicate": Input.is_key_pressed(KEY_ALT) and not m.locked}
 		hover_changed.emit({})
-		_rebuild_ghost(m.cell, m.type, m.rot)
+		_rebuild_ghost(m.cell, m.def_id(), m.rot)
 
 
 # ============================================================ select tool
@@ -835,7 +835,7 @@ func _finish_move_drag() -> void:
 	if dup:
 		_clear_ghost()
 		SimulationManager.request_edit()
-		var copy := sim.place(m.type, cell, m.rot, m.params.duplicate(true), m.width)
+		var copy := sim.place(m.def_id(), cell, m.rot, m.params.duplicate(true), m.width)
 		if copy == null:
 			notice.emit(sim.placement_error(m.type, cell, m.rot), "error")
 		else:
@@ -890,7 +890,7 @@ func _update_move_ghost(world: Vector2) -> void:
 	elif cell != from:
 		preview = sim.relayout_preview(mid, cell, m.rot)
 	_move_drag["preview"] = preview
-	_rebuild_ghost(cell, m.type, m.rot)
+	_rebuild_ghost(cell, m.def_id(), m.rot)
 	_show_move_preview(m, cell, from, preview)
 
 
@@ -899,7 +899,7 @@ func _update_move_ghost(world: Vector2) -> void:
 ## re-routed fade meanwhile.
 func _show_move_preview(m: Machine, cell: Vector2i, from: Vector2i, preview: Dictionary) -> void:
 	var sim := SimulationManager.sim
-	var ghost := Machine.new(0, m.type, cell, m.width, m.rot, m.params)
+	var ghost := Machine.new(0, m.def_id(), cell, m.width, m.rot, m.params)
 	var paths := []
 	var affected := []
 	var routes: Dictionary = preview.get("routes", {})

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/io_logic.gd" id="1_sj21u"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_3kwc8"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_enf3l"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_fr08m"]
+
+[sub_resource type="Resource" id="Resource_j4oyc"]
+script = ExtResource("3_enf3l")
+id = "in"
+side = 2
+
+[resource]
+script = ExtResource("4_fr08m")
+id = "terminal_output"
+display_name = "Terminal"
+family = "io"
+icon = "io_output"
+description = "Collects results as characters and checks them against the expected stream."
+ports = Array[ExtResource("3_enf3l")]([SubResource("Resource_j4oyc")])
+logic = ExtResource("1_sj21u")
+menu_order = 40

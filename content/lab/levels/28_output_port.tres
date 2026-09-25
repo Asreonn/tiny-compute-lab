@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_qeso2"]
+
+[resource]
+script = ExtResource("1_qeso2")
+id = "lab_l28"
+title = "Output Port"
+brief = "Bit 6 is now OUT: only OUT instructions show the accumulator. Program: ADD 10, ADD 3 OUT, SUB 6, ADD 0 OUT, SUB 2 OUT, ADD 20, ADD 1 OUT, SUB 11 (OUT adds 64)."
+contract = {
+"accept_format": "bits",
+"accept_width": 6,
+"count": 12,
+"kind": "filter",
+"max_rejected": 0,
+"ops": [{
+"imm_bits": 6,
+"op": "cpu_trace",
+"out_bit": 6,
+"program": [10, 67, 134, 64, 194, 20, 65, 139],
+"sub_bit": 7,
+"width": 6
+}]
+}
+streams = {
+"bit": {
+"interval": 36,
+"values": ["1"],
+"width": 1
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()
+view = 1

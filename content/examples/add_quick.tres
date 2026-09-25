@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ContentVariant" format=3]
+
+[ext_resource type="Resource" path="res://content/components/math/add.tres" id="1_buomh"]
+[ext_resource type="Script" path="res://core/content/content_variant.gd" id="2_6g7vl"]
+
+[resource]
+script = ExtResource("2_6g7vl")
+id = "add_quick"
+base = ExtResource("1_buomh")
+overrides = {
+"campaign_ticks": 2,
+"desc": "An Add tuned for speed: half the dwell, twice the power.",
+"name": "Quick Add",
+"params": {
+"k": {
+"default": 3
+}
+},
+"power": 2,
+"ticks": 1
+}

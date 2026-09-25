@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_mukdm"]
+
+[resource]
+script = ExtResource("1_mukdm")
+id = "lab_l11"
+title = "Rush Hour"
+brief = "Values arrive fast. Multiply in parallel to keep up."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 30,
+"kind": "map",
+"min_rate": 4.0,
+"ops": [{
+"k": 3,
+"op": "mul"
+}]
+}
+streams = {
+"bit": {
+"interval": 2,
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("multiply", "merger")
+grow = Vector2i(40, 22)

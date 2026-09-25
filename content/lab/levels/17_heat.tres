@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_6febq"]
+
+[resource]
+script = ExtResource("1_6febq")
+id = "lab_l17"
+title = "Heat"
+brief = "8 values a second: overclock to keep up — and cool the hot parts before they throttle."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 40,
+"kind": "map",
+"max_heat": "THROTTLING",
+"min_rate": 8.0,
+"ops": [{
+"k": 1,
+"op": "add"
+}]
+}
+streams = {
+"bit": {
+"interval": 1,
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("heatsink", "blower")

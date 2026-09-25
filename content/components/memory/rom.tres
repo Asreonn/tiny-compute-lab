@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/memory_logic.gd" id="1_jfuqn"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_t5elc"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_2vg3s"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_w77b5"]
+
+[sub_resource type="Resource" id="Resource_yewa3"]
+script = ExtResource("2_t5elc")
+key = "table"
+label = "Table"
+kind = "text"
+options = PackedStringArray()
+default_text = "0 1 2 3 4 5 6 7"
+
+[sub_resource type="Resource" id="Resource_3iyn0"]
+script = ExtResource("2_t5elc")
+key = "out"
+label = "Out bits"
+default_int = 3
+min_value = 1
+max_value = 16
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_qvdgv"]
+script = ExtResource("3_2vg3s")
+id = "in"
+side = 2
+label = "ADDR"
+
+[sub_resource type="Resource" id="Resource_30hqp"]
+script = ExtResource("3_2vg3s")
+id = "out"
+dir = "out"
+width = "P:out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_w77b5")
+id = "rom"
+display_name = "ROM"
+family = "memory"
+size = "L"
+campaign_ticks = 3
+power = 1
+glyph_text = "ROM"
+description = "A table you type in: the value at the incoming address comes out. Up to 16 entries."
+ports = Array[ExtResource("3_2vg3s")]([SubResource("Resource_qvdgv"), SubResource("Resource_30hqp")])
+params = Array[ExtResource("2_t5elc")]([SubResource("Resource_yewa3"), SubResource("Resource_3iyn0")])
+logic = ExtResource("1_jfuqn")
+menu_order = 370

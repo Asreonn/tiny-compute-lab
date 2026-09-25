@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_cew6r"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_rn3rn"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_uy1lg"]
+
+[resource]
+script = ExtResource("3_uy1lg")
+id = "blower"
+display_name = "Blower"
+family = "thermal"
+size = "S"
+power = 2
+heat = 0
+glyph_text = "BL"
+description = "Active airflow. Strongly cools every tile within 2 while it gets power."
+menu_order = 1020

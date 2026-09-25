@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/logic_logic.gd" id="1_or45k"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_0v1to"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_jxqwq"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_24lux"]
+
+[sub_resource type="Resource" id="Resource_u6wnr"]
+script = ExtResource("3_jxqwq")
+id = "a"
+side = 2
+
+[sub_resource type="Resource" id="Resource_rhjhl"]
+script = ExtResource("3_jxqwq")
+id = "b"
+cell = Vector2i(0, 1)
+side = 2
+
+[sub_resource type="Resource" id="Resource_l2ymn"]
+script = ExtResource("3_jxqwq")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_24lux")
+id = "or_gate"
+display_name = "OR"
+family = "logic"
+size = "L"
+campaign_ticks = 2
+power = 1
+glyph_text = "|"
+description = "Bitwise OR of two words: a bit is 1 where either is 1. Sets bits."
+ports = Array[ExtResource("3_jxqwq")]([SubResource("Resource_u6wnr"), SubResource("Resource_rhjhl"), SubResource("Resource_l2ymn")])
+logic = ExtResource("1_or45k")
+menu_order = 120

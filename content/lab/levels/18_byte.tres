@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_2gfqp"]
+
+[resource]
+script = ExtResource("1_2gfqp")
+id = "lab_l18"
+title = "BYTE"
+brief = "Eight bits: real ASCII. The key stick now holds a mask — AND each lower-case letter with it to make it upper case."
+contract = {
+"accept_format": "text",
+"count": 24,
+"kind": "paired",
+"ops": [{
+"op": "encode_char",
+"width": 8
+}, {
+"op": "and_src",
+"src": "key"
+}, {
+"op": "decode_char"
+}],
+"pair": ["text", "key"]
+}
+streams = {
+"key": {
+"values": [223]
+},
+"text": {
+"values": ["hellobyteworld"]
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("and_gate", "or_gate", "xor_gate", "not_gate", "bus_combiner")
+view = 3
+reward = {
+"psu_tier": 2
+}

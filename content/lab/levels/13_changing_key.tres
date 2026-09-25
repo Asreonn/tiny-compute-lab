@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_qc0un"]
+
+[resource]
+script = ExtResource("1_qc0un")
+id = "lab_l13"
+title = "Changing Key"
+brief = "The key changes every 8 letters and the text arrives in bursts. Keep every pair in step."
+contract = {
+"accept_format": "text",
+"count": 24,
+"kind": "paired",
+"max_lost": 0,
+"ops": [{
+"op": "encode_char",
+"width": 5
+}, {
+"op": "add_src",
+"src": "key"
+}, {
+"k": 26,
+"op": "mod"
+}, {
+"op": "decode_char"
+}],
+"pair": ["text", "key"]
+}
+streams = {
+"key": {
+"interval": 8,
+"values": [1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 9, 9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2, 2, 2, 2, 2]
+},
+"text": {
+"pattern": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 218],
+"values": ["KEEPTHEPAIRSINSTEP"]
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("counter")
+view = 3

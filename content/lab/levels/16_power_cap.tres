@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_sstfn"]
+
+[resource]
+script = ExtResource("1_sstfn")
+id = "lab_l16"
+title = "Power Cap"
+brief = "The laptop runs on its starter adapter: 8 power. Double every value at 4/s without drawing more."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 30,
+"kind": "map",
+"max_power": 8,
+"min_rate": 4.0,
+"ops": [{
+"k": 2,
+"op": "mul"
+}]
+}
+streams = {
+"bit": {
+"interval": 1,
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()
+view = 1
+reward = {
+"psu_tier": 1
+}

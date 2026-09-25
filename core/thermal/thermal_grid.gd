@@ -99,7 +99,7 @@ func step(sim, mids: Array) -> void:
 		var m: Machine = sim.machines[id]
 		if m.work_done <= 0:
 			continue
-		var h := Catalog.heat(m.type) * m.heat_mult() * m.work_done / maxi(1, m.clock_rate())
+		var h := m.heat() * m.heat_mult() * m.work_done / maxi(1, m.clock_rate())
 		if h <= 0:
 			continue
 		var cells := _cells_sorted(m)
@@ -213,7 +213,7 @@ func _ensure_topology(sim, mids: Array) -> void:
 	var key := []
 	for id in mids:
 		var m: Machine = sim.machines[id]
-		key.append_array([id, m.type, m.cell, m.rot])
+		key.append_array([id, m.def_id(), m.cell, m.rot])
 	var sig := key.hash()
 	if sig == _sig:
 		return

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_b6r5e"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_pklfe"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_5jrtp"]
+
+[resource]
+script = ExtResource("3_5jrtp")
+id = "heatsink"
+display_name = "Heatsink"
+family = "thermal"
+size = "S"
+heat = 0
+glyph_text = "HS"
+description = "Passive copper fins. Cools every tile within 1."
+menu_order = 1010

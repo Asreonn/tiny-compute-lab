@@ -23,7 +23,9 @@ static func _layout_data() -> Dictionary:
 ## Machine layout entry from assets/art/machine_layouts.json: machines[type] for the MVP
 ## types; "usb_input" resolves to the roadmap USBInput kit (whose width tag width is
 ## replaced by the instance width at runtime).
+## The art layout of a machine type; a variant wears its base's.
 static func layout(type: String) -> Dictionary:
+	type = Catalog.base_type(type)
 	var l := _layout_data()
 	var m: Dictionary = l.get("machines", {})
 	if m.has(type):

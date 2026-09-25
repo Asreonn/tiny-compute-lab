@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_li1sp"]
+
+[resource]
+script = ExtResource("1_li1sp")
+id = "lab_l8"
+title = "Payload"
+brief = "Tagged words: keep only the 3-bit payload."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 24,
+"kind": "map",
+"ops": [{
+"len": 3,
+"lo": 0,
+"op": "slice"
+}]
+}
+streams = {
+"bit": {
+"values": ["10101", "01110", "11011", "00100"],
+"width": 5
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("bit_splitter")

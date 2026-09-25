@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/math_logic.gd" id="1_6yyl5"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_uv0n6"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_xo2nk"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_32geb"]
+
+[sub_resource type="Resource" id="Resource_0aalq"]
+script = ExtResource("3_xo2nk")
+id = "a"
+side = 2
+
+[sub_resource type="Resource" id="Resource_nc7l5"]
+script = ExtResource("3_xo2nk")
+id = "b"
+cell = Vector2i(0, 1)
+side = 2
+
+[sub_resource type="Resource" id="Resource_056g5"]
+script = ExtResource("3_xo2nk")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_32geb")
+id = "adder"
+display_name = "Adder"
+size = "L"
+campaign_ticks = 4
+power = 1
+icon = "op_add"
+description = "Adds two streams: a + b, one pair at a time. Waits for both."
+ports = Array[ExtResource("3_xo2nk")]([SubResource("Resource_0aalq"), SubResource("Resource_nc7l5"), SubResource("Resource_056g5")])
+logic = ExtResource("1_6yyl5")
+menu_order = 60

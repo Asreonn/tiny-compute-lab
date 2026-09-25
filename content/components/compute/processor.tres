@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/math_logic.gd" id="1_33rac"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_ftkp3"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_hrbcq"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_yctgl"]
+
+[sub_resource type="Resource" id="Resource_jemai"]
+script = ExtResource("2_ftkp3")
+key = "op"
+label = "Function"
+kind = "enum"
+options = PackedStringArray("x²", "x³", "|x|", "−x")
+default_text = "x²"
+
+[sub_resource type="Resource" id="Resource_iysrv"]
+script = ExtResource("3_hrbcq")
+id = "in"
+side = 2
+label = "X"
+
+[sub_resource type="Resource" id="Resource_ua5uc"]
+script = ExtResource("3_hrbcq")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+label = "Y"
+
+[resource]
+script = ExtResource("4_yctgl")
+id = "processor"
+display_name = "Processor"
+family = "compute"
+size = "L"
+ticks = 4
+campaign_ticks = 12
+power = 4
+heat = 440
+icon = "op_processor"
+description = "Heavy general-purpose unit. Powerful but slow — a classic bottleneck."
+ports = Array[ExtResource("3_hrbcq")]([SubResource("Resource_iysrv"), SubResource("Resource_ua5uc")])
+params = Array[ExtResource("2_ftkp3")]([SubResource("Resource_jemai")])
+logic = ExtResource("1_33rac")
+menu_order = 410

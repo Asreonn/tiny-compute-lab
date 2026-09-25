@@ -8,7 +8,10 @@ enum State { IDLE, RECEIVING, PROCESSING, OUTPUT_READY, BLOCKED, ERROR, DISABLED
 const STATE_NAMES := ["IDLE", "RECEIVING", "PROCESSING", "OUTPUT READY", "BLOCKED", "ERROR", "DISABLED"]
 
 var id: int
+## The machine's kind: what its behaviour and art are keyed on. A variant ("add_quick") runs as
+## its base ("add"); `variant` keeps its own id, so its numbers, name and params apply.
 var type: String
+var variant := ""
 var cell: Vector2i
 var rot: int = 0
 var width: int = 1  # instance width; port widths of "W" resolve to this
@@ -81,21 +84,29 @@ var lost := 0  # overruns this run (values dropped from the FIFO)
 var gen_seq := 0  # index of the next stream value to generate
 
 
+## `p_type` is a machine type or a variant id (Catalog.is_variant).
 func _init(p_id: int, p_type: String, p_cell: Vector2i, p_width: int, p_rot: int = 0, p_params: Dictionary = {}) -> void:
 	id = p_id
-	type = p_type
+	type = Catalog.base_type(p_type)
+	variant = p_type if p_type != type else ""
 	cell = p_cell
 	width = p_width
 	rot = p_rot
-	params = Catalog.default_params(type)
+	params = Catalog.default_params(def_id())
 	for k in p_params:
 		params[k] = p_params[k]
-	label = "%s #%d" % [Catalog.def(type)["name"], id]
+	label = "%s #%d" % [def()["name"], id]
 	reset()
 
 
+## The id of the definition this machine was placed from: the variant, else its type. Saves,
+## copies and the palette use it; behaviour checks use `type`.
+func def_id() -> String:
+	return variant if variant != "" else type
+
+
 func def() -> Dictionary:
-	return Catalog.def(type)
+	return Catalog.def(def_id())
 
 
 func ports() -> Array:
@@ -103,11 +114,16 @@ func ports() -> Array:
 
 
 func processing_ticks() -> int:
-	return Catalog.ticks(type, campaign_timing)
+	return Catalog.ticks(def_id(), campaign_timing)
 
 
 func power() -> int:
-	return int(Catalog.def(type)["power"])
+	return int(def()["power"])
+
+
+## Heat per tick at the full normal-clock rate (tenths of °C), from the definition.
+func heat() -> int:
+	return Catalog.heat(def_id())
 
 
 ## "normal" | "fast" | "overclocked" (the clock param; machines without it run normal).
@@ -393,7 +409,7 @@ func set_error(msg: String) -> void:
 
 func to_dict() -> Dictionary:
 	return {
-		"type": type, "cell": [cell.x, cell.y], "rot": rot, "width": width,
+		"type": def_id(), "cell": [cell.x, cell.y], "rot": rot, "width": width,
 		"params": params.duplicate(), "locked": locked, "channel": channel,
 		"device": device, "last_device": last_device, "socket": socket, "port_row": port_row,
 	}

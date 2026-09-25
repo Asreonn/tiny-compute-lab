@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/math_logic.gd" id="1_144mt"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_45cgj"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_o37kl"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_uyxdi"]
+
+[sub_resource type="Resource" id="Resource_lpuyp"]
+script = ExtResource("2_45cgj")
+key = "k"
+label = "Factor"
+default_int = 2
+min_value = -9
+max_value = 9
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_5ml6t"]
+script = ExtResource("3_o37kl")
+id = "in"
+side = 2
+label = "X"
+
+[sub_resource type="Resource" id="Resource_5w8fi"]
+script = ExtResource("3_o37kl")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+label = "Y"
+
+[resource]
+script = ExtResource("4_uyxdi")
+id = "multiply"
+display_name = "Multiply"
+ticks = 2
+campaign_ticks = 6
+power = 2
+icon = "op_multiply"
+description = "Multiplies each packet by a constant."
+ports = Array[ExtResource("3_o37kl")]([SubResource("Resource_5ml6t"), SubResource("Resource_5w8fi")])
+params = Array[ExtResource("2_45cgj")]([SubResource("Resource_lpuyp")])
+logic = ExtResource("1_144mt")
+menu_order = 80

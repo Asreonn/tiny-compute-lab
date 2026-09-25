@@ -169,7 +169,7 @@ func place(type: String, cell: Vector2i, rot: int = 0, params: Dictionary = {}, 
 func add_machine(m: Machine) -> void:
 	m.id = _next_machine_id
 	m.campaign_timing = campaign_timing
-	m.label = "%s #%d" % [Catalog.def(m.type)["name"], m.id]
+	m.label = "%s #%d" % [m.def()["name"], m.id]
 	_next_machine_id += 1
 	machines[m.id] = m
 
@@ -1164,7 +1164,7 @@ func duplicate_group(ids: Array, delta: Vector2i) -> Array:
 		if not group.has(id):
 			continue
 		var m: Machine = machines[id]
-		var c := place(m.type, m.cell + delta, m.rot, m.params.duplicate(true), m.width)
+		var c := place(m.def_id(), m.cell + delta, m.rot, m.params.duplicate(true), m.width)
 		if c == null:
 			for nid in map.values():
 				remove(nid)
@@ -1201,7 +1201,7 @@ func copy_group(ids: Array) -> Dictionary:
 			continue
 		var m: Machine = machines[id]
 		idx[id] = ms.size()
-		ms.append({"type": m.type, "cell": m.cell - origin, "rot": m.rot, "params": m.params.duplicate(true), "width": m.width})
+		ms.append({"type": m.def_id(), "cell": m.cell - origin, "rot": m.rot, "params": m.params.duplicate(true), "width": m.width})
 	var ws := []
 	for cid in sorted_connection_ids():
 		var w: Connection = connections[cid]
@@ -1288,14 +1288,14 @@ func _locked_match(md: Dictionary, locked_by_index: Array, li: int, used: Dictio
 	if pr >= 0:
 		for id in locked_by_index:
 			var m: Machine = machines[id]
-			if not used.has(id) and m.type == str(md.get("type", "")) and m.port_row == pr:
+			if not used.has(id) and m.def_id() == str(md.get("type", "")) and m.port_row == pr:
 				return id
 	var c: Array = md.get("cell", [])
 	if c.size() == 2:
 		var cell := Vector2i(int(c[0]), int(c[1]))
 		for id in locked_by_index:
 			var m: Machine = machines[id]
-			if not used.has(id) and m.type == str(md.get("type", "")) and m.cell == cell:
+			if not used.has(id) and m.def_id() == str(md.get("type", "")) and m.cell == cell:
 				return id
 	if li < locked_by_index.size() and not used.has(locked_by_index[li]):
 		return locked_by_index[li]

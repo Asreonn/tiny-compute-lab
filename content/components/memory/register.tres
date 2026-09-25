@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/memory_logic.gd" id="1_i8kp4"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_gdyub"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_7dh28"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_ss1jb"]
+
+[sub_resource type="Resource" id="Resource_5b5l4"]
+script = ExtResource("2_gdyub")
+key = "mode"
+label = "Mode"
+kind = "enum"
+options = PackedStringArray("echo", "on read")
+default_text = "echo"
+
+[sub_resource type="Resource" id="Resource_d8fad"]
+script = ExtResource("2_gdyub")
+key = "init"
+label = "Initial"
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_tkurr"]
+script = ExtResource("3_7dh28")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_r83ie"]
+script = ExtResource("3_7dh28")
+id = "read"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+label = "RD"
+
+[sub_resource type="Resource" id="Resource_ouadr"]
+script = ExtResource("3_7dh28")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_ss1jb")
+id = "register"
+display_name = "Register"
+family = "memory"
+campaign_ticks = 2
+power = 1
+glyph_text = "R"
+description = "Remembers one value. Echo: each write is passed on (it starts by sending its initial value — a feedback loop's seed). A pulse on READ sends the stored value again."
+ports = Array[ExtResource("3_7dh28")]([SubResource("Resource_tkurr"), SubResource("Resource_r83ie"), SubResource("Resource_ouadr")])
+params = Array[ExtResource("2_gdyub")]([SubResource("Resource_5b5l4"), SubResource("Resource_d8fad")])
+logic = ExtResource("1_i8kp4")
+menu_order = 340

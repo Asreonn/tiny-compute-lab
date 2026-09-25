@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/routing_logic.gd" id="1_f66c8"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_q0w06"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_mo72l"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_lqn4q"]
+
+[sub_resource type="Resource" id="Resource_4b8lh"]
+script = ExtResource("2_q0w06")
+key = "mode"
+label = "Mode"
+kind = "enum"
+options = PackedStringArray("Alternate", "Duplicate")
+default_text = "Alternate"
+
+[sub_resource type="Resource" id="Resource_x3k6t"]
+script = ExtResource("3_mo72l")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_uwmjr"]
+script = ExtResource("3_mo72l")
+id = "a"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[sub_resource type="Resource" id="Resource_w071j"]
+script = ExtResource("3_mo72l")
+id = "b"
+dir = "out"
+cell = Vector2i(1, 1)
+
+[resource]
+script = ExtResource("4_lqn4q")
+id = "splitter"
+display_name = "Splitter"
+family = "routing"
+size = "L"
+campaign_ticks = 2
+power = 1
+icon = "op_split"
+description = "One stream in, two out. Alternate balances load; Duplicate copies every packet."
+ports = Array[ExtResource("3_mo72l")]([SubResource("Resource_x3k6t"), SubResource("Resource_uwmjr"), SubResource("Resource_w071j")])
+params = Array[ExtResource("2_q0w06")]([SubResource("Resource_4b8lh")])
+logic = ExtResource("1_f66c8")
+menu_order = 170

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="DeviceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/device_def.gd" id="1_dddgh"]
+
+[resource]
+script = ExtResource("1_dddgh")
+id = "bit"
+display_name = "Bit module"
+glyph = "010"
+accent = "data"

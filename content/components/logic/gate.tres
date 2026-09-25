@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/logic_logic.gd" id="1_nqweh"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_kdysv"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_16yui"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_rd3gc"]
+
+[sub_resource type="Resource" id="Resource_6olp0"]
+script = ExtResource("3_16yui")
+id = "in"
+side = 2
+label = "D"
+
+[sub_resource type="Resource" id="Resource_66se2"]
+script = ExtResource("3_16yui")
+id = "ctrl"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+label = "EN"
+
+[sub_resource type="Resource" id="Resource_e7eeq"]
+script = ExtResource("3_16yui")
+id = "out"
+dir = "out"
+label = "Q"
+
+[resource]
+script = ExtResource("4_rd3gc")
+id = "gate"
+display_name = "Gate"
+family = "logic"
+size = "S"
+campaign_ticks = 3
+power = 1
+icon = "op_gate"
+description = "Passes the data packet only when the control signal is TRUE; otherwise discards it."
+ports = Array[ExtResource("3_16yui")]([SubResource("Resource_6olp0"), SubResource("Resource_66se2"), SubResource("Resource_e7eeq")])
+logic = ExtResource("1_nqweh")
+menu_order = 100

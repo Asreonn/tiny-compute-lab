@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_j0tj4"]
+
+[resource]
+script = ExtResource("1_j0tj4")
+id = "lab_l12"
+title = "Two Sticks"
+brief = "A second stick holds the key. Shift every letter by it — in step."
+contract = {
+"accept_format": "text",
+"count": 24,
+"kind": "paired",
+"ops": [{
+"op": "encode_char",
+"width": 5
+}, {
+"op": "add_src",
+"src": "key"
+}, {
+"k": 26,
+"op": "mod"
+}, {
+"op": "decode_char"
+}],
+"pair": ["text", "key"]
+}
+streams = {
+"key": {
+"values": [5]
+},
+"text": {
+"values": ["TWOSTICKSMEET"]
+}
+}
+devices = PackedStringArray("key")
+unlocks = PackedStringArray("adder")
+view = 3

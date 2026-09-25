@@ -14,7 +14,9 @@ extends RunBase
 ## Breaking a constraint is soft: it only restarts that quest's window, never fails the run.
 ## Plain modules ("text") belong to the current quest (`level`) — tests and old saves.
 
-const QUEST_WINDOW := 2
+## How many quests are active at once (LabConfig.quest_window).
+static var QUEST_WINDOW: int:
+	get: return LabDef.CONFIG.quest_window
 
 ## One quest's progress (per quest; `delivered` & co. below read the current quest's).
 class QuestProgress:
@@ -64,10 +66,9 @@ var desk_outputs: Dictionary = {}
 var desk_pos: Dictionary = {}
 ## Devices that landed on the desk on the last level-up (the views pulse them as "New").
 var new_devices := PackedStringArray()
-## PSU tier (SYSTEMS_EXPANSION §4): 0 Starter 8 · 1 Improved 16 · 2 Desktop 32 · 3 High-Capacity 64.
+## PSU tier (SYSTEMS_EXPANSION §4), an index into LabConfig.psu_capacity / psu_names: 0 Starter 8
+## · 1 Improved 16 · 2 Desktop 32 · 3 High-Capacity 64 in the default campaign.
 var psu_tier := 0
-const PSU_CAPACITY := [8, 16, 32, 64]
-const PSU_NAMES := ["Starter Adapter", "Improved Adapter", "Desktop PSU", "High-Capacity PSU"]
 var _io_warning := ""
 
 
@@ -236,12 +237,13 @@ func devices_owned() -> PackedStringArray:
 	return out
 
 
-## The output devices: every active quest's Job stick, the Monitor from L9 (idx 8) on.
+## The output devices: every active quest's Job stick, the Monitor from LabConfig.monitor_level
+## (L9) on.
 func output_devices_owned() -> PackedStringArray:
 	var out := PackedStringArray()
 	for q in active_quests():
 		out.append(quest_job(q))
-	if frontier() >= 8:
+	if frontier() >= LabDef.CONFIG.monitor_level:
 		out.append("monitor")
 	return out
 
@@ -895,9 +897,10 @@ func _file_stick(sim: Simulation, kind: String) -> bool:
 
 # ------------------------------------------------------------------ power
 
-## First level (index) with a PSU: L16 "Power Cap" (SYSTEMS_EXPANSION §10). Earlier levels have
-## unlimited power, so the L1–L15 factories are never browned out.
-const POWER_LEVEL := 15
+## First level (index) with a PSU: L16 "Power Cap" (SYSTEMS_EXPANSION §10; LabConfig.power_level).
+## Earlier levels have unlimited power, so the L1–L15 factories are never browned out.
+static var POWER_LEVEL: int:
+	get: return LabDef.CONFIG.power_level
 
 
 func has_psu() -> bool:
@@ -912,15 +915,18 @@ func power_capacity() -> int:
 
 
 func psu_rating() -> int:
-	return int(PSU_CAPACITY[clampi(psu_tier, 0, PSU_CAPACITY.size() - 1)])
+	var caps := LabDef.CONFIG.psu_capacity
+	return int(caps[clampi(psu_tier, 0, caps.size() - 1)])
 
 
 func psu_name() -> String:
-	return str(PSU_NAMES[clampi(psu_tier, 0, PSU_NAMES.size() - 1)])
+	var names := LabDef.CONFIG.psu_names
+	return str(names[clampi(psu_tier, 0, names.size() - 1)])
 
 
-## First level (index) with heat: L17 "Heat" (SYSTEMS_EXPANSION §10).
-const HEAT_LEVEL := 16
+## First level (index) with heat: L17 "Heat" (SYSTEMS_EXPANSION §10; LabConfig.heat_level).
+static var HEAT_LEVEL: int:
+	get: return LabDef.CONFIG.heat_level
 
 
 ## Heat is on once the Heat quest is active (even as the second quest: its max_heat must be real).

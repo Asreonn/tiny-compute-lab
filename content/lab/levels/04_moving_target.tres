@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_ycyx3"]
+
+[resource]
+script = ExtResource("1_ycyx3")
+id = "lab_l4"
+title = "Moving Target"
+brief = "The stick changes its word every time. Transform whatever arrives."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 20,
+"kind": "map",
+"ops": [{
+"k": 3,
+"op": "add"
+}]
+}
+streams = {
+"bit": {
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()

@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/conversion_logic.gd" id="1_pqjbw"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_scc6l"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_t3180"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_2h5an"]
+
+[sub_resource type="Resource" id="Resource_ih722"]
+script = ExtResource("2_scc6l")
+key = "to"
+label = "To bits"
+default_int = 5
+min_value = 1
+max_value = 64
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_2yd2n"]
+script = ExtResource("3_t3180")
+id = "in"
+bus = true
+side = 2
+
+[sub_resource type="Resource" id="Resource_whtar"]
+script = ExtResource("3_t3180")
+id = "out"
+dir = "out"
+width = "P:to"
+bus = true
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_2h5an")
+id = "zero_extend"
+display_name = "Zero Extend"
+family = "conversion"
+campaign_ticks = 2
+power = 1
+glyph_text = "ZX"
+description = "Widens a word, filling the new high bits with 0. The value stays the same."
+ports = Array[ExtResource("3_t3180")]([SubResource("Resource_2yd2n"), SubResource("Resource_whtar")])
+params = Array[ExtResource("2_scc6l")]([SubResource("Resource_ih722")])
+logic = ExtResource("1_pqjbw")
+menu_order = 230

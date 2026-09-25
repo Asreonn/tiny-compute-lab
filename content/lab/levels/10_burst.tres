@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_v1g27"]
+
+[resource]
+script = ExtResource("1_v1g27")
+id = "lab_l10"
+title = "Burst"
+brief = "The stick fires bursts. Nothing may be dropped — buffer it."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 24,
+"kind": "map",
+"max_lost": 0,
+"ops": [{
+"k": 1,
+"op": "add"
+}]
+}
+streams = {
+"bit": {
+"pattern": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 60],
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("buffer", "delay")

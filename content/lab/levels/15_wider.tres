@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_gxjyj"]
+
+[resource]
+script = ExtResource("1_gxjyj")
+id = "lab_l15"
+title = "Wider"
+brief = "3-bit numbers in, 5-bit answers out: widen each one, then multiply it by 5."
+contract = {
+"accept_format": "bits",
+"accept_width": 5,
+"count": 24,
+"kind": "map",
+"ops": [{
+"op": "zext",
+"width": 5
+}, {
+"k": 5,
+"op": "mul"
+}]
+}
+streams = {
+"bit": {
+"interval": 2,
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("zero_extend", "sign_extend", "truncate")
+view = 1

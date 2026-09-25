@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/conversion_logic.gd" id="1_42jat"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_333by"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_kt0pr"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_tcm8c"]
+
+[sub_resource type="Resource" id="Resource_whxn0"]
+script = ExtResource("2_333by")
+key = "lo"
+label = "Low bits"
+default_int = 3
+min_value = 1
+max_value = 63
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_ml6vl"]
+script = ExtResource("3_kt0pr")
+id = "in"
+bus = true
+side = 2
+
+[sub_resource type="Resource" id="Resource_74f2p"]
+script = ExtResource("3_kt0pr")
+id = "hi"
+dir = "out"
+width = "R:lo"
+bus = true
+cell = Vector2i(1, 0)
+
+[sub_resource type="Resource" id="Resource_lvkjj"]
+script = ExtResource("3_kt0pr")
+id = "lo"
+dir = "out"
+width = "P:lo"
+bus = true
+cell = Vector2i(1, 1)
+
+[resource]
+script = ExtResource("4_tcm8c")
+id = "bit_splitter"
+display_name = "Bit Splitter"
+family = "conversion"
+size = "L"
+campaign_ticks = 2
+power = 1
+icon = "op_split"
+description = "Splits a word into its high bits and its low bits."
+ports = Array[ExtResource("3_kt0pr")]([SubResource("Resource_ml6vl"), SubResource("Resource_74f2p"), SubResource("Resource_lvkjj")])
+params = Array[ExtResource("2_333by")]([SubResource("Resource_whxn0")])
+logic = ExtResource("1_42jat")
+menu_order = 210

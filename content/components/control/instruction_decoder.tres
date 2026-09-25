@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/memory_logic.gd" id="1_bh0d6"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_0mpix"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_0oanf"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_jn2mp"]
+
+[sub_resource type="Resource" id="Resource_7rpi4"]
+script = ExtResource("3_0oanf")
+id = "in"
+side = 2
+label = "INSTR"
+
+[sub_resource type="Resource" id="Resource_5wf8p"]
+script = ExtResource("3_0oanf")
+id = "a"
+dir = "out"
+role = "control"
+width = "1"
+cell = Vector2i(1, 0)
+
+[sub_resource type="Resource" id="Resource_unnub"]
+script = ExtResource("3_0oanf")
+id = "b"
+dir = "out"
+role = "control"
+width = "1"
+cell = Vector2i(1, 1)
+
+[resource]
+script = ExtResource("4_jn2mp")
+id = "instruction_decoder"
+display_name = "Instruction Decoder"
+family = "control"
+size = "L"
+campaign_ticks = 2
+power = 1
+glyph_text = "DEC"
+description = "Reads an instruction word: its top bit comes out on A, the next bit on B — control lines for WE or OP."
+ports = Array[ExtResource("3_0oanf")]([SubResource("Resource_7rpi4"), SubResource("Resource_5wf8p"), SubResource("Resource_unnub")])
+logic = ExtResource("1_bh0d6")
+menu_order = 390

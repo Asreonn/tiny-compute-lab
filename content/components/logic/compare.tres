@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/logic_logic.gd" id="1_tyt6w"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_baypp"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_xo55v"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_bljtn"]
+
+[sub_resource type="Resource" id="Resource_5lpnm"]
+script = ExtResource("2_baypp")
+key = "op"
+label = "Operation"
+kind = "enum"
+options = PackedStringArray(">", "<", "=", "≥", "≤", "≠")
+default_text = ">"
+
+[sub_resource type="Resource" id="Resource_7exq8"]
+script = ExtResource("2_baypp")
+key = "k"
+label = "Threshold"
+default_int = 10
+min_value = -99
+max_value = 99
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_nmtbv"]
+script = ExtResource("3_xo55v")
+id = "in"
+side = 2
+label = "X"
+
+[sub_resource type="Resource" id="Resource_hu30c"]
+script = ExtResource("3_xo55v")
+id = "out"
+dir = "out"
+role = "flag"
+width = "1"
+label = "?"
+
+[resource]
+script = ExtResource("4_bljtn")
+id = "compare"
+display_name = "Compare"
+family = "logic"
+size = "S"
+campaign_ticks = 3
+power = 1
+icon = "op_compare"
+description = "Tests each value and emits a 1-bit result."
+ports = Array[ExtResource("3_xo55v")]([SubResource("Resource_nmtbv"), SubResource("Resource_hu30c")])
+params = Array[ExtResource("2_baypp")]([SubResource("Resource_5lpnm"), SubResource("Resource_7exq8")])
+logic = ExtResource("1_tyt6w")
+menu_order = 90

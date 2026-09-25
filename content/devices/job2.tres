@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="DeviceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/device_def.gd" id="1_snrrk"]
+
+[resource]
+script = ExtResource("1_snrrk")
+id = "job2"
+display_name = "Job drive 2"
+output = true
+glyph = "JOB"

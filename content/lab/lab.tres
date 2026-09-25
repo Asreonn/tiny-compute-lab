@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="LabConfig" format=3]
+
+[ext_resource type="Resource" path="res://content/lab/levels/01_first_contact.tres" id="1_mmk0l"]
+[ext_resource type="Resource" path="res://content/lab/levels/02_plus_two.tres" id="2_54vxp"]
+[ext_resource type="Resource" path="res://content/lab/levels/03_over_the_top.tres" id="3_b5po8"]
+[ext_resource type="Resource" path="res://content/lab/levels/04_moving_target.tres" id="4_ku50b"]
+[ext_resource type="Resource" path="res://content/lab/levels/05_numbers.tres" id="5_v0s3o"]
+[ext_resource type="Resource" path="res://content/lab/levels/06_letters.tres" id="6_e88du"]
+[ext_resource type="Resource" path="res://content/lab/levels/07_past_z.tres" id="7_14n8t"]
+[ext_resource type="Resource" path="res://content/lab/levels/08_payload.tres" id="8_b4cfw"]
+[ext_resource type="Resource" path="res://content/lab/levels/09_sorting.tres" id="9_hkp5q"]
+[ext_resource type="Resource" path="res://content/lab/levels/10_burst.tres" id="10_f6r0x"]
+[ext_resource type="Resource" path="res://content/lab/levels/11_rush_hour.tres" id="11_t6ai7"]
+[ext_resource type="Resource" path="res://content/lab/levels/12_two_sticks.tres" id="12_ea7d7"]
+[ext_resource type="Resource" path="res://content/lab/levels/13_changing_key.tres" id="13_qtlyo"]
+[ext_resource type="Resource" path="res://content/lab/levels/14_mixed_traffic.tres" id="14_d46pt"]
+[ext_resource type="Resource" path="res://content/lab/levels/15_wider.tres" id="15_bcsiv"]
+[ext_resource type="Resource" path="res://content/lab/levels/16_power_cap.tres" id="16_o105a"]
+[ext_resource type="Resource" path="res://content/lab/levels/17_heat.tres" id="17_oio7p"]
+[ext_resource type="Resource" path="res://content/lab/levels/18_byte.tres" id="18_g3a2r"]
+[ext_resource type="Resource" path="res://content/lab/levels/19_xor_cipher.tres" id="19_d8hp1"]
+[ext_resource type="Resource" path="res://content/lab/levels/20_cheap_multiply.tres" id="20_uhchp"]
+[ext_resource type="Resource" path="res://content/lab/levels/21_datacenter.tres" id="21_axjw1"]
+[ext_resource type="Resource" path="res://content/lab/levels/22_running_sum.tres" id="22_by8nt"]
+[ext_resource type="Resource" path="res://content/lab/levels/23_lookup.tres" id="23_kg2mr"]
+[ext_resource type="Resource" path="res://content/lab/levels/24_calculator.tres" id="24_mtgwv"]
+[ext_resource type="Resource" path="res://content/lab/levels/25_tiny_memory.tres" id="25_qi6yl"]
+[ext_resource type="Resource" path="res://content/lab/levels/26_playback.tres" id="26_tubte"]
+[ext_resource type="Resource" path="res://content/lab/levels/27_fetch_execute.tres" id="27_5larc"]
+[ext_resource type="Resource" path="res://content/lab/levels/28_output_port.tres" id="28_1uw7w"]
+[ext_resource type="Script" path="res://core/content/lab_config.gd" id="29_r6n0i"]
+
+[resource]
+script = ExtResource("29_r6n0i")
+levels = Array[Resource]([ExtResource("1_mmk0l"), ExtResource("2_54vxp"), ExtResource("3_b5po8"), ExtResource("4_ku50b"), ExtResource("5_v0s3o"), ExtResource("6_e88du"), ExtResource("7_14n8t"), ExtResource("8_b4cfw"), ExtResource("9_hkp5q"), ExtResource("10_f6r0x"), ExtResource("11_t6ai7"), ExtResource("12_ea7d7"), ExtResource("13_qtlyo"), ExtResource("14_d46pt"), ExtResource("15_bcsiv"), ExtResource("16_o105a"), ExtResource("17_oio7p"), ExtResource("18_g3a2r"), ExtResource("19_d8hp1"), ExtResource("20_uhchp"), ExtResource("21_axjw1"), ExtResource("22_by8nt"), ExtResource("23_kg2mr"), ExtResource("24_mtgwv"), ExtResource("25_qi6yl"), ExtResource("26_tubte"), ExtResource("27_5larc"), ExtResource("28_1uw7w")])
+port_rows = PackedInt32Array(1, 4, 7, 10)
+input_port_open = PackedInt32Array(0, 0, 17, -1)
+output_port_open = PackedInt32Array(0, 0, 11, -1)
+psu_capacity = PackedInt32Array(8, 16, 32, 64)
+psu_names = PackedStringArray("Starter Adapter", "Improved Adapter", "Desktop PSU", "High-Capacity PSU")

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_2mj4s"]
+
+[resource]
+script = ExtResource("1_2mj4s")
+id = "lab_l1"
+title = "First Contact"
+brief = "A stick of raw data was plugged in. Hand the words back unchanged."
+contract = {
+"count": 10,
+"kind": "deliver",
+"value": "010"
+}
+streams = {
+"bit": {
+"interval": 4,
+"values": ["010"],
+"width": 3
+}
+}
+devices = PackedStringArray("bit")
+unlocks = PackedStringArray()
+grow = Vector2i(28, 16)

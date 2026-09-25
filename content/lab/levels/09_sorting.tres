@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_gqjaa"]
+
+[resource]
+script = ExtResource("1_gqjaa")
+id = "lab_l9"
+title = "Sorting"
+brief = "A noisy sensor. Keep only the readings above four."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 16,
+"kind": "filter",
+"ops": [{
+"op": "encode_num",
+"width": 3
+}, {
+"cmp": ">",
+"k": 4,
+"op": "keep_if"
+}]
+}
+streams = {
+"sensor": {
+"values": [2, 6, 5, 1, 7, 3, 4, 0, 6, 2]
+}
+}
+devices = PackedStringArray("sensor")
+unlocks = PackedStringArray("compare", "gate", "splitter")
+grow = Vector2i(36, 20)
+view = 1

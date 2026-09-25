@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/memory_logic.gd" id="1_cpa31"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_cj8i5"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_dx8h6"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_wlnik"]
+
+[sub_resource type="Resource" id="Resource_57emg"]
+script = ExtResource("3_dx8h6")
+id = "d"
+side = 2
+
+[sub_resource type="Resource" id="Resource_gw1yg"]
+script = ExtResource("3_dx8h6")
+id = "a"
+width = "4"
+cell = Vector2i(0, 1)
+side = 2
+
+[sub_resource type="Resource" id="Resource_42n50"]
+script = ExtResource("3_dx8h6")
+id = "we"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+
+[sub_resource type="Resource" id="Resource_vw0q0"]
+script = ExtResource("3_dx8h6")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_wlnik")
+id = "ram"
+display_name = "RAM"
+family = "memory"
+size = "L"
+campaign_ticks = 3
+power = 2
+glyph_text = "RAM"
+description = "Sixteen cells. Each operation takes a 4-bit address, a value and the WE bit: WE 1 writes, WE 0 reads the cell out (the value input is used up either way)."
+ports = Array[ExtResource("3_dx8h6")]([SubResource("Resource_57emg"), SubResource("Resource_gw1yg"), SubResource("Resource_42n50"), SubResource("Resource_vw0q0")])
+logic = ExtResource("1_cpa31")
+menu_order = 360

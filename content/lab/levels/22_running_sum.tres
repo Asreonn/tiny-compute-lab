@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_b3ete"]
+
+[resource]
+script = ExtResource("1_b3ete")
+id = "lab_l22"
+title = "Running Sum"
+brief = "Deliver the total so far: each answer adds the new value to everything before it. The factory needs a memory."
+contract = {
+"accept_format": "bits",
+"accept_width": 5,
+"count": 16,
+"kind": "map",
+"ops": [{
+"op": "prefix_sum",
+"width": 5
+}]
+}
+streams = {
+"bit": {
+"interval": 36,
+"values": ["010", "101", "111", "000", "011", "110", "001", "100"],
+"width": 3
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("register")
+view = 1

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_k1i35"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_dvcpw"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_en5rd"]
+
+[resource]
+script = ExtResource("3_en5rd")
+id = "radiator"
+display_name = "Radiator"
+family = "thermal"
+size = "L"
+power = 1
+heat = 0
+glyph_text = "RD"
+description = "The strongest cooler: dumps heat from every tile within 2."
+menu_order = 1040

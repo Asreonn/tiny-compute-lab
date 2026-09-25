@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_ta140"]
+
+[resource]
+script = ExtResource("1_ta140")
+id = "lab_l7"
+title = "Past Z"
+brief = "X + 3 falls off the alphabet. Wrap it back to A."
+contract = {
+"accept_format": "text",
+"count": 24,
+"kind": "map",
+"ops": [{
+"op": "encode_char",
+"width": 5
+}, {
+"k": 3,
+"op": "add"
+}, {
+"k": 26,
+"op": "mod"
+}, {
+"op": "decode_char"
+}]
+}
+streams = {
+"text": {
+"values": ["XYZZYBITWAVE"]
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("modulo")
+view = 3

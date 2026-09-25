@@ -1,0 +1,50 @@
+class_name ComponentDef
+extends Resource
+## A machine type as an asset (docs/CONTENT.md): content/components/<family>/<id>.tres. The
+## Catalog loads every one at start-up; a new machine is a new file (plus a ComponentLogic
+## script when it needs new behaviour, and a layout in assets/art/machine_layouts.json for its
+## art). Variants of an existing machine are ContentVariant files next to it.
+
+const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal"]
+
+@export var id := ""
+@export var display_name := ""
+@export_enum("io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal") var family := "math"
+@export_enum("S", "M", "L") var size := "M"
+## Job length in ticks: tutorial "legacy" boards and campaign boards (readable dwell).
+@export var ticks := 1
+@export var campaign_ticks := 1
+## Rated power; every powered machine also gets the Clock param (Catalog).
+@export var power := 0
+## Heat per full-rate tick in tenths of °C; -1 = derived from the power (Catalog.heat_per_power).
+@export var heat := -1
+## Operation icon (assets/art/icon/<icon>.svg) or, when empty, the glyph text.
+@export var icon := ""
+@export var glyph_text := ""
+@export_multiline var description := ""
+@export var ports: Array[PortDef] = []
+@export var params: Array[ParamDef] = []
+## Behaviour: a ComponentLogic script; empty = none (cooling hardware the ThermalGrid reads).
+@export var logic: Script
+## Build-menu position (ascending).
+@export var menu_order := 0
+
+
+## The ComponentDefinition dictionary the simulation reads (Catalog.def).
+func to_dict() -> Dictionary:
+	var pd: Array = []
+	for p in ports:
+		pd.append(p.to_dict())
+	var pm := {}
+	for p in params:
+		pm[p.key] = p.to_dict()
+	var d := {
+		"name": display_name, "family": family, "size": size, "ticks": ticks, "campaign_ticks": campaign_ticks,
+		"power": power, "icon": icon, "desc": description, "ports": pd, "params": pm,
+		"logic": logic, "order": menu_order,
+	}
+	if glyph_text != "":
+		d["glyph_text"] = glyph_text
+	if heat >= 0:
+		d["heat"] = heat
+	return d

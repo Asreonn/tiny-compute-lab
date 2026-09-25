@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_bmqdd"]
+
+[resource]
+script = ExtResource("1_bmqdd")
+id = "lab_l21"
+title = "Datacenter"
+brief = "Times three at 8/s, and nothing may even get HOT. Overclocked Multipliers need serious cooling."
+contract = {
+"accept_format": "bits",
+"accept_width": 5,
+"count": 40,
+"kind": "map",
+"max_heat": "HOT",
+"min_rate": 8.0,
+"ops": [{
+"k": 3,
+"op": "mul"
+}]
+}
+streams = {
+"bit": {
+"interval": 1,
+"values": ["00011", "10110", "01001", "11100", "00110", "01111", "10001", "00100"],
+"width": 5
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("heat_pipe", "radiator")
+view = 1
+reward = {
+"psu_tier": 3
+}

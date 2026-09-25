@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_rv2vq"]
+
+[resource]
+script = ExtResource("1_rv2vq")
+id = "lab_l3"
+title = "Over the Top"
+brief = "Three bits wrap around. Make 001 from 010."
+contract = {
+"count": 20,
+"kind": "deliver",
+"value": "001"
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()

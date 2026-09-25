@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/storage_logic.gd" id="1_r0rg8"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_km86r"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_4tkwk"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_1qsum"]
+
+[sub_resource type="Resource" id="Resource_louid"]
+script = ExtResource("2_km86r")
+key = "ticks"
+label = "Delay"
+default_int = 3
+min_value = 1
+max_value = 9
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_cs7ef"]
+script = ExtResource("3_4tkwk")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_g7rj8"]
+script = ExtResource("3_4tkwk")
+id = "out"
+dir = "out"
+
+[resource]
+script = ExtResource("4_1qsum")
+id = "delay"
+display_name = "Delay"
+family = "storage"
+size = "S"
+power = 1
+icon = "op_delay"
+description = "Holds each packet for a fixed number of ticks."
+ports = Array[ExtResource("3_4tkwk")]([SubResource("Resource_cs7ef"), SubResource("Resource_g7rj8")])
+params = Array[ExtResource("2_km86r")]([SubResource("Resource_louid")])
+logic = ExtResource("1_r0rg8")
+menu_order = 320

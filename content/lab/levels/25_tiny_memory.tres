@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_mpg4d"]
+
+[resource]
+script = ExtResource("1_mpg4d")
+id = "lab_l25"
+title = "Tiny Memory"
+brief = "Instructions: top bit 1 = WRITE the low 3 bits to the address in bits 6-3, 0 = READ that address. Run them on RAM; deliver only what the reads return."
+contract = {
+"accept_format": "bits",
+"accept_width": 3,
+"count": 16,
+"kind": "filter",
+"ops": [{
+"addr_len": 4,
+"addr_lo": 3,
+"op": "ram_program",
+"val_len": 3,
+"val_lo": 0,
+"we_bit": 7
+}]
+}
+streams = {
+"bit": {
+"interval": 3,
+"values": ["10010101", "10111011", "00010000", "10010110", "00111000", "00010000", "01001000", "11001111", "01001000"],
+"width": 8
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray("ram", "register_bank", "instruction_decoder")
+view = 1

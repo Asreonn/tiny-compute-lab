@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/routing_logic.gd" id="1_aw5o6"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_y07nq"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_m5lgg"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_qhlkf"]
+
+[sub_resource type="Resource" id="Resource_f1gxu"]
+script = ExtResource("3_m5lgg")
+id = "a"
+side = 2
+
+[sub_resource type="Resource" id="Resource_ycy7q"]
+script = ExtResource("3_m5lgg")
+id = "b"
+cell = Vector2i(0, 1)
+side = 2
+
+[sub_resource type="Resource" id="Resource_23bfy"]
+script = ExtResource("3_m5lgg")
+id = "out"
+dir = "out"
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_qhlkf")
+id = "merger"
+display_name = "Merger"
+family = "routing"
+size = "L"
+campaign_ticks = 2
+power = 1
+icon = "op_merge"
+description = "Two streams in, one out. Takes turns fairly between inputs."
+ports = Array[ExtResource("3_m5lgg")]([SubResource("Resource_f1gxu"), SubResource("Resource_ycy7q"), SubResource("Resource_23bfy")])
+logic = ExtResource("1_aw5o6")
+menu_order = 180

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/io_logic.gd" id="1_iov8g"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_y4s26"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_q206o"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_rvdyh"]
+
+[sub_resource type="Resource" id="Resource_1fqcx"]
+script = ExtResource("3_q206o")
+id = "in"
+side = 2
+
+[resource]
+script = ExtResource("4_rvdyh")
+id = "output"
+display_name = "Output"
+family = "io"
+icon = "io_output"
+description = "Collects results and checks them against the expected stream."
+ports = Array[ExtResource("3_q206o")]([SubResource("Resource_1fqcx")])
+logic = ExtResource("1_iov8g")
+menu_order = 30

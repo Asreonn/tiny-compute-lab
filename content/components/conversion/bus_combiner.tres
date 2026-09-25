@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/conversion_logic.gd" id="1_a5rvj"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_vas6l"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_mcmrb"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_keaho"]
+
+[sub_resource type="Resource" id="Resource_7sfrh"]
+script = ExtResource("2_vas6l")
+key = "lo"
+label = "Low bits"
+default_int = 4
+min_value = 1
+max_value = 63
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_folj5"]
+script = ExtResource("3_mcmrb")
+id = "hi"
+width = "R:lo"
+bus = true
+side = 2
+
+[sub_resource type="Resource" id="Resource_7pkpx"]
+script = ExtResource("3_mcmrb")
+id = "lo"
+width = "P:lo"
+bus = true
+cell = Vector2i(0, 1)
+side = 2
+
+[sub_resource type="Resource" id="Resource_11rj4"]
+script = ExtResource("3_mcmrb")
+id = "out"
+dir = "out"
+bus = true
+cell = Vector2i(1, 0)
+
+[resource]
+script = ExtResource("4_keaho")
+id = "bus_combiner"
+display_name = "Bus Combiner"
+family = "conversion"
+size = "L"
+campaign_ticks = 2
+power = 1
+icon = "op_merge"
+description = "Joins a high part and a low part into one wider word. Waits for both."
+ports = Array[ExtResource("3_mcmrb")]([SubResource("Resource_folj5"), SubResource("Resource_7pkpx"), SubResource("Resource_11rj4")])
+params = Array[ExtResource("2_vas6l")]([SubResource("Resource_7sfrh")])
+logic = ExtResource("1_a5rvj")
+menu_order = 220

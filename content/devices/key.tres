@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DeviceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/device_def.gd" id="1_6y162"]
+
+[resource]
+script = ExtResource("1_6y162")
+id = "key"
+display_name = "Key module"
+out = "raw"
+raw_kind = 2
+glyph = "K#"

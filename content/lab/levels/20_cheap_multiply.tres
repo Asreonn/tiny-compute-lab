@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/level_def.gd" id="1_2flet"]
+
+[resource]
+script = ExtResource("1_2flet")
+id = "lab_l20"
+title = "Cheap Multiply"
+brief = "Times four at 4/s on just 6 power. Multipliers are too hungry — find a cheaper way."
+contract = {
+"accept_format": "bits",
+"accept_width": 5,
+"count": 30,
+"kind": "map",
+"max_power": 6,
+"min_rate": 4.0,
+"ops": [{
+"k": 4,
+"op": "mul"
+}]
+}
+streams = {
+"bit": {
+"interval": 1,
+"values": ["00011", "10110", "01001", "11100", "00110", "01111", "10001", "00100"],
+"width": 5
+}
+}
+devices = PackedStringArray()
+unlocks = PackedStringArray()
+view = 1
