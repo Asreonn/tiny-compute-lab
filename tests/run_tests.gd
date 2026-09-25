@@ -520,7 +520,7 @@ func test_lab_mode() -> void:
 	var out := _lab_output(sim)
 	var src := _lab_source_at(sim, Vector2i(0, 1))
 	check(out != null and src != null, "lab starts with a Contract Drive and a USB socket")
-	check(src.socket and src.device == "bit", "L1 plugs the Bit module in automatically")
+	check(src.socket and src.device == "bit@0", "L1 plugs quest 1's bit stick in automatically")
 	check(run.request_label() == "deliver 010 × 10", "L1's contract is deliver 010 x10 (got '%s')" % run.request_label())
 	var c := sim.connect_ports(src.id, "out", out.id, "in")
 	check(c != null and out.port_width("in") == 3, "the drive accepts a 3-bit wire and resolves its width")

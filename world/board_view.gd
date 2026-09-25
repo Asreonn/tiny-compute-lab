@@ -173,9 +173,9 @@ func _process(delta: float) -> void:
 		queue_redraw()  # drive the fade
 	var lr = SimulationManager.lab_run
 	if lr != null:
-		if _success_level >= 0 and lr.level > _success_level:
-			_start_success()  # a Lab level is complete
-		_success_level = lr.level
+		if _success_level >= 0 and lr.files > _success_level:
+			_start_success()  # a quest was filed
+		_success_level = lr.files
 	else:
 		_success_level = -1
 	if _success_start >= 0.0:

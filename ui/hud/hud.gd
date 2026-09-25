@@ -13,7 +13,7 @@ var _banner_sub: Label
 var _banner_t := 0.0
 var _banner_tw: Tween
 var _banner_base := Vector2.ZERO
-var _lab_last_tick := -1
+var _lab_last_files := -1
 
 
 func _ready() -> void:
@@ -83,8 +83,8 @@ func _show_level_banner() -> void:
 	var sm := get_node("/root/SimulationManager")
 	if sm.lab_run == null:
 		return
-	var lvl: int = sm.lab_run.level
-	var lv: Dictionary = LabDef.level(lvl)
+	var lr: LabRun = sm.lab_run
+	var lv: Dictionary = LabDef.level(lr.frontier())  # the quest that just arrived brings these
 	HudKit.set_text(_banner_label, "TASK COMPLETE", Palette.STATE_VALID)
 	if sm.lab_run.all_done():
 		HudKit.set_text(_banner_label, "ALL CONTRACTS COMPLETE", Palette.STATE_VALID)
@@ -95,7 +95,8 @@ func _show_level_banner() -> void:
 		names.append(str(Catalog.def(t)["name"]))
 	if not names.is_empty():
 		unlocked = " · unlocked: " + ", ".join(names)
-	HudKit.set_text(_banner_sub, "Next: %s%s" % [sm.lab_run.title(), unlocked], Palette.TEXT_SECONDARY)
+	var done := lr.quest_title(lr.last_filed) if lr.last_filed >= 0 else ""
+	HudKit.set_text(_banner_sub, "Q%d %s filed%s" % [lr.last_filed + 1, done, unlocked], Palette.TEXT_SECONDARY)
 	if sm.lab_run.all_done():
 		HudKit.set_text(_banner_sub, "Free build — the Lab is yours. More levels are coming.", Palette.TEXT_SECONDARY)
 	_banner_base = _banner.position
@@ -183,10 +184,12 @@ func _process(delta: float) -> void:
 			_exit_banner()
 	var sm := get_node("/root/SimulationManager")
 	if sm.in_lab and sm.lab_run != null:
-		var lct: int = sm.lab_run.level_completed_tick
-		if lct >= 0 and lct != _lab_last_tick:
-			_lab_last_tick = lct
+		var files: int = sm.lab_run.files
+		if _lab_last_files >= 0 and files > _lab_last_files:
 			_show_level_banner()
-			var lvl: int = sm.lab_run.level
-			if lvl > 0 and LabDef.size_for(lvl) > LabDef.size_for(lvl - 1):
+			var fr: int = sm.lab_run.frontier()
+			if fr > 0 and LabDef.size_for(fr) > LabDef.size_for(fr - 1):
 				_notice("The lab expanded", "info")
+		_lab_last_files = files
+	else:
+		_lab_last_files = -1

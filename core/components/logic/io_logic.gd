@@ -45,6 +45,9 @@ func _make_packet(sim, m, value: Variant, seq: int = -1) -> Packet:
 	else:
 		p = Packet.new(sim.new_packet_id(), value, sim.tick)
 	p.origins[m.id] = {"seq": m.emitted if seq < 0 else seq, "value": value}
+	var q := Devices.quest_of(m.device)
+	if q >= 0:
+		p.origins[m.id]["quest"] = q  # a quest stick: the drive judges this value for that quest
 	return p
 
 

@@ -106,57 +106,90 @@ func _toggle() -> void:
 	_rebuild()
 
 
-## Lab layout: same 320-wide panel, but a request box instead of input/output cell rows.
+## Lab layout: QUEST CARDS. One card per active quest (Q6 · title, request, progress); the
+## focused card (click a card) also shows its brief and NEEDS / OUTPUT / RATE / LOST rows. A
+## filled quest turns green and says how to file it (the desk's COMPLETED tray).
+const CARD_W := 300.0
+const CARD_H := 56.0
+var _focus := -1  # the expanded quest (-1: the lowest active one)
+var _cards: Array = []  # [q, Panel card, Label status, Panel bar fill, Label request]
+
+
 func _lab_rebuild(sm: Node) -> void:
 	var lr: LabRun = sm.lab_run
-	var lvl: int = lr.level
-	var h := 248.0
+	_cards.clear()
+	_rows.clear()
+	var quests := lr.active_quests()
+	if not _focus in quests:
+		_focus = quests[0] if not quests.is_empty() else -1
+	var n_rows := _row_keys(lr, _focus).size() if _focus >= 0 else 0
+	var focus_h := 88.0 + n_rows * 13.0 + 20.0
+	var h := 38.0 + (quests.size() - 1) * (CARD_H + 8.0) + (focus_h if _focus >= 0 else 64.0) + 10.0
 	offset_left = 16
 	offset_top = -16 - h
 	offset_right = 16 + 320.0
 	offset_bottom = -16
 	_root = HudKit.box(self, Vector2.ZERO, Vector2(320.0, h), Palette.SURFACE_PANEL, Palette.SURFACE_BORDER, 1, 10)
-	HudKit.label(_root, lr.title() if lr.all_done() else "L%d · %s" % [lvl + 1, lr.title()], Vector2(18, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 260)
-	var brief := HudKit.label(_root, lr_brief(lr), Vector2(18, 40), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
-	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	brief.custom_minimum_size = Vector2(284, 0)
-	brief.size = Vector2(284, 26)
-	# request box: deliver contracts keep the big value chip; transforms show the contract text
-	var fbox := HudKit.box(_root, Vector2(18, 72), Vector2(284, 44), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 6)
-	var c := lr.contract()
+	HudKit.label(_root, "QUESTS", Vector2(18, 13), 9, HudKit.W_XBOLD, Palette.TEXT_MUTED)
+	HudKit.label(_root, "%d done" % lr.files, Vector2(200, 13), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 102, HORIZONTAL_ALIGNMENT_RIGHT)
+	var y := 32.0
+	if quests.is_empty():
+		var free := HudKit.box(_root, Vector2(10, y), Vector2(CARD_W, 64), Palette.SURFACE_RAISED, Palette.STATE_SUCCESS, 1, 8)
+		HudKit.label(free, "Free Build", Vector2(12, 10), 13, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 276)
+		HudKit.label(free, "Every quest is filed — the Lab is yours.", Vector2(12, 34), 10, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY, 276)
+		_progress = null
+		HudKit.panel_show(self, Vector2(0, 12), 0.18)
+		return
+	for q in quests:
+		var focused: bool = q == _focus
+		var ch := focus_h if focused else CARD_H
+		var card := HudKit.box(_root, Vector2(10, y), Vector2(CARD_W, ch), Palette.SURFACE_RAISED, Palette.SURFACE_BORDER_STRONG if focused else Palette.SURFACE_BORDER, 1, 8)
+		var tag := HudKit.box(card, Vector2(10, 8), Vector2(30, 18), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 4)
+		HudKit.label(tag, "Q%d" % (q + 1), Vector2(0, 2), 10, HudKit.W_XBOLD, Palette.TEXT_SECONDARY, 30, HORIZONTAL_ALIGNMENT_CENTER)
+		HudKit.label(card, lr.quest_title(q), Vector2(48, 8), 12, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 150)
+		var status := HudKit.label(card, "", Vector2(186, 10), 10, HudKit.W_BOLD, Palette.TEXT_SECONDARY, 104, HORIZONTAL_ALIGNMENT_RIGHT)
+		var c := lr.quest_contract(q)
+		var req := HudKit.label(card, _request_text(q, c), Vector2(12, 29), 10, HudKit.W_BOLD, Palette.FAMILY_IO if c.accept_format != "bits" else Palette.DATA_NUMBER, 276)
+		HudKit.box(card, Vector2(12, 46), Vector2(276, 3), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 2)
+		var fill := HudKit.box(card, Vector2(12, 46), Vector2(0, 3), Palette.STATE_VALID, Color(0, 0, 0, 0), 0, 2)
+		_cards.append([q, card, status, fill, req])
+		if focused:
+			var brief := HudKit.label(card, str(LabDef.level(q).get("brief", "")), Vector2(12, 56), 10, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
+			brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			brief.custom_minimum_size = Vector2(276, 0)
+			brief.size = Vector2(276, 26)
+			var keys := _row_keys(lr, q)
+			for i in keys.size():
+				var ry := 88.0 + i * 13.0
+				HudKit.label(card, keys[i].to_upper(), Vector2(12, ry), 9, HudKit.W_XBOLD, Palette.TEXT_MUTED, 60)
+				_rows.append([keys[i], HudKit.label(card, "", Vector2(72, ry), 10, HudKit.W_BOLD, Palette.TEXT_SECONDARY, 216)])
+			_last = HudKit.label(card, "", Vector2(12, 88.0 + keys.size() * 13.0 + 2.0), 10, HudKit.W_MEDIUM, Palette.STATE_BLOCKED, 276)
+		else:
+			var qq: int = q
+			HudKit.hit(card, Vector2.ZERO, Vector2(CARD_W, ch), func():
+				_focus = qq
+				_rebuild(), "Show this quest")
+		y += ch + 8.0
+	_progress = _cards[0][2]
+	_refresh()
+	HudKit.panel_show(self, Vector2(0, 12), 0.18)
+
+
+func _request_text(q: int, c: Contract) -> String:
 	if c.kind == "deliver":
-		HudKit.label(fbox, "DELIVER", Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
-		var want: BitVector = lr.request_bits()
-		var value_text := HudKit.fmt(want)
-		var chip_w := TclTheme.font(HudKit.W_XBOLD).get_string_size(value_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		HudKit.label(fbox, value_text, Vector2(64, 3), 18, HudKit.W_XBOLD, Palette.DATA_NUMBER)
-		HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(64 + chip_w + 10, 12), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
-		HudKit.label(fbox, "%d-bit" % want.width, Vector2(284 - 42, 12), 9, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 38, HORIZONTAL_ALIGNMENT_RIGHT)
-	else:
-		HudKit.label(fbox, c.kind.to_upper(), Vector2(12, 8), 9, HudKit.W_XBOLD, Palette.TEXT_SECONDARY)
-		var txt := lr.request_label()
-		var col := Palette.FAMILY_IO if c.accept_format != "bits" else Palette.DATA_NUMBER
-		HudKit.label(fbox, txt, Vector2(12, 21), 12, HudKit.W_XBOLD, col, 214)
-		HudKit.label(fbox, "× %d" % lr.request_count(), Vector2(284 - 58, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY, 50, HORIZONTAL_ALIGNMENT_RIGHT)
-	# contract rows
-	_rows.clear()
+		var want := LabDef.request_bits(q)
+		return "DELIVER  %s  × %d   (%d-bit)" % [HudKit.fmt(want), c.count, want.width]
+	return "%s  %s  × %d" % [c.kind.to_upper(), c.describe(), c.count]
+
+
+func _row_keys(lr: LabRun, q: int) -> Array:
+	var c := lr.quest_contract(q)
 	var keys := ["needs", "output"]
 	if c.min_rate > 0.0:
 		keys.append("rate")
 	if c.max_lost >= 0:
 		keys.append("lost")
-	for i in keys.size():
-		var y := 122.0 + i * 13.0
-		HudKit.label(_root, keys[i].to_upper(), Vector2(18, y), 9, HudKit.W_XBOLD, Palette.TEXT_MUTED, 60)
-		_rows.append([keys[i], HudKit.label(_root, "", Vector2(78, y), 10, HudKit.W_BOLD, Palette.TEXT_SECONDARY, 224)])
-	# progress track + delivered
-	HudKit.box(_root, Vector2(18, 176), Vector2(284, 4), Palette.SURFACE_SUNKEN, Color(0, 0, 0, 0), 0, 2)
-	_track_fill = HudKit.box(_root, Vector2(18, 176), Vector2(0, 4), Palette.STATE_VALID, Color(0, 0, 0, 0), 0, 2)
-	_progress = HudKit.label(_root, "", Vector2(18, 188), 11, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
-	_rejected = HudKit.label(_root, "", Vector2(18, 208), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 284)
-	_last = HudKit.label(_root, "", Vector2(18, 224), 10, HudKit.W_MEDIUM, Palette.STATE_BLOCKED, 284)
-	_refresh()
-	HudKit.panel_show(self, Vector2(0, 12), 0.18)
+	return keys
 
 
 func lr_brief(lr: LabRun) -> String:
@@ -222,46 +255,65 @@ func _roll_done(done: int, total: int) -> void:
 
 func _lab_refresh(sm: Node) -> void:
 	var lr: LabRun = sm.lab_run
+	for e in _cards:
+		var q: int = e[0]
+		var qp := lr.quest_progress(q)
+		var n := lr.quest_contract(q).count
+		var card: Panel = e[1]
+		HudKit.progress_bar(e[3], 276.0 * lr.quest_fill(q))
+		if qp.filled:
+			HudKit.set_text(e[2], "✓ READY", Palette.STATE_SUCCESS)
+			HudKit.restyle(card, Palette.SURFACE_RAISED, Palette.STATE_SUCCESS, 1.5, 8)
+		else:
+			var rj := "  · %d ✗" % qp.rejected if qp.rejected > 0 else ""
+			HudKit.set_text(e[2], "%d / %d%s" % [qp.delivered, n, rj], Palette.TEXT_PRIMARY)
+	if _focus < 0:
+		return
 	_refresh_rows(sm, lr)
-	var total := maxi(lr.request_count(), 1)
-	var done := clampi(lr.delivered, 0, lr.request_count())
-	HudKit.progress_bar(_track_fill, 284.0 * done / total)
-	_roll_done(lr.delivered, lr.request_count())
-	if lr.rejected > 0:
-		HudKit.set_text(_rejected, "Rejected: %d" % lr.rejected, Palette.TEXT_MUTED)
-	else:
-		HudKit.set_text(_rejected, "", Palette.TEXT_MUTED)
-	if lr.warning != "":
-		HudKit.set_text(_last, "⚠ " + lr.warning, Palette.STATE_BLOCKED)
+	var w := lr.quest_progress(_focus).warning
+	if w == "" and _focus == lr.level:
+		w = lr.warning
+	if lr.quest_progress(_focus).filled:
+		HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
+	elif w != "":
+		HudKit.set_text(_last, "⚠ " + w, Palette.STATE_BLOCKED)
 	else:
 		HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
 
 
-## NEEDS / OUTPUT / RATE / LOST rows: what the contract requires right now, in plain words.
+## NEEDS / OUTPUT / RATE / LOST rows of the focused quest, in plain words. A filled quest says how
+## to file it instead.
 func _refresh_rows(sm: Node, lr: LabRun) -> void:
-	var c := lr.contract()
+	var q := _focus
+	var c := lr.quest_contract(q)
+	var qp := lr.quest_progress(q)
 	for r in _rows:
 		var key: String = r[0]
 		var l: Label = r[1]
+		if qp.filled:
+			HudKit.set_text(l, "✓ Drop a Q%d stick in COMPLETED" % (q + 1) if key == "needs" else "", Palette.STATE_SUCCESS)
+			continue
 		match key:
 			"needs":
-				var kind := lr.needed_module()
-				var name := Devices.display_name(kind) if Devices.has(kind) else kind
-				if kind == "":
+				var missing := PackedStringArray()
+				var places := lr.quest_stick_places(sm.sim, q)
+				for st in places:
+					if int(places[st]) < 0:
+						missing.append(Devices.display_name(st).replace(" module", ""))
+				if places.is_empty():
 					HudKit.set_text(l, "—", Palette.TEXT_MUTED)
-				elif lr.module_plugged(sm.sim, kind):
-					HudKit.set_text(l, "✓ %s plugged in" % name, Palette.STATE_VALID)
+				elif missing.is_empty():
+					HudKit.set_text(l, "✓ Q%d stick%s plugged in" % [q + 1, "s" if places.size() > 1 else ""], Palette.STATE_VALID)
 				else:
-					HudKit.set_text(l, "Plug the %s into a USB port" % name, Palette.STATE_BLOCKED)
+					HudKit.set_text(l, "Plug the Q%d %s stick into a USB port" % [q + 1, " + ".join(missing)], Palette.STATE_BLOCKED)
 			"output":
 				if lr.job_plugged(sm.sim):
 					HudKit.set_text(l, "✓ Job drive plugged in", Palette.STATE_VALID)
 				else:
-					HudKit.set_text(l, "Plug the Job drive into an output port", Palette.STATE_BLOCKED)
+					HudKit.set_text(l, "Plug a Job drive into an output port", Palette.STATE_BLOCKED)
 			"rate":
-				var ok := lr.rate() >= c.min_rate
-				HudKit.set_text(l, "%.1f / %.1f values/s" % [lr.rate(), c.min_rate], Palette.STATE_VALID if ok else Palette.TEXT_SECONDARY)
+				var rt := lr.quest_rate(q)
+				HudKit.set_text(l, "%.1f / %.1f values/s" % [rt, c.min_rate], Palette.STATE_VALID if rt >= c.min_rate else Palette.TEXT_SECONDARY)
 			"lost":
-				var bad := lr.window_lost > c.max_lost
-				HudKit.set_text(l, "%d / %d lost" % [lr.window_lost, c.max_lost], Palette.STATE_BLOCKED if bad else Palette.TEXT_SECONDARY)
-
+				var bad := qp.window_lost > c.max_lost
+				HudKit.set_text(l, "%d / %d lost" % [qp.window_lost, c.max_lost], Palette.STATE_BLOCKED if bad else Palette.TEXT_SECONDARY)

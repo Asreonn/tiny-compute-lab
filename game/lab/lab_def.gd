@@ -398,6 +398,16 @@ static func unlocks_upto(i: int) -> PackedStringArray:
 
 
 ## The data modules owned once level `i` starts (union of levels 0..i).
+## The stick kinds quest `i` comes with: its own streams' kinds, or — for a level that reuses the
+## earlier stream (L2, L3) — the kinds of the last level that defined one.
+static func quest_kinds(i: int) -> PackedStringArray:
+	for k in range(clampi(i, 0, LEVELS.size() - 1), -1, -1):
+		var streams: Dictionary = LEVELS[k].get("streams", {})
+		if not streams.is_empty():
+			return PackedStringArray(streams.keys())
+	return PackedStringArray(["bit"])
+
+
 static func devices_upto(i: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	for k in range(0, clampi(i, 0, LEVELS.size() - 1) + 1):

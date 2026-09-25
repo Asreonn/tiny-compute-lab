@@ -118,12 +118,12 @@ static func _devices(t) -> void:
 		var m: Machine = sim.machines[id]
 		if m.type == "usb_input" and m.cell.y == 1:
 			p1 = m
-	run.plug_from_desk(sim, "in", _slot(run, "number"), p1.id)
+	run.plug_from_desk(sim, "in", _slot(run, "text@5"), p1.id)
 	var before := _snap(sim)
 	run.unplug_to_desk(sim, p1.id)
 	t.check(p1.device == "", "the module is unplugged")
 	sim.apply_layout(before)
-	t.check(p1.device == "number", "undo plugs the module back in (got '%s')" % p1.device)
+	t.check(p1.device == "text@5", "undo plugs the quest stick back in (got '%s')" % p1.device)
 
 
 static func _slot(run: LabRun, kind: String) -> int:

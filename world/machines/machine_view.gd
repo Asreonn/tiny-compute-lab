@@ -1004,10 +1004,9 @@ class UsbSocketView extends Node2D:
 		var plugged := machine.device != "" or (_anim_start >= 0.0 and not _anim_plug)
 		SystemsDraw.port_face(self, Vector2(-6, 14), plugged, _lit, false)
 		if _anim_device != "":
-			SystemsDraw.data_module(self, Vector2(-102 + _offset, 4), _anim_device, {
-				"inserted": true, "cursor": _cursor, "glyph": SystemsDraw.kind_glyph(_anim_device),
-				"acc": SystemsDraw._kind_accent(_anim_device), "alpha": _alpha,
-			})
+			var lr = SimulationManager.run
+			SystemsDraw.data_module(self, Vector2(-102 + _offset, 4), _anim_device, DeskView.stick_opts(
+				lr as LabRun if lr is LabRun else null, _anim_device, {"inserted": true, "cursor": _cursor, "alpha": _alpha}))
 		elif hovered and machine.device == "":
 			SystemsDraw.data_module(self, Vector2(-128, 4), "bit", {"ghost": true})
 			SystemsDraw.rrect_outline(self, Rect2(-8, 12, 20, 40), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
@@ -1034,7 +1033,7 @@ class ContractDriveView extends Node2D:
 		if sim != null and sim.tick != _last_tick:
 			_last_tick = sim.tick
 			for e in sim.events:
-				if str(e.get("kind", "")) == "output" and int(e.get("machine", -1)) == machine.id and (not machine.socket or machine.device == "job"):
+				if str(e.get("kind", "")) == "output" and int(e.get("machine", -1)) == machine.id and (not machine.socket or Devices.is_job(machine.device)):
 					_flash_start = Time.get_ticks_msec() / 1000.0
 					_flash_ok = bool((run.last_ok[0] as Dictionary).get("ok", true)) if run.last_ok.size() > 0 else true
 					_underline = not _flash_ok
@@ -1067,6 +1066,9 @@ class ContractDriveView extends Node2D:
 				value = value.substr(0, 8)
 		SystemsDraw.monitor(self, Vector2(134, 4), value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
 
+	var _glyph_q := -1
+	var _glyph_cache := ""
+
 	func _glyph(run) -> String:
 		if run.has_method("request_label"):
 			var lbl = run.request_label()
@@ -1084,15 +1086,30 @@ class ContractDriveView extends Node2D:
 		var fill := 0.0
 		if run.has_method("request_count") and run.request_count() > 0:
 			fill = clampf(float(run.delivered) / float(run.request_count()), 0.0, 1.0)
+		var glyph := _glyph(run)
+		var tag := ""
+		var done := false
+		if run is LabRun and not run.all_done():
+			# a drive shows the quest it served last: its request, its progress, "Q6"
+			var q: int = run.quest_for_drive(machine.id)
+			fill = run.quest_fill(q)
+			done = run.quest_progress(q).filled
+			tag = "Q%d" % (q + 1)
+			if q != _glyph_q:
+				_glyph_q = q
+				var g := ViewMode.format(LabDef.request_bits(q), LabDef.view_mode(q)).replace(" ", "")
+				_glyph_cache = g.substr(0, 5) if g.length() > 5 else g
+			glyph = _glyph_cache
+			accent = Palette.FAMILY_IO if LabDef.view_mode(q) == ViewMode.Mode.CHAR else Palette.DATA_NUMBER
 		var dev: String = machine.device if machine.socket else "job"
 		SystemsDraw.port_face(self, Vector2(118, 14), dev != "", false, true)
 		if dev == "monitor":
 			_draw_monitor()
 			return
-		if dev != "job":
+		if not Devices.is_job(dev):
 			return  # an empty output port: nothing is there (wires into it stall)
 		SystemsDraw.data_module(self, Vector2(134, 4), "job", {
-			"flip": true, "inserted": true, "glyph": _glyph(run), "fill": fill, "acc": accent,
+			"flip": true, "inserted": true, "glyph": glyph, "fill": fill, "acc": accent, "tag": tag, "done": done,
 		})
 		if _flash_start >= 0.0:
 			if now - _flash_start < SEAM_S:

@@ -4,22 +4,56 @@ extends RunBase
 ## Simulation calls on MissionRun (allows / on_output / on_overflow / after_tick / reset /
 ## build_board) plus the fields the HUD reads. Pure data — no Node, no signals.
 ##
-## The Contract Drive judges every arriving packet with Contract.judge() (lineage-driven, not a
-## constant): a match counts as `delivered`, anything else as `rejected`. The level completes
-## once the count AND the contract's constraints (min_rate, max_lost) are met. Breaking a
-## constraint is soft: it only restarts the window, never fails the run.
+## QUESTS. Up to QUEST_WINDOW quests are active at once. Each comes with its own sticks (quest
+## sticks, "text@11"); every value a stick emits carries its quest, so a Job drive judges each
+## result against the right quest's contract (lineage-driven, never a constant). A match counts
+## as that quest's `delivered`, anything else as `rejected`. A quest is FILLED once its count AND
+## its constraints are met; the player then unplugs one of its sticks and files it in the desk's
+## COMPLETED tray (file_quest) — only then does it count as done and the next quest arrives.
+## Breaking a constraint is soft: it only restarts that quest's window, never fails the run.
+## Plain modules ("text") belong to the current quest (`level`) — tests and old saves.
 
-var level := 0  # current level index; == LabDef.LEVELS.size() once the lab is complete
-var delivered := 0
-var rejected := 0
+const QUEST_WINDOW := 2
+
+## One quest's progress (per quest; `delivered` & co. below read the current quest's).
+class QuestProgress:
+	extends RefCounted
+	var delivered := 0
+	var rejected := 0
+	var accepted_ticks: Array[int] = []  # ticks of accepted values, the last 60 (min_rate)
+	var window_lost := 0  # overruns since the window started
+	var window_rejected := 0  # wrong deliveries in the window (max_rejected)
+	var filled := false  # count + constraints met: ready to be filed
+	var warning := ""
+
+
+var level := 0  # the lowest unfinished quest; == LabDef.LEVELS.size() once every quest is done
+var completed: Dictionary = {}  # quest index -> true: filed ahead of `level`
+## Tests and tools: a filled quest files itself. The game sets false: the player files it.
+var auto_file := true
+var files := 0  # quests filed so far (the completion banner / sweep / cue watch it)
+var last_filed := -1  # the quest filed last
 var unlocked := PackedStringArray()
 var level_completed_tick := -1
-## Ticks of accepted values, trimmed to the last 60 (the min_rate window).
-var accepted_ticks: Array[int] = []
-## Overruns since the window started (docs/SYSTEMS_EXPANSION.md §2, §3).
-var window_lost := 0
-var window_rejected := 0  # wrong deliveries in the window (max_rejected)
-var _window_warning := ""
+var drive_quest: Dictionary = {}  # output port id -> the quest it judged last (the drive's face)
+var _qp: Dictionary = {}  # quest index -> QuestProgress
+var _contracts: Dictionary = {}  # quest index -> Contract (pure data, built once)
+
+## The current quest's progress (the HUD and the older single-quest code read these).
+var delivered: int:
+	get: return _q(level).delivered
+	set(v): _q(level).delivered = v
+var rejected: int:
+	get: return _q(level).rejected
+	set(v): _q(level).rejected = v
+var accepted_ticks: Array[int]:
+	get: return _q(level).accepted_ticks
+var window_lost: int:
+	get: return _q(level).window_lost
+	set(v): _q(level).window_lost = v
+var window_rejected: int:
+	get: return _q(level).window_rejected
+	set(v): _q(level).window_rejected = v
 ## Desk zones (docs/SYSTEMS_EXPANSION.md §2.2): slot index -> module kind beside the laptop.
 ## Every owned device is in exactly one place: a desk slot or a port.
 var desk_inputs: Dictionary = {}
@@ -35,6 +69,92 @@ var _io_warning := ""
 
 func _init() -> void:
 	live_edit = true  # the factory keeps running while the player builds
+
+
+# ------------------------------------------------------------------ quests
+
+func _q(i: int) -> QuestProgress:
+	if not _qp.has(i):
+		_qp[i] = QuestProgress.new()
+	return _qp[i]
+
+
+## The active quests, lowest first: up to QUEST_WINDOW unfinished quests from `level` on.
+func active_quests() -> Array[int]:
+	var out: Array[int] = []
+	var i := level
+	while i < LabDef.count() and out.size() < QUEST_WINDOW:
+		if not completed.has(i):
+			out.append(i)
+		i += 1
+	return out
+
+
+## The highest active quest: unlocks, the board size and the open ports follow it.
+func frontier() -> int:
+	var a := active_quests()
+	return a[-1] if not a.is_empty() else level
+
+
+func quest_contract(q: int) -> Contract:
+	if not _contracts.has(q):
+		_contracts[q] = LabDef.contract_for(q)
+	return _contracts[q]
+
+
+func quest_title(q: int) -> String:
+	return str(LabDef.level(q)["title"])
+
+
+func quest_progress(q: int) -> QuestProgress:
+	return _q(q)
+
+
+## 0..1 toward the quest's count (1 once it is filled).
+func quest_fill(q: int) -> float:
+	if _q(q).filled:
+		return 1.0
+	var n := quest_contract(q).count
+	return clampf(float(_q(q).delivered) / float(n), 0.0, 1.0) if n > 0 else 0.0
+
+
+## The quest a drive shows: the one it judged last while that is still active, else the current.
+func quest_for_drive(port_id: int) -> int:
+	var q := int(drive_quest.get(port_id, level))
+	return q if q in active_quests() else level
+
+
+## Filled quests that wait for the COMPLETED tray.
+func quests_ready() -> Array[int]:
+	var out: Array[int] = []
+	for q in active_quests():
+		if _q(q).filled:
+			out.append(q)
+	return out
+
+
+func quest_rate(q: int) -> float:
+	return float(_q(q).accepted_ticks.size()) * Simulation.TICKS_PER_SEC / 60.0
+
+
+## The sticks a quest comes with ("text@11", "key@11").
+func quest_sticks(q: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	for kind in LabDef.quest_kinds(q):
+		out.append(Devices.stick(kind, q))
+	return out
+
+
+## Where a quest's sticks are: {kind@q: port id | -1 on the desk}.
+func quest_stick_places(sim: Simulation, q: int) -> Dictionary:
+	var out := {}
+	for st in quest_sticks(q):
+		out[st] = -1
+		for id in sim.sorted_machine_ids():
+			var m: Machine = sim.machines[id]
+			if m.type == "usb_input" and m.device == st:
+				out[st] = id
+	return out
 
 
 # ------------------------------------------------------------------ accessors
@@ -83,20 +203,24 @@ func allows(type: String) -> bool:
 	return type in ["usb_input", "usb_output"]
 
 
-## The contract's stream for a device kind at the current level (Simulation.insert_device).
+## The stream a stick carries: its quest's (a quest stick) or the current quest's (a plain module).
 func stream_for_device(kind: String) -> Dictionary:
-	return LabDef.stream_spec(level, kind)
+	var q := Devices.quest_of(kind)
+	return LabDef.stream_spec(q if q >= 0 else level, Devices.base(kind))
 
 
-## The data modules the player owns (union of every level up to the current one).
+## The input sticks the player holds: every active quest's own sticks.
 func devices_owned() -> PackedStringArray:
-	return LabDef.devices_upto(level)
+	var out := PackedStringArray()
+	for q in active_quests():
+		out.append_array(quest_sticks(q))
+	return out
 
 
-## The output devices owned from L9 (idx 8) on: the Job drive, then the Monitor.
+## The output devices: two Job drives from the start, the Monitor from L9 (idx 8) on.
 func output_devices_owned() -> PackedStringArray:
-	var out := PackedStringArray(["job"])
-	if level >= 8:
+	var out := PackedStringArray(["job", "job2"])
+	if frontier() >= 8:
 		out.append("monitor")
 	return out
 
@@ -121,11 +245,11 @@ func accuracy() -> float:
 ## socket empty so the player chooses the module. Never used to reset a running factory.
 func build_board(sim: Simulation) -> void:
 	sim.clear()
-	sim.size = LabDef.size_for(level)
+	sim.size = LabDef.size_for(frontier())
 	sim.default_width = LabDef.request_bits(level).width
 	sim.campaign_timing = true
 	sim.mission = self
-	unlocked = LabDef.unlocks_upto(level)
+	unlocked = LabDef.unlocks_upto(frontier())
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))  # rewards of every finished level
 	_ensure_io(sim)
 	new_devices = PackedStringArray()  # a fresh board is not a level-up: nothing pulses as "New"
@@ -139,33 +263,54 @@ func reset(_sim: Simulation) -> void:
 	warning = ""
 	failure = {}
 	last_ok = [{}]
-	accepted_ticks.clear()
-	window_lost = 0
-	window_rejected = 0
-	_window_warning = ""
+	for q in _qp:
+		var qp: QuestProgress = _qp[q]
+		qp.accepted_ticks.clear()
+		qp.window_lost = 0
+		qp.window_rejected = 0
+		qp.warning = ""
 	_io_warning = ""
 	_sync()
 
 
 func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
-	if m.type != LabDef.OUTPUT_TYPE or m.device != "job":
+	if m.type != LabDef.OUTPUT_TYPE or not Devices.is_job(m.device):
 		return
-	var ok := contract().judge(p, _socket_ids(sim))
-	if ok:
-		delivered += 1
-		accepted_ticks.append(sim.tick)
-		_window_warning = ""
-	else:
-		rejected += 1
-		var c := contract()
-		if c.max_rejected >= 0:
-			window_rejected += 1
-			if window_rejected > c.max_rejected:
-				_restart_window("A value that should not arrive reached the drive — the window restarted.")
-	_trim(sim.tick)
-	last_ok = [{"packet": p.id, "ok": ok}]
+	var q := _quest_of_packet(p)
+	var ok := false
+	if q >= 0:
+		drive_quest[m.id] = q
+	if q >= 0 and q in active_quests() and not _q(q).filled:
+		ok = quest_contract(q).judge(p, _socket_ids_for(sim, q))
+		var qp := _q(q)
+		if ok:
+			qp.delivered += 1
+			qp.accepted_ticks.append(sim.tick)
+			qp.warning = ""
+		else:
+			qp.rejected += 1
+			var c := quest_contract(q)
+			if c.max_rejected >= 0:
+				qp.window_rejected += 1
+				if qp.window_rejected > c.max_rejected:
+					_restart_window(q, "A value that should not arrive reached the drive — the window restarted.")
+		_trim(q, sim.tick)
+		_check_filled(sim, q)
+	last_ok = [{"packet": p.id, "ok": ok, "quest": q}]
 	progress = [delivered]
-	_check_complete(sim)
+
+
+## The quest a delivered value belongs to: the quest its sticks stamped (one), the current quest
+## for plain modules, -1 when it mixes two quests' data.
+func _quest_of_packet(p: Packet) -> int:
+	var qs := {}
+	for sid in p.origins:
+		var e: Dictionary = p.origins[sid]
+		if e.has("quest"):
+			qs[int(e["quest"])] = true
+	if qs.is_empty():
+		return level
+	return int(qs.keys()[0]) if qs.size() == 1 else -1
 
 
 ## Overflow is not a failure in the lab: the source loops and the player can rewire live.
@@ -176,27 +321,29 @@ func on_overflow(_sim: Simulation, _m: Machine, _p: Packet) -> void:
 ## Lost values feed the max_lost constraint; a broken constraint only restarts the window.
 ## A stall is only a warning string; the lab never fails.
 func after_tick(sim: Simulation) -> void:
-	var c := contract()
 	for e in sim.events:
 		if str(e.get("kind", "")) == "lost":
-			window_lost += 1
-	if c.max_lost >= 0 and window_lost > c.max_lost:
-		delivered = 0
-		window_lost = 0
-		accepted_ticks.clear()
-		_window_warning = "Values were lost at USB 1 — the window restarted."
-	# power / heat caps (soft: breaking one only restarts the window)
-	if c.max_power > 0 and sim.power_demand() > c.max_power:
-		_restart_window("Power demand %d is over the %d cap — the window restarted." % [sim.power_demand(), c.max_power])
-	if c.max_heat >= 0:
-		for id in sim.sorted_machine_ids():
-			var m: Machine = sim.machines[id]
-			if m.heat_stage >= c.max_heat:
-				_restart_window("%s reached %s — the window restarted." % [m.label, ThermalGrid.STAGE_NAMES[m.heat_stage]])
-				break
-	_trim(sim.tick)
-	if _window_warning != "":
-		warning = _window_warning
+			var src: Machine = sim.machines.get(int(e.get("machine", -1)))
+			var lq := Devices.quest_of(src.device) if src != null else -1
+			_q(lq if lq >= 0 else level).window_lost += 1
+	for q in active_quests():
+		var c := quest_contract(q)
+		var qp := _q(q)
+		if c.max_lost >= 0 and qp.window_lost > c.max_lost:
+			_restart_window(q, "Values were lost at a USB port — the window restarted.")
+		# power / heat caps (soft: breaking one only restarts the window)
+		if c.max_power > 0 and sim.power_demand() > c.max_power:
+			_restart_window(q, "Power demand %d is over the %d cap — the window restarted." % [sim.power_demand(), c.max_power])
+		if c.max_heat >= 0:
+			for id in sim.sorted_machine_ids():
+				var m: Machine = sim.machines[id]
+				if m.heat_stage >= c.max_heat:
+					_restart_window(q, "%s reached %s — the window restarted." % [m.label, ThermalGrid.STAGE_NAMES[m.heat_stage]])
+					break
+		_trim(q, sim.tick)
+	var ww := _q(level).warning
+	if ww != "":
+		warning = ww
 	elif _io_warning != "":
 		warning = _io_warning
 	elif sim.tick - sim.last_activity_tick >= Simulation.STALL_TICKS:
@@ -205,48 +352,103 @@ func after_tick(sim: Simulation) -> void:
 		warning = ""
 
 
-func _restart_window(why: String) -> void:
-	delivered = 0
-	window_lost = 0
-	window_rejected = 0
-	accepted_ticks.clear()
-	_window_warning = why
+func _restart_window(q: int, why: String) -> void:
+	var qp := _q(q)
+	if qp.filled:
+		return  # a filled quest is done; it only waits to be filed
+	qp.delivered = 0
+	qp.window_lost = 0
+	qp.window_rejected = 0
+	qp.accepted_ticks.clear()
+	qp.warning = why
 
 
 # ------------------------------------------------------------------ levels
 
-func _check_complete(sim: Simulation) -> void:
-	var c := contract()
-	if delivered < c.count:
+## Count + constraints met: the quest is filled (tests file it right away).
+func _check_filled(sim: Simulation, q: int) -> void:
+	var c := quest_contract(q)
+	var qp := _q(q)
+	if qp.filled or qp.delivered < c.count:
 		return
-	if c.min_rate > 0.0 and rate() < c.min_rate:
+	if c.min_rate > 0.0 and quest_rate(q) < c.min_rate:
 		return
-	if c.max_lost >= 0 and window_lost > c.max_lost:
+	if c.max_lost >= 0 and qp.window_lost > c.max_lost:
 		return
-	_advance(sim)
+	qp.filled = true
+	qp.warning = ""
+	if auto_file:
+		file_quest(sim, q)
 
 
+## File a filled quest (the desk's COMPLETED tray): it counts as done, its sticks are taken, the
+## next quest arrives with its sticks, and the board / unlocks / PSU follow. False when the quest
+## is not active or not filled yet.
+func file_quest(sim: Simulation, q: int) -> bool:
+	if q < 0 or q >= LabDef.count() or not q in active_quests() or not _q(q).filled:
+		return false
+	completed[q] = true
+	files += 1
+	last_filed = q
+	level_completed_tick = sim.tick
+	# the quest's sticks leave the ports and the desk
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "usb_input" and Devices.quest_of(m.device) == q:
+			sim.remove_device(id)
+	for slot in desk_inputs.keys():
+		if Devices.quest_of(str(desk_inputs[slot])) == q:
+			desk_inputs.erase(slot)
+	while completed.has(level):
+		completed.erase(level)
+		_qp.erase(level)
+		level += 1
+	_qp.erase(q)
+	_progress_changed(sim)
+	if auto_file:
+		_restock_ports(sim)
+	return true
+
+
+## Tests / tools (auto_file): an empty socket takes the next active quest's stick of the kind it
+## last held — what a player does right after filing.
+func _restock_ports(sim: Simulation) -> void:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type != "usb_input" or m.device != "" or m.last_device == "":
+			continue
+		for q in active_quests():
+			var st := Devices.stick(m.last_device, q)
+			if st in quest_sticks(q) and not _plugged(sim, "in").has(st):
+				var slot := -1
+				for k in desk_inputs:
+					if desk_inputs[k] == st:
+						slot = k
+				if slot >= 0 and plug_from_desk(sim, "in", slot, id):
+					break
+
+
+## File the current quest now (the old single-quest level-up; tests and tools).
 func _advance(sim: Simulation) -> void:
-	delivered = 0
-	accepted_ticks.clear()
-	window_lost = 0
-	_window_warning = ""
-	_io_warning = ""
 	if level >= LabDef.LEVELS.size():
 		_sync()
 		return
-	# the rewards of the level just finished (SYSTEMS_EXPANSION §10), e.g. a better PSU
-	level += 1
+	_q(level).filled = true
+	file_quest(sim, level)
+
+
+## Rebuild what follows the quests: PSU tier, unlocks, board size, ports, desk.
+func _progress_changed(sim: Simulation) -> void:
+	_io_warning = ""
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))
-	unlocked = LabDef.unlocks_upto(level)
-	var sz := LabDef.size_for(level)
+	unlocked = LabDef.unlocks_upto(frontier())
+	var sz := LabDef.size_for(frontier())
 	var grew := sz.x > sim.size.x or sz.y > sim.size.y
 	sim.size = Vector2i(maxi(sim.size.x, sz.x), maxi(sim.size.y, sz.y))
-	sim.default_width = LabDef.request_bits(level).width
+	sim.default_width = LabDef.request_bits(mini(level, LabDef.count() - 1)).width
 	_ensure_io(sim)
 	if grew:
 		_move_output_ports(sim)
-	level_completed_tick = sim.tick
 	_sync()
 	sim.changed.emit()
 
@@ -255,13 +457,13 @@ func _advance(sim: Simulation) -> void:
 func _ensure_io(sim: Simulation) -> void:
 	_sync_reservations(sim)
 	_ensure_ports(sim)
-	if level == 0:
+	if level == 0 and files == 0:
 		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
 		if first_in != null and first_in.device == "":
-			sim.insert_device(first_in.id, "bit")
-	if _job_drive(sim) == null and not desk_outputs.values().has("job"):
+			sim.insert_device(first_in.id, Devices.stick("bit", 0))
+	if _plugged(sim, "out").find("job") < 0 and not desk_outputs.values().has("job"):
 		var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
-		if first_out != null:
+		if first_out != null and first_out.device == "":
 			sim.insert_device(first_out.id, "job")
 	sync_desk(sim)
 
@@ -270,10 +472,10 @@ func _ensure_io(sim: Simulation) -> void:
 ## at the board edge (SYSTEMS_EXPANSION §2.1). Recomputed on every level/size change.
 func _sync_reservations(sim: Simulation) -> void:
 	sim.reserved.clear()
-	for row in LabDef.sealed_rows(level, true):
+	for row in LabDef.sealed_rows(frontier(), true):
 		for c in _bay_cells(sim, "in", row):
 			sim.reserved[c] = LabDef.slot_label("in", row)
-	for row in LabDef.sealed_rows(level, false):
+	for row in LabDef.sealed_rows(frontier(), false):
 		for c in _bay_cells(sim, "out", row):
 			sim.reserved[c] = LabDef.slot_label("out", row)
 
@@ -287,7 +489,7 @@ func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
 ## Add every port open at the current level, in creation order: [input row 1, output row 1]
 ## first, then the rest as they open (save migration depends on it).
 func _ensure_ports(sim: Simulation) -> void:
-	for p in LabDef.ports_upto(level):
+	for p in LabDef.ports_upto(frontier()):
 		var side := str(p["side"])
 		var row := int(p["row"])
 		if _port_at(sim, side, row) != null:
@@ -326,7 +528,7 @@ func _output_at(sim: Simulation, row: int) -> Machine:
 func _job_drive(sim: Simulation) -> Machine:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type == LabDef.OUTPUT_TYPE and m.device == "job":
+		if m.type == LabDef.OUTPUT_TYPE and Devices.is_job(m.device):
 			return m
 	return null
 
@@ -353,9 +555,10 @@ func _move_output_ports(sim: Simulation) -> void:
 		m.locked = was_locked
 
 
-func _trim(tick: int) -> void:
-	while not accepted_ticks.is_empty() and accepted_ticks[0] <= tick - 60:
-		accepted_ticks.pop_front()
+func _trim(q: int, tick: int) -> void:
+	var at := _q(q).accepted_ticks
+	while not at.is_empty() and at[0] <= tick - 60:
+		at.pop_front()
 
 
 func _socket_ids(sim: Simulation) -> Array[int]:
@@ -365,6 +568,21 @@ func _socket_ids(sim: Simulation) -> Array[int]:
 		if m.type == "usb_input" and m.socket:
 			out.append(id)
 	return out
+
+
+## The sockets in the order quest `q`'s contract expects: the socket holding its primary stick
+## first (map / filter read that origin), then the rest.
+func _socket_ids_for(sim: Simulation, q: int) -> Array[int]:
+	var all := _socket_ids(sim)
+	var want := Devices.stick(quest_contract(q).source_kind, q)
+	for id in all:
+		if sim.machines[id].device == want:
+			var out: Array[int] = [id]
+			for other in all:
+				if other != id:
+					out.append(other)
+			return out
+	return all
 
 
 func _sync() -> void:
@@ -506,6 +724,70 @@ func desk_from_dict(d: Dictionary, sim: Simulation) -> void:
 	new_devices = PackedStringArray()  # restoring a save is not a level-up
 
 
+# ------------------------------------------------------------------ save
+
+## Save form of the quests: {"completed": [q], "progress": {"q": {delivered, rejected, filled}},
+## "files": n}. `level` and the desk are saved beside it.
+func quests_to_dict() -> Dictionary:
+	var prog := {}
+	for q in _qp:
+		var qp: QuestProgress = _qp[q]
+		if qp.delivered > 0 or qp.rejected > 0 or qp.filled:
+			prog[str(q)] = {"delivered": qp.delivered, "rejected": qp.rejected, "filled": qp.filled}
+	var done := []
+	for q in completed:
+		done.append(q)
+	done.sort()
+	return {"completed": done, "progress": prog, "files": files}
+
+
+## Restore the quests BEFORE build_board (the active window decides the board). Old saves without
+## quests keep the defaults: only the current quest, counted from `delivered` / `rejected`.
+func quests_from_dict(d: Dictionary) -> void:
+	completed = {}
+	_qp = {}
+	for q in d.get("completed", []):
+		if int(q) > level and int(q) < LabDef.count():
+			completed[int(q)] = true
+	var prog = d.get("progress", {})
+	if prog is Dictionary:
+		for k in prog:
+			var e = prog[k]
+			if not e is Dictionary or int(k) < level:
+				continue
+			var qp := _q(int(k))
+			qp.delivered = int(e.get("delivered", 0))
+			qp.rejected = int(e.get("rejected", 0))
+			qp.filled = bool(e.get("filled", false))
+	files = int(d.get("files", level + completed.size()))
+
+
+## Old saves plugged plain modules ("text"): each becomes the matching stick of an active quest
+## (the current one first); a plain module no quest needs any more is taken back.
+func migrate_plain(sim: Simulation) -> void:
+	var plugged := _plugged(sim, "in")
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type != "usb_input" or m.device == "" or Devices.quest_of(m.device) >= 0:
+			continue
+		var target := ""
+		for q in active_quests():
+			var st := Devices.stick(m.device, q)
+			if st in quest_sticks(q) and not plugged.has(st):
+				target = st
+				break
+		if target == "" or not sim.insert_device(id, target):
+			sim.remove_device(id)
+		else:
+			plugged.append(target)
+	var owned := devices_owned()
+	for slot in desk_inputs.keys():
+		if not owned.has(str(desk_inputs[slot])):
+			desk_inputs.erase(slot)
+	sync_desk(sim)
+	new_devices = PackedStringArray()
+
+
 # ------------------------------------------------------------------ HUD helpers
 
 ## The module kind the current contract reads from (its primary stream), "" if none.
@@ -513,14 +795,46 @@ func needed_module() -> String:
 	return contract().source_kind
 
 
-## True when some open input port has `kind` plugged in.
+## True when some open input port holds a module of `kind` (the current quest's stick, or a plain
+## module of that kind).
 func module_plugged(sim: Simulation, kind: String) -> bool:
-	return _plugged(sim, "in").has(kind)
+	for dev in _plugged(sim, "in"):
+		if Devices.base(dev) == kind and Devices.quest_of(dev) in [-1, level]:
+			return true
+	return false
 
 
-## True when the Job drive sits in an output port.
+## True when a Job drive sits in an output port.
 func job_plugged(sim: Simulation) -> bool:
 	return _job_drive(sim) != null
+
+
+# ------------------------------------------------------------------ the COMPLETED tray
+
+## Drop a quest stick lying on the input desk into the tray: files its quest when it is filled.
+## False (and last_error on `sim` says why) when it is not a quest stick or not finished yet.
+func file_from_desk(sim: Simulation, slot: int) -> bool:
+	if not desk_inputs.has(slot):
+		return false
+	return _file_stick(sim, str(desk_inputs[slot]))
+
+
+## Drop a plugged quest stick straight from its port into the tray.
+func file_from_port(sim: Simulation, port_id: int) -> bool:
+	if not sim.machines.has(port_id):
+		return false
+	return _file_stick(sim, sim.machines[port_id].device)
+
+
+func _file_stick(sim: Simulation, kind: String) -> bool:
+	var q := Devices.quest_of(kind)
+	if q < 0:
+		sim.last_error = "Only a quest's stick goes in the tray"
+		return false
+	if not _q(q).filled:
+		sim.last_error = "Not finished yet — %d / %d" % [_q(q).delivered, quest_contract(q).count]
+		return false
+	return file_quest(sim, q)
 
 
 # ------------------------------------------------------------------ power
@@ -553,8 +867,9 @@ func psu_name() -> String:
 const HEAT_LEVEL := 16
 
 
+## Heat is on once the Heat quest is active (even as the second quest: its max_heat must be real).
 func thermal_enabled() -> bool:
-	return level >= HEAT_LEVEL
+	return frontier() >= HEAT_LEVEL
 
 
 ## Clock modes are the reward of L16 Power Cap; the Inspector hides the param until then.

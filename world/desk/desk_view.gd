@@ -8,6 +8,10 @@ extends Node2D
 ## rearranges slots. Click-then-click does the same without dragging. Sealed port bays are drawn
 ## here too (dashed reserved footprint + label + capped port face).
 ##
+## Every input stick belongs to a quest ("Q6" on its body, its data store fills with the quest's
+## progress, green once filled). Under the input mat lies the COMPLETED tray: dropping a filled
+## quest's stick there files the quest (LabRun.file_from_desk / file_from_port).
+##
 ## Pure view + input: every change goes through LabRun.plug_from_desk / unplug_to_desk /
 ## move_on_desk (which call Simulation.insert_device / remove_device).
 
@@ -20,6 +24,8 @@ const MODULE_OVERHANG := 112.0
 const DRAG_START := 4.0       # px of movement before a press becomes a drag
 const NOTE_S := 1.8           # refusal note lifetime
 const PULSE_S := 0.3          # "New" pulse (2 pulses)
+const TRAY_H := 112.0
+const READY_S := 1.6          # the tray's "a quest is ready" breathing period
 
 var _drag := {}               # {kind, from: "desk"|"port", side, slot, port, start: Vector2}
 var _dragging := false
@@ -72,6 +78,12 @@ func slot_rect(side: String, i: int) -> Rect2:
 func _module_pos(side: String, i: int) -> Vector2:
 	var s := slot_rect(side, i)
 	return s.position + (Vector2(6.0, 6.0) if side == "in" else Vector2(28.0, 6.0))
+
+
+## The COMPLETED tray under the input mat.
+func tray_rect() -> Rect2:
+	var d := desk_rect("in")
+	return Rect2(Vector2(d.position.x, d.end.y + 36.0), Vector2(DESK_W, TRAY_H))
 
 
 # ------------------------------------------------------------------ ports
@@ -206,6 +218,18 @@ func _try_drop(pick: Dictionary, p: Vector2) -> bool:
 	var handled := false
 	var target_port := _port_under(p, side)
 	var target_slot := _slot_under(p, side)
+	if tray_rect().has_point(p):
+		if side == "out":
+			sim.last_error = "Only a quest's stick goes in the tray"
+			ok = false
+		elif pick["from"] == "desk":
+			ok = run.file_from_desk(sim, int(pick["slot"]))
+		else:
+			ok = run.file_from_port(sim, int(pick["port"]))
+		if not ok:
+			_show_note(sim.last_error if sim.last_error != "" else "Not finished yet", p)
+		sim.changed.emit()
+		return true
 	if _port_under(p, other) != null or _slot_under(p, other) >= 0:
 		_show_note("That module belongs on the %s side" % ("input" if side == "in" else "output"), p)
 		return true
@@ -289,7 +313,7 @@ func _process(_delta: float) -> void:
 		if _psu_over_start >= 0.0:
 			queue_redraw()
 	var now := Time.get_ticks_msec() / 1000.0
-	var animating := (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
+	var animating := not run.quests_ready().is_empty() or (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
 	if animating:
 		queue_redraw()
 
@@ -309,6 +333,7 @@ func _draw() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	for side in ["in", "out"]:
 		_draw_desk(run, side, now)
+	_draw_tray(run, now)
 	if run.has_psu():
 		_draw_psu(run, sim)
 	# drop targets while dragging / selected
@@ -323,6 +348,12 @@ func _draw() -> void:
 		var ts := _slot_under(_mouse, side)
 		if ts >= 0:
 			SystemsDraw.rrect_outline(self, slot_rect(side, ts), 6.0, Color(Palette.STATE_VALID, 0.8), 1.5)
+		if side == "in":
+			var q := Devices.quest_of(str(active["kind"]))
+			var fits := q >= 0 and run.quest_progress(q).filled
+			var tr := tray_rect()
+			var over := tr.has_point(_mouse)
+			SystemsDraw.rrect_outline(self, tr.grow(2.0), 11.0, Color(Palette.STATE_VALID if fits else Palette.STATE_BLOCKED, (0.95 if over else 0.5) if fits else (0.6 if over else 0.2)), 1.5)
 		if _dragging:
 			_draw_module(str(active["kind"]), side, _mouse - Vector2(48.0, 28.0), 0.7)
 	if _note_start >= 0.0:
@@ -388,9 +419,48 @@ func _draw_module(kind: String, side: String, pos: Vector2, alpha: float) -> voi
 	if kind == "monitor":
 		SystemsDraw.monitor(self, pos, "", [], Palette.DATA_NUMBER, {"alpha": alpha})
 	elif side == "out":
-		SystemsDraw.data_module(self, pos, kind, {"flip": true, "alpha": alpha, "glyph": "JOB", "acc": Palette.FAMILY_IO, "fill": 0.0})
+		SystemsDraw.data_module(self, pos, kind, {"flip": true, "alpha": alpha, "glyph": "JOB" if kind == "job" else "JOB2", "acc": Palette.FAMILY_IO, "fill": 0.0})
 	else:
-		SystemsDraw.data_module(self, pos, kind, {"alpha": alpha, "glyph": SystemsDraw.kind_glyph(kind), "acc": SystemsDraw._kind_accent(kind), "cursor": -1})
+		SystemsDraw.data_module(self, pos, kind, stick_opts(_lab(), kind, {"alpha": alpha}))
+
+
+## A quest stick's look: "Q6" silk, the store filled with its quest's progress, green once filled.
+static func stick_opts(run: LabRun, kind: String, opts: Dictionary = {}) -> Dictionary:
+	var o := {"glyph": SystemsDraw.kind_glyph(kind), "acc": SystemsDraw._kind_accent(kind), "cursor": -1}
+	o.merge(opts, true)
+	var q := Devices.quest_of(kind)
+	if run != null and q >= 0:
+		o["tag"] = "Q%d" % (q + 1)
+		o["done"] = run.quest_progress(q).filled
+		if not o.has("cursor") or int(o["cursor"]) < 0 or o["done"]:
+			o["fill"] = run.quest_fill(q)
+	return o
+
+
+## COMPLETED tray (under the input mat): a sunken mat with a success rim, the count filed so far
+## and the last filed stick resting in it. It breathes while a filled quest waits to be filed.
+func _draw_tray(run: LabRun, now: float) -> void:
+	var r := tray_rect()
+	SystemsDraw.rrect(self, r, 10.0, Palette.SURFACE_SUNKEN)
+	var ready := not run.quests_ready().is_empty()
+	var a := 0.35
+	if ready:
+		a = 0.55 + 0.4 * (0.5 + 0.5 * sin(TAU * now / READY_S)) if not HudKit.REDUCED_MOTION else 0.9
+	SystemsDraw.rrect_outline(self, r, 10.0, Color(Palette.STATE_SUCCESS, a), 1.0 if not ready else 1.5)
+	draw_string(_font, r.position + Vector2(14.0, 22.0), "COMPLETED", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.STATE_SUCCESS if ready else Palette.TEXT_MUTED)
+	draw_string(_font, r.position + Vector2(r.size.x - 14.0, 22.0), "%d" % run.files, HORIZONTAL_ALIGNMENT_RIGHT, -1, 9, Palette.TEXT_MUTED)
+	draw_rect(Rect2(r.position + Vector2(14.0, 30.0), Vector2(r.size.x - 28.0, 1.0)), Palette.SURFACE_BORDER)
+	var slot := Rect2(r.position + Vector2(10.0, HEADER), Vector2(DESK_W - 20.0, SLOT_H - 8.0))
+	if run.last_filed >= 0:
+		var kinds := LabDef.quest_kinds(run.last_filed)
+		var kind := Devices.stick(kinds[0] if not kinds.is_empty() else "bit", run.last_filed)
+		SystemsDraw.data_module(self, slot.position + Vector2(6.0, 6.0), kind, {
+			"glyph": SystemsDraw.kind_glyph(kind), "acc": SystemsDraw._kind_accent(kind), "alpha": 0.45,
+			"tag": "Q%d" % (run.last_filed + 1), "done": true, "fill": 1.0,
+		})
+	else:
+		SystemsDraw.rrect_dashed(self, slot, 6.0, Color(Palette.STATE_SUCCESS, 0.5), 1.0)
+		SystemsDraw.text_center(self, slot, "drop a finished stick", 9.0, Color(Palette.TEXT_MUTED, 0.9))
 
 
 func _draw_desk(run: LabRun, side: String, now: float) -> void:

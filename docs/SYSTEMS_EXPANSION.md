@@ -152,6 +152,39 @@
   section. Newly owned modules appear in the first free slot with the "New" pulse.
 - The Device/Drive Tray popover stays only as a fallback, for clicking a port with no desk visible.
 
+### 2.3 Quests (player request 2026-09-25): sticks and the COMPLETED tray
+
+- **Several quests at once.** Up to `LabRun.QUEST_WINDOW` (2) unfinished quests are active: the
+  lowest unfinished one (`level`) and the next. Each quest is one LabDef level.
+- **Each quest brings its own USB stick(s).** A quest stick is a module kind bound to a quest:
+  `"text@11"` is quest 12's Text stick (`Devices.stick` / `base` / `quest_of`).
+  - It carries its quest's stream.
+  - It stamps `quest` into every value's lineage (`origins[socket]["quest"]`).
+  - Either Job drive (`job`, `job2`) judges a value against the quest it came from. A value that
+    mixes two quests' data counts for neither.
+  - Plain kinds (`"text"`) still work, for tests and old saves: they belong to `level`.
+- **Filled → filed.**
+  - A quest is **filled** once its count and constraints are met. Its sticks turn green: a success
+    key bar and outline, a full store, and "Q12" in success colour.
+  - The player unplugs one of its sticks, from a port or from the desk, and drops it into the
+    **COMPLETED tray** under the input mat. The quest is then **filed** (`LabRun.file_quest`): it
+    counts as done, its sticks leave, and the next quest arrives with its sticks.
+  - Unlocks, the board size and the open ports follow the highest active quest (`frontier()`). The
+    PSU tier follows `level`.
+  - The tray refuses a quest that is not finished yet ("Not finished yet — d / n"), and anything
+    that is not a quest stick.
+- **Watchers.** The completion banner ("TASK COMPLETE"), the board sweep and the `job_complete` cue
+  watch `LabRun.files`. `quest_ready` plays when a quest fills.
+- **Tests and tools** set `auto_file = true`: a filled quest files itself, and an empty socket takes
+  the next quest's stick of the same kind. The game sets `false`.
+- **HUD.**
+  - Quest cards (bottom left): one per active quest, showing the tag, title, request, progress and
+    "✓ READY". Click a card to expand it with its brief and NEEDS / OUTPUT / RATE / LOST rows.
+  - The title screen has a **Quests** page, and the in-game menu's Lab card lists the active quests.
+- **Save.** `lab.quests = {completed: [q], progress: {q: {delivered, rejected, filled}}, files}`.
+  Old saves get the defaults, and `LabRun.migrate_plain` turns plugged plain modules into the
+  current quest's sticks.
+
 ## 3. Contract Drive and contracts
 
 **Contract Drive** (`contract_drive`, replaces `usb_output`, locked, east board edge):

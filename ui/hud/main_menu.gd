@@ -76,14 +76,23 @@ func _build() -> void:
 
 func _lab_card() -> void:
 	var sm := _mgr()
-	var title := "Level 1 · First Contact"
-	if sm.lab_run != null:
-		var lvl: int = sm.lab_run.level
-		title = "Level %d · %s" % [lvl + 1, sm.lab_run.title()]
 	var card := HudKit.box(_panel, Vector2(120, 60), Vector2(380, 96), Palette.SURFACE_RAISED, Palette.DATA_NUMBER, 1, 8)
 	card.add_to_group("lab_card")
-	HudKit.label(card, "Continue the lab", Vector2(24, 20), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
-	HudKit.label(card, title, Vector2(24, 46), 11, HudKit.W_MEDIUM, Palette.TEXT_SECONDARY)
+	HudKit.label(card, "Continue the lab", Vector2(24, 16), 14, HudKit.W_XBOLD, Palette.TEXT_PRIMARY)
+	# the active quests, one line each (a filled one says it is ready to file)
+	var lr: LabRun = sm.lab_run
+	var lines: Array = [["Q1 · First Contact", Palette.TEXT_SECONDARY]]
+	if lr != null:
+		lines = []
+		HudKit.label(card, "%d done" % lr.files, Vector2(256, 19), 10, HudKit.W_MEDIUM, Palette.TEXT_MUTED, 100, HORIZONTAL_ALIGNMENT_RIGHT)
+		for q in lr.active_quests():
+			var qp := lr.quest_progress(q)
+			var st := "✓ ready to file" if qp.filled else "%d / %d" % [qp.delivered, lr.quest_contract(q).count]
+			lines.append(["Q%d · %s   %s" % [q + 1, lr.quest_title(q), st], Palette.STATE_SUCCESS if qp.filled else Palette.TEXT_SECONDARY])
+		if lines.is_empty():
+			lines.append(["Free build — every quest is filed", Palette.TEXT_SECONDARY])
+	for i in lines.size():
+		HudKit.label(card, lines[i][0], Vector2(24, 44 + i * 18), 11, HudKit.W_MEDIUM, lines[i][1], 332)
 	var cb := Callable(func():
 		close()
 		_mgr().load_lab())

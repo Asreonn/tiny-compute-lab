@@ -1,7 +1,7 @@
 extends SceneTree
 ## Title screen visual check:  timeout 60 godot --path . -s tools/title_shot.gd -- <out_prefix>
 ## Boots main.tscn, opens the title screen over the held laptop intro and writes the main,
-## settings and tutorial pages. Needs a real renderer. Never touches the real save.
+## settings, quests and tutorial pages. Needs a real renderer. Never touches the real save.
 
 var _frame := 0
 var _prefix := ""
@@ -27,9 +27,12 @@ func _process(_d: float) -> bool:
 		_ts = root.get_node("Main/TitleLayer/TitleScreen")
 	if _frame == 40:
 		_shot("main")
-		_ts._activate(2)  # Settings
+		_ts._show_page("settings")
 	if _frame == 60:
 		_shot("settings")
+		_ts._show_page("quests")
+	if _frame == 90:
+		_shot("quests")
 		_ts._show_page("tutorial")
 	if _frame == 120:
 		_shot("tutorial")

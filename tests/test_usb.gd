@@ -135,7 +135,7 @@ static func _save_roundtrip(t) -> void:
 	var run := LabRun.new()
 	run.build_board(sim)
 	var src := _source_at(sim, Vector2i(0, 1))
-	t.check(src != null and src.socket and src.device == "bit", "the L1 source is a bit socket")
+	t.check(src != null and src.socket and src.device == "bit@0", "the L1 source is quest 1's bit stick")
 	t.check(sim.remove_device(src.id), "the L1 module can be unplugged")
 	t.check(sim.insert_device(src.id, "number", {"values": [7], "interval": 3}), "a Number module can be plugged in")
 	var d := sim.layout_to_dict()
@@ -167,10 +167,10 @@ static func _lab_streams(t) -> void:
 	var run := LabRun.new()
 	run.build_board(sim)
 	var src := _source_at(sim, Vector2i(0, 1))
-	t.check(src != null and src.socket and src.device == "bit", "the L1 source is a bit socket")
+	t.check(src != null and src.socket and src.device == "bit@0", "the L1 source is quest 1's bit stick")
 	t.check(src != null and src.stream.size() == 1 and (src.stream[0] as BitVector).equals(BitVector.from_bin("010")), "the L1 socket carries the 010 stream")
 	t.check(run.stream_for_device("bit").get("values", []) == ["010"], "LabRun exposes the current contract stream")
-	t.check(run.devices_owned() == PackedStringArray(["bit"]), "the lab owns the Bit module")
+	t.check(run.devices_owned() == PackedStringArray(["bit@0", "bit@1"]), "the two active quests each bring their bit stick (got %s)" % str(run.devices_owned()))
 
 
 # --- helpers --------------------------------------------------------------------

@@ -75,8 +75,8 @@ func _process(_d: float) -> bool:
 			_sm = root.get_node("/root/SimulationManager")
 			_desk = root.get_node("Main/World/DeskView")
 			_check(_port1() != null and _port1().device == "", "L6 starts with port 1 empty")
-			var s := _slot_of("text")
-			_check(s >= 0, "the Text module lies on the desk")
+			var s := _slot_of("text@5")
+			_check(s >= 0, "the Q6 Text stick lies on the desk")
 			var from: Vector2 = _desk.slot_rect("in", s).get_center()
 			_press(from, true)
 			_move(from + Vector2(10, 0))
@@ -85,7 +85,7 @@ func _process(_d: float) -> bool:
 			_move(to)
 			_press(to, false)
 		9:
-			_check(_port1().device == "text", "drag desk → port plugs the module (got '%s')" % _port1().device)
+			_check(_port1().device == "text@5", "drag desk → port plugs the stick (got '%s')" % _port1().device)
 			var grab := Vector2(_port1().cell) * Palette.TILE + Vector2(-50, 32)
 			_press(grab, true)
 			_move(grab + Vector2(-10, 0))
@@ -99,8 +99,8 @@ func _process(_d: float) -> bool:
 			_move(to)
 			_press(to, false)
 		14:
-			_check(_port1().device == "" and _slot_of("text") >= 0, "drag port → desk unplugs the module")
-			var bit: Vector2 = _desk.slot_rect("in", _slot_of("bit")).get_center()
+			_check(_port1().device == "" and _slot_of("text@5") >= 0, "drag port → desk unplugs the stick")
+			var bit: Vector2 = _desk.slot_rect("in", _slot_of("text@6")).get_center()
 			_press(bit, true)
 			_press(bit, false)
 		16:
@@ -108,7 +108,17 @@ func _process(_d: float) -> bool:
 			_press(port, true)
 			_press(port, false)
 		19:
-			_check(_port1().device == "bit", "click module, click port plugs it (got '%s')" % _port1().device)
+			_check(_port1().device == "text@6", "click stick, click port plugs it (got '%s')" % _port1().device)
+			# an unfinished quest's stick is refused by the COMPLETED tray
+			var from: Vector2 = _desk.slot_rect("in", _slot_of("text@5")).get_center()
+			_press(from, true)
+			_move(from + Vector2(10, 0))
+		21:
+			var tray: Vector2 = _desk.tray_rect().get_center()
+			_move(tray)
+			_press(tray, false)
+		24:
+			_check(_slot_of("text@5") >= 0 and _sm.run.files == 5 and _sm.sim.last_error.begins_with("Not finished yet"), "the tray refuses an unfinished quest (%s)" % _sm.sim.last_error)
 			SaveStore.clear()
 			if _fails == 0:
 				print("DESK PASS")

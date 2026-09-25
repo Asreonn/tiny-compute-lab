@@ -37,7 +37,7 @@ static func _l1_layout(t) -> void:
 	t.check(sim.size == Vector2i(28, 16), "the Lab starts on a 28x16 grid (got %s)" % sim.size)
 	var inp := _port(sim, "in", 1)
 	var outp := _port(sim, "out", 1)
-	t.check(inp != null and inp.cell == Vector2i(0, 1) and inp.device == "bit", "input port 1 at (0,1) holds the Bit module")
+	t.check(inp != null and inp.cell == Vector2i(0, 1) and inp.device == "bit@0", "input port 1 at (0,1) holds quest 1's bit stick")
 	t.check(outp != null and outp.cell == Vector2i(26, 1) and outp.device == "job", "output port 1 at (26,1) holds the Job drive")
 	t.check(_port(sim, "in", 4) != null and _port(sim, "out", 4) != null, "two input and two output ports are open from the start")
 	for row in [7, 10]:
@@ -81,7 +81,7 @@ static func _job_drive_moves(t) -> void:
 	var o2 := _port(sim, "out", 4)
 	t.check(sim.insert_device(o2.id, "job"), "the Job drive can be plugged into output port 2")
 	t.check(o2.device == "job" and o1.device == "", "there is exactly one Job drive: port 1 is now empty")
-	t.check(run.output_devices_owned() == PackedStringArray(["job", "monitor"]), "L9 owns the Job drive and the Monitor")
+	t.check(run.output_devices_owned() == PackedStringArray(["job", "job2", "monitor"]), "L9 owns two Job drives and the Monitor")
 
 
 static func _monitor(t) -> void:

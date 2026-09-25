@@ -17,15 +17,42 @@ const KINDS := {
 	"sensor": {"name": "Sensor module", "out": "raw", "raw_kind": RawValue.Kind.SENSOR},
 }
 
-## Output devices the player plugs into an output port (docs/SYSTEMS_EXPANSION.md §2.1).
+## Output devices the player plugs into an output port (docs/SYSTEMS_EXPANSION.md §2.1). Two Job
+## drives: any quest's results can be delivered to either.
 const OUTPUT_KINDS := {
 	"job": {"name": "Job drive"},
+	"job2": {"name": "Job drive 2"},
 	"monitor": {"name": "Monitor"},
 }
 
 
+# ------------------------------------------------------------------ quest sticks
+# A quest comes with its own sticks: a module kind bound to a quest, "text@11" = quest 12's text
+# stick. It carries that quest's stream and stamps the quest on every value it emits, so any
+# drive can judge the result against the right quest. Plain kinds ("text") still work (tests,
+# old saves): they belong to the current quest.
+
+static func base(kind: String) -> String:
+	var at := kind.find("@")
+	return kind.substr(0, at) if at >= 0 else kind
+
+
+## The quest index a stick belongs to, -1 for a plain module.
+static func quest_of(kind: String) -> int:
+	var at := kind.find("@")
+	return int(kind.substr(at + 1)) if at >= 0 else -1
+
+
+static func stick(kind: String, quest: int) -> String:
+	return "%s@%d" % [base(kind), quest]
+
+
+static func is_job(kind: String) -> bool:
+	return kind == "job" or kind == "job2"
+
+
 static func has(kind: String) -> bool:
-	return KINDS.has(kind)
+	return KINDS.has(base(kind))
 
 
 static func has_output(kind: String) -> bool:
@@ -41,15 +68,15 @@ static func output_display_name(kind: String) -> String:
 ## "bits" or "raw" for a known kind; an unknown/absent module reads as "bits" so an empty
 ## socket keeps the normal data role.
 static func out_kind(kind: String) -> String:
-	if not KINDS.has(kind):
+	if not KINDS.has(base(kind)):
 		return "bits"
-	return str(KINDS[kind]["out"])
+	return str(KINDS[base(kind)]["out"])
 
 
 static func display_name(kind: String) -> String:
-	if not KINDS.has(kind):
+	if not KINDS.has(base(kind)):
 		return ""
-	return str(KINDS[kind]["name"])
+	return str(KINDS[base(kind)]["name"])
 
 
 ## Build the values a socket emits from a contract spec: {"values": [...], "width": int}.
@@ -60,7 +87,7 @@ static func display_name(kind: String) -> String:
 static func make_stream(kind: String, spec: Dictionary) -> Array:
 	var values: Array = spec.get("values", [])
 	var out: Array = []
-	match kind:
+	match base(kind):
 		"bit":
 			var w := int(spec.get("width", 0))
 			for v in values:

@@ -413,10 +413,11 @@ func insert_device(machine_id: int, kind: String, stream_override: Dictionary = 
 func _insert_output_device(m: Machine, kind: String) -> bool:
 	if kind != "" and not Devices.has_output(kind):
 		return false
-	if kind == "job":
+	if kind != "" and kind != "monitor":
+		# each drive is a single physical device: plugging it here unplugs it elsewhere
 		for id in sorted_machine_ids():
 			var o: Machine = machines[id]
-			if o.type == "usb_output" and o.id != m.id and o.device == "job":
+			if o.type == "usb_output" and o.id != m.id and o.device == kind:
 				o.device = ""
 	m.device = kind
 	if kind != "":
@@ -460,7 +461,7 @@ func _device_stream_spec(kind: String) -> Dictionary:
 
 ## Player-facing description of what a module emits: "raw TEXT" or "3-bit words".
 func _device_emits_desc(kind: String, width: int) -> String:
-	var d: Dictionary = Devices.KINDS[kind]
+	var d: Dictionary = Devices.KINDS[Devices.base(kind)]
 	if str(d["out"]) == "bits":
 		return "%d-bit words" % width
 	return "raw " + RawValue.KIND_NAMES[int(d["raw_kind"])]

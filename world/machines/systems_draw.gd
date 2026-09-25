@@ -193,11 +193,12 @@ const MOD_GLYPH := {"bit": "010", "number": "42", "text": "Aa", "key": "K#", "se
 
 
 static func kind_glyph(kind: String) -> String:
-	return str(MOD_GLYPH.get(kind, ""))
+	return str(MOD_GLYPH.get(Devices.base(kind), ""))
 
 
 ## dataModule(kind, opts): 96x56 module with a male USB-A plug. `pos` = top-left of the body.
-## opts: flip, inserted, ghost, cursor (0..29 lit block), fill (0..1), glyph, acc, alpha.
+## opts: flip, inserted, ghost, cursor (0..29 lit block), fill (0..1), glyph, acc, alpha,
+## tag (a quest stick's "Q6" silk), done (its quest is filled: success key bar + outline).
 static func data_module(ci: CanvasItem, pos: Vector2, kind: String, opts: Dictionary = {}) -> void:
 	var flip: bool = opts.get("flip", false)
 	var inserted: bool = opts.get("inserted", false)
@@ -207,7 +208,9 @@ static func data_module(ci: CanvasItem, pos: Vector2, kind: String, opts: Dictio
 	var acc: Color = opts.get("acc", Palette.FAMILY_IO)
 	var cursor: int = int(opts.get("cursor", -1))
 	var fill: Variant = opts.get("fill", null)
-	var end: String = MOD_END.get(kind, "square")
+	var tag: String = opts.get("tag", "")
+	var done: bool = opts.get("done", false)
+	var end: String = MOD_END.get(Devices.base(kind), "square")
 	var plug_x := -22.0 if flip else 96.0
 	if not inserted and not ghost:
 		male_plug(ci, pos + Vector2(plug_x, 14), flip, alpha)
@@ -225,7 +228,9 @@ static func data_module(ci: CanvasItem, pos: Vector2, kind: String, opts: Dictio
 	# bevel
 	ci.draw_rect(Rect2(pos + Vector2(_fx(16, 60, flip), 2), Vector2(60, 1)), Color(Palette.MATERIAL_PLATE_HI, alpha))
 	# family key bar
-	rrect(ci, Rect2(pos + Vector2(_fx(16, 22, flip), 6), Vector2(22, 3)), 1.0, Color(acc, alpha))
+	rrect(ci, Rect2(pos + Vector2(_fx(16, 22, flip), 6), Vector2(22, 3)), 1.0, Color(Palette.STATE_SUCCESS if done else acc, alpha))
+	if tag != "":
+		text_center(ci, Rect2(pos + Vector2(_fx(65, 22, flip), 13), Vector2(22, 16)), tag, 8.0, Color(Palette.STATE_SUCCESS if done else Palette.MATERIAL_SILK, (1.0 if done else 0.7) * alpha))
 	# screen window
 	var win := Rect2(pos + Vector2(_fx(16, 48, flip), 12), Vector2(48, 18))
 	rrect(ci, win, 3.0, Color(Palette.MACHINE_SCREEN, alpha))
@@ -257,6 +262,8 @@ static func data_module(ci: CanvasItem, pos: Vector2, kind: String, opts: Dictio
 	elif end == "square":
 		for i in 3:
 			ci.draw_rect(Rect2(pos + Vector2(_fx(5 + i * 3, 1, flip), 16), Vector2(1, 24)), Color(Palette.MACHINE_FRAME, alpha))
+	if done:
+		ci.draw_polyline(pts, Color(Palette.STATE_SUCCESS, 0.9 * alpha), 1.5, true)
 
 
 ## Male USB-A plug (22x28): metal shell, two square holes, dark collar line at the body side.
@@ -311,7 +318,7 @@ static func mini_module(ci: CanvasItem, pos: Vector2, kind: String, alpha := 1.0
 
 
 static func _kind_accent(kind: String) -> Color:
-	return Palette.DATA_NUMBER if kind == "bit" else Palette.FAMILY_IO
+	return Palette.DATA_NUMBER if Devices.base(kind) == "bit" else Palette.FAMILY_IO
 
 
 # ================================================================ monitor (output device)

@@ -48,7 +48,8 @@ var _restoring := false
 # audio cue edges (AudioBus): what the last step looked like
 var _cue_delivered := 0
 var _cue_rejected := 0
-var _cue_level := -1
+var _cue_level := -1  # LabRun.files last heard (a filed quest plays job_complete)
+var _cue_ready := 0
 var _cue_overloaded := false
 
 
@@ -85,11 +86,16 @@ func load_lab() -> void:
 	var lvl := clampi(int(saved.get("level", 0)), 0, LabDef.LEVELS.size())
 	var lr := LabRun.new()
 	lr.level = lvl
+	lr.auto_file = false  # the player files a finished quest by hand (the desk's COMPLETED tray)
+	var quests = saved.get("quests", {})
+	lr.quests_from_dict(quests if quests is Dictionary else {})
 	lr.build_board(sim)
 	lab_run = lr
 	run = lr
 	mission = LabDef.mission_def(lvl)
-	_lab_level_shown = lvl
+	_lab_level_shown = lr.files
+	_cue_level = -1
+	_cue_ready = lr.quests_ready().size()
 	sim.changed.connect(_on_sim_changed)
 	var lay = saved.get("layout", {})
 	if lay is Dictionary and not (lay as Dictionary).is_empty():
@@ -97,8 +103,10 @@ func load_lab() -> void:
 	lr.psu_tier = maxi(lr.psu_tier, int(saved.get("psu_tier", 0)))  # never below what the levels earned
 	var desk = saved.get("desk", {})
 	lr.desk_from_dict(desk if desk is Dictionary else {}, sim)
-	lr.delivered = int(saved.get("delivered", 0))
-	lr.rejected = int(saved.get("rejected", 0))
+	lr.migrate_plain(sim)
+	if not saved.has("quests"):
+		lr.delivered = int(saved.get("delivered", 0))
+		lr.rejected = int(saved.get("rejected", 0))
 	sim.reset_run()
 	running = false
 	_acc = 0.0
@@ -118,8 +126,8 @@ func _on_sim_changed() -> void:
 		_hist_pending = true
 		_commit_history.call_deferred()
 	if in_lab and lab_run != null:
-		if lab_run.level != _lab_level_shown:
-			_lab_level_shown = lab_run.level
+		if lab_run.files != _lab_level_shown:
+			_lab_level_shown = lab_run.files
 			mission = LabDef.mission_def(lab_run.level)
 			_reset_history()  # never undo across a level-up (the board itself changed)
 			mission_loaded.emit(lab_run)
@@ -139,6 +147,7 @@ func _save_lab() -> void:
 		"layout": sim.layout_to_dict(),
 		"devices_owned": Array(lab_run.devices_owned()),
 		"desk": lab_run.desk_to_dict(),
+		"quests": lab_run.quests_to_dict(),
 		"psu_tier": lab_run.psu_tier,
 	})
 
@@ -227,21 +236,28 @@ func _audio(name: String) -> void:
 ## Sound cues from what the step changed (never per packet: AudioBus rate-limits the accepts).
 func _audio_cues() -> void:
 	if lab_run != null:
-		if lab_run.level != _cue_level:
-			if _cue_level >= 0 and lab_run.level > _cue_level:
+		var dl := 0
+		var rj := 0
+		for q in lab_run.active_quests():
+			dl += lab_run.quest_progress(q).delivered
+			rj += lab_run.quest_progress(q).rejected
+		var ready := lab_run.quests_ready().size()
+		if lab_run.files != _cue_level:
+			if _cue_level >= 0 and lab_run.files > _cue_level:
 				_audio("job_complete")
-				if not LabDef.level(lab_run.level).get("unlocks", []).is_empty() and not lab_run.all_done():
+				if not LabDef.level(lab_run.frontier()).get("unlocks", []).is_empty() and not lab_run.all_done():
 					_audio("unlock")
-			_cue_level = lab_run.level
-			_cue_delivered = lab_run.delivered
-			_cue_rejected = lab_run.rejected
+			_cue_level = lab_run.files
 		else:
-			if lab_run.delivered > _cue_delivered:
+			if dl > _cue_delivered:
 				_audio("job_accept")
-			if lab_run.rejected > _cue_rejected:
+			if rj > _cue_rejected:
 				_audio("job_reject")
-			_cue_delivered = lab_run.delivered
-			_cue_rejected = lab_run.rejected
+			if ready > _cue_ready:
+				_audio("quest_ready")
+		_cue_delivered = dl
+		_cue_rejected = rj
+		_cue_ready = ready
 	var over := sim.overloaded()
 	if over and not _cue_overloaded:
 		_audio("power_overload")

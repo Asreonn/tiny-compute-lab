@@ -4,8 +4,9 @@ extends Control
 ## lays a row of tiles over the lid screen, scaled with it. Continue releases the intro — the
 ## camera dives into the keyboard and the HUD slides in.
 ##
-## Pages: main (Continue / Tutorial / Settings / New Lab / Quit), tutorial (the missions), settings
-## (sound, motion, screen, intro) and the New Lab confirmation. Mouse or ← → / Enter / Esc.
+## Pages: main (Continue / Quests / Tutorial / Settings / New Lab / Quit), quests (the Lab's active
+## quests + what comes next), tutorial (the missions), settings (sound, motion, screen, intro) and
+## the New Lab confirmation. Mouse or ← → / Enter / Esc.
 
 const BASE := Vector2(1360, 424)  # design size of the lid screen; everything scales with it
 const TILE := Vector2(196, 116)
@@ -60,6 +61,7 @@ func _show_page(page: String) -> void:
 	_tiles.clear()
 	match page:
 		"main": _page_main()
+		"quests": _page_quests()
 		"tutorial": _page_tutorial()
 		"settings": _page_settings()
 		"confirm": _page_confirm()
@@ -85,12 +87,39 @@ func _page_main() -> void:
 	var fresh: bool = lr == null or (lr.level == 0 and _player_machines() == 0)
 	var sub := "First Contact"
 	if lr != null:
-		sub = "Free build" if lr.all_done() else "Level %d · %s" % [lr.level + 1, lr.title()]
+		sub = "Free build" if lr.all_done() else "Q%d · %s" % [lr.level + 1, lr.title()]
 	_add("continue", "Start the Lab" if fresh else "Continue", sub, "icon_play", {"primary": true})
+	if lr != null:
+		var ready: int = lr.quests_ready().size()
+		var qsub := "%d active · %d done" % [lr.active_quests().size(), lr.files]
+		if ready > 0:
+			qsub = "%d ready to file · %d done" % [ready, lr.files]
+		_add("quests", "Quests", qsub, "icon_mission")
 	_add("tutorial", "Tutorial", "%d short missions" % Missions.all().size(), "icon_mission")
 	_add("settings", "Settings", "Sound · motion · screen", "icon_menu")
 	_add("new", "New Lab", "Start the factory over", "icon_reset", {"danger": true})
 	_add("quit", "Quit", "See you soon", "icon_cross")
+
+
+## The Lab's quests: the active ones (progress, ready to file) and the next one waiting.
+func _page_quests() -> void:
+	var lr: LabRun = _sm().lab_run
+	_tagline("Two quests at a time. Each brings its own USB stick — drop a finished one in COMPLETED.")
+	if lr == null:
+		_add("back", "Back", "Main menu", "icon_chevron_left", {"primary": true})
+		return
+	var first := true
+	for q in lr.active_quests():
+		var qp := lr.quest_progress(q)
+		var sub := "✓ Ready to file" if qp.filled else "%d / %d delivered" % [qp.delivered, lr.quest_contract(q).count]
+		_add("continue", "Q%d  %s" % [q + 1, lr.quest_title(q)], sub, "icon_star" if qp.filled else "icon_mission", {"primary": first})
+		first = false
+	var nxt := lr.frontier() + 1
+	if nxt < LabDef.count() and not lr.all_done():
+		_add("locked", "Q%d  %s" % [nxt + 1, LabDef.level(nxt)["title"]], "Arrives next", "icon_lock", {"muted": true})
+	if lr.all_done():
+		_add("continue", "Free Build", "Every quest is filed", "icon_star", {"primary": true})
+	_add("back", "Back", "%d quests done" % lr.files, "icon_chevron_left")
 
 
 func _page_tutorial() -> void:
@@ -119,7 +148,7 @@ func _page_settings() -> void:
 func _page_confirm() -> void:
 	var lr = _sm().lab_run
 	var lvl: int = (lr.level + 1) if lr != null else 1
-	_tagline("Start over? Level %d and your whole factory will be erased. Tutorial stars are kept." % lvl, Palette.STATE_BLOCKED)
+	_tagline("Start over? Quest %d and your whole factory will be erased. Tutorial stars are kept." % lvl, Palette.STATE_BLOCKED)
 	_add("erase", "Erase and restart", "This cannot be undone", "icon_reset", {"danger": true})
 	_add("back", "Keep my Lab", "Back to the menu", "icon_chevron_left", {"primary": true})
 
@@ -206,6 +235,8 @@ func _activate(i: int) -> void:
 			_leave(func(): intro.release())
 		"tutorial":
 			_show_page("tutorial")
+		"quests":
+			_show_page("quests")
 		"settings":
 			_show_page("settings")
 		"new":

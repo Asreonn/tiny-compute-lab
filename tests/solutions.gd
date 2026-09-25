@@ -179,9 +179,16 @@ static func _lab_socket(sim: Simulation, row: int) -> int:
 	return -1
 
 
+## Plugs the current quest's own stick ("bit@0") when the board is a Lab one, like a player would.
 static func _lab_plug(sim: Simulation, socket: int, kind: String) -> void:
+	var lr := sim.mission as LabRun if sim.mission is LabRun else null
+	if lr != null and Devices.stick(kind, lr.level) in lr.quest_sticks(lr.level):
+		kind = Devices.stick(kind, lr.level)
 	sim.remove_device(socket)
 	assert(sim.insert_device(socket, kind), "plug %s failed: %s" % [kind, sim.last_error])
+	if lr != null:
+		lr.sync_desk(sim)
+		lr.new_devices = PackedStringArray()
 
 
 ## Reference layout for every Lab level, using ONLY the machines unlocked by then and inside

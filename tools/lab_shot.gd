@@ -39,6 +39,8 @@ func _process(_d: float) -> bool:
 			cam.position = Vector2(_focus.x, _focus.y) * 64.0
 		for i in _ticks:
 			sm.sim.step()
+		sm.ticked.emit(sm.sim.tick)  # the HUD refreshes on ticks
+		sm.sim.changed.emit()
 	if _frame == 8:
 		root.get_texture().get_image().save_png(_out)
 		print("lab_shot: wrote %s" % _out)
