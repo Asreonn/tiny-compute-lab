@@ -81,12 +81,12 @@ func _process(_d: float) -> bool:
 			_press(from, true)
 			_move(from + Vector2(10, 0))
 		6:
-			var to := Vector2(_port1().cell) * Palette.TILE + Vector2(-40, 32)
+			var to := Vector2(_port1().cell) * Palette.TILE + Vector2(64, 96)
 			_move(to)
 			_press(to, false)
 		9:
 			_check(_port1().device == "text@5", "drag desk → port plugs the stick (got '%s')" % _port1().device)
-			var grab := Vector2(_port1().cell) * Palette.TILE + Vector2(-50, 32)
+			var grab := Vector2(_port1().cell) * Palette.TILE + Vector2(54, 96)
 			_press(grab, true)
 			_move(grab + Vector2(-10, 0))
 		11:
@@ -104,7 +104,7 @@ func _process(_d: float) -> bool:
 			_press(bit, true)
 			_press(bit, false)
 		16:
-			var port := Vector2(_port1().cell) * Palette.TILE + Vector2(-40, 32)
+			var port := Vector2(_port1().cell) * Palette.TILE + Vector2(64, 96)
 			_press(port, true)
 			_press(port, false)
 		19:

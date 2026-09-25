@@ -284,13 +284,7 @@ func _draw() -> void:
 		_style_rim.border_color = Color(Palette.MACHINE_FRAME, deck_a)
 		draw_style_box(_style_deck, deck)
 		draw_style_box(_style_rim, deck)
-		# Port racks: every rack row gets a port; open ports show an opening (their plugged module is
-		# drawn by the board views), sealed ones a capped port face.
-		for row in _rack_rows:
-			if row >= _rows:
-				continue
-			_draw_side_port(Vector2(-RIM, row * T + 14.0), deck_a, not _in_rows.has(row))
-			_draw_side_port(Vector2(b.x + RIM - 16.0, row * T + 14.0), deck_a, not _out_rows.has(row))
+		# (no rim ports: the USB hubs sit on the board, where the player can move them)
 	# Keyboard (realistic US layout scaled to the board width) + palm rest with the trackpad,
 	# all INSIDE the board rect. The covering dissolves in vertical strips and the keys by their
 	# centre x, left → right, so the factory emerges from under the keyboard.

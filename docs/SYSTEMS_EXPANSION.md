@@ -127,6 +127,22 @@
   - Output ports stay glued to the east edge and move with their wires.
   - Port rows never move.
 
+**USB hubs (player request 2026-09-25; supersedes the fixed rim ports above).**
+- Every port is now a **2×2 USB hub** (`usb_input` / `usb_output`, size L):
+  - the chassis sits on the top row and keeps the port anchor;
+  - the stick bay is the bottom row, with the female face at its east end (input) or west end
+    (output).
+- A plugged stick or drive lies in the bay, on the board. Nothing hangs off the laptop rim any more,
+  and the rim has no ports.
+- **Moving hubs.** Hubs move anywhere on the grid like components (drag the chassis):
+  - They are never deleted or rotated.
+  - A hub keeps its identity (`Machine.port_row`, the rack row it opened at). Saves, undo
+    (`apply_layout`) and new ports respect where it stands.
+  - When the board grows, only an output hub still on the old east edge follows the edge.
+- **Sealed bays** are 2×2 reservations at the rack rows. The next hub opens there.
+- **Encoders and decoders are 2×2 as well:** the chassis is on top, and a conversion screen below
+  shows the last value turned (`U › 10100`, `00101 › F`).
+
 ### 2.2 Desk zones (player request 2026-09-24): the physical inventory
 
 - Two **desk zones** lie beside the laptop, outside the board:

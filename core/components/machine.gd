@@ -74,6 +74,9 @@ var received: Array = []  # output: Packet list
 var device: String = ""  # plugged module kind, "" = none (docs/SYSTEMS_EXPANSION.md §2)
 var last_device: String = ""  # kind of the last plugged module; keeps the wire valid after removal
 var socket := false  # true = lab socket semantics (module stream + 2-slot FIFO overrun)
+## Lab USB hub: the port rack row it opened at (its identity), -1 otherwise. A hub is locked
+## (never deleted or rotated) but the player may move it anywhere, like a component.
+var port_row := -1
 var fifo: Array = []  # pending [value, seq] pairs, max 2; the oldest is dropped on overrun
 var lost := 0  # overruns this run (values dropped from the FIFO)
 var gen_seq := 0  # index of the next stream value to generate
@@ -393,7 +396,7 @@ func to_dict() -> Dictionary:
 	return {
 		"type": type, "cell": [cell.x, cell.y], "rot": rot, "width": width,
 		"params": params.duplicate(), "locked": locked, "channel": channel,
-		"device": device, "last_device": last_device, "socket": socket,
+		"device": device, "last_device": last_device, "socket": socket, "port_row": port_row,
 	}
 
 
@@ -405,4 +408,10 @@ static func from_dict(p_id: int, d: Dictionary, fallback_width: int) -> Machine:
 	m.device = str(d.get("device", ""))
 	m.last_device = str(d.get("last_device", ""))
 	m.socket = bool(d.get("socket", false))
+	m.port_row = int(d.get("port_row", -1))
 	return m
+
+
+## Player machines move; locked mission IO does not, except the Lab's USB hubs.
+func movable() -> bool:
+	return not locked or port_row >= 0

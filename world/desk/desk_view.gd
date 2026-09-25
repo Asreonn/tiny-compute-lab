@@ -20,7 +20,7 @@ const DESK_W := 168.0
 const SLOT_H := 76.0
 const HEADER := 40.0
 const GAP := 32.0             # between the plugged module overhang and the desk mat
-const MODULE_OVERHANG := 112.0
+const MODULE_OVERHANG := 16.0   # the laptop rim (sticks sit in the hubs' bays, on the board)
 const DRAG_START := 4.0       # px of movement before a press becomes a drag
 const NOTE_S := 1.8           # refusal note lifetime
 const PULSE_S := 0.3          # "New" pulse (2 pulses)
@@ -102,21 +102,15 @@ func _ports(side: String) -> Array:
 	return out
 
 
-## The part of a port that belongs to the desk interaction: its port face + the plugged module
-## sticking out of the laptop (never the machine body, which stays the tools' business).
+## The part of a hub that belongs to the desk interaction: its stick bay (the bottom row). The
+## chassis above stays the tools' business (select, move).
 func _port_grab_rect(m: Machine) -> Rect2:
-	var o := Vector2(m.cell) * T
-	if m.type == "usb_input":
-		return Rect2(o + Vector2(-104.0, 2.0), Vector2(116.0, 60.0))
-	return Rect2(o + Vector2(116.0, 2.0), Vector2(116.0, 60.0))
+	return Rect2(Vector2(m.cell) * T + Vector2(0.0, T), Vector2(2.0 * T, T))
 
 
-## Drop target: the whole port incl. its machine body (only while dragging).
+## Drop target: the whole hub (only while dragging).
 func _port_drop_rect(m: Machine) -> Rect2:
-	var o := Vector2(m.cell) * T
-	if m.type == "usb_input":
-		return Rect2(o + Vector2(-104.0, 0.0), Vector2(232.0, 64.0))
-	return Rect2(o + Vector2(0.0, 0.0), Vector2(232.0, 64.0))
+	return Rect2(Vector2(m.cell) * T, Vector2(2.0 * T, 2.0 * T))
 
 
 func _port_under(p: Vector2, side: String, drop := true) -> Machine:
@@ -283,7 +277,7 @@ func _slot_of(run: LabRun, side: String, kind: String) -> int:
 func _is_sealed_bay(p: Vector2) -> bool:
 	var sim := _sim()
 	var cell := Vector2i(floori(p.x / T), floori(p.y / T))
-	return sim.is_reserved(cell) or sim.is_reserved(cell + Vector2i(1, 0)) or sim.is_reserved(cell - Vector2i(1, 0))
+	return sim.is_reserved(cell)
 
 
 func _show_note(text: String, p: Vector2) -> void:
@@ -411,8 +405,8 @@ func _draw_psu(run: LabRun, sim: Simulation) -> void:
 
 
 func _port_face_center(m: Machine) -> Vector2:
-	var o := Vector2(m.cell) * T
-	return o + (Vector2(2.0, 32.0) if m.type == "usb_input" else Vector2(126.0, 32.0))
+	var face := SystemsDraw.HUB_FACE_IN if m.type == "usb_input" else SystemsDraw.HUB_FACE_OUT
+	return Vector2(m.cell) * T + face + Vector2(8.0, 18.0)
 
 
 func _draw_module(kind: String, side: String, pos: Vector2, alpha: float) -> void:
@@ -487,28 +481,22 @@ func _draw_desk(run: LabRun, side: String, now: float) -> void:
 			SystemsDraw.rrect_dashed(self, s, 6.0, Color(Palette.BOARD_SILK, 0.8), 1.0)
 
 
-## Sealed bays: dashed 2x1 footprint + label + a capped port face at the laptop edge.
+## Sealed bays: a dashed 2x2 hub footprint + label + the capped face of its future stick bay.
 func _draw_sealed_bays(sim: Simulation) -> void:
-	var seen := {}
 	for c in sim.reserved:
 		var cell: Vector2i = c
-		var left := cell - Vector2i(1, 0)
-		if sim.reserved.has(left) and not seen.has(left):
-			continue  # handled with its left neighbour
-		if seen.has(cell):
-			continue
-		seen[cell] = true
-		seen[cell + Vector2i(1, 0)] = true
-		var r := Rect2(Vector2(cell) * T + Vector2(2.0, 2.0), Vector2(2.0 * T - 4.0, T - 4.0))
+		if sim.reserved.has(cell - Vector2i(1, 0)) or sim.reserved.has(cell - Vector2i(0, 1)):
+			continue  # drawn with its bay's top-left cell
+		var r := Rect2(Vector2(cell) * T + Vector2(2.0, 2.0), Vector2(2.0 * T - 4.0, 2.0 * T - 4.0))
 		SystemsDraw.rrect_dashed(self, r, 6.0, Color(Palette.BOARD_SILK, 0.9), 1.0)
 		var label := sim.reserved_label(cell)
 		var parts := label.split(" · ")
 		var west := cell.x == 0
-		var tx := r.position.x + (20.0 if west else 16.0)
+		var tx := r.position.x + 14.0
 		draw_string(_font, Vector2(tx, r.position.y + 24.0), parts[0] if parts.size() > 0 else label, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.BOARD_SILK)
 		if parts.size() > 1:
 			draw_string(_font, Vector2(tx, r.position.y + 38.0), parts[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Palette.BOARD_SILK)
-		var fx := Vector2(cell) * T + (Vector2(-6.0, 14.0) if west else Vector2(118.0, 14.0))
+		var fx := Vector2(cell) * T + (SystemsDraw.HUB_FACE_IN if west else SystemsDraw.HUB_FACE_OUT)
 		SystemsDraw.rrect(self, Rect2(fx, Vector2(16.0, 36.0)), 2.0, Palette.MACHINE_FRAME_HOVER)
 		SystemsDraw.rrect(self, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MATERIAL_PLATE)
 		SystemsDraw.rrect_outline(self, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MACHINE_FRAME, 1.0)

@@ -443,12 +443,13 @@ func _progress_changed(sim: Simulation) -> void:
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))
 	unlocked = LabDef.unlocks_upto(frontier())
 	var sz := LabDef.size_for(frontier())
+	var old_size := sim.size
 	var grew := sz.x > sim.size.x or sz.y > sim.size.y
 	sim.size = Vector2i(maxi(sim.size.x, sz.x), maxi(sim.size.y, sz.y))
 	sim.default_width = LabDef.request_bits(mini(level, LabDef.count() - 1)).width
 	_ensure_io(sim)
 	if grew:
-		_move_output_ports(sim)
+		_move_output_ports(sim, old_size)
 	_sync()
 	sim.changed.emit()
 
@@ -480,10 +481,10 @@ func _sync_reservations(sim: Simulation) -> void:
 			sim.reserved[c] = LabDef.slot_label("out", row)
 
 
+## A sealed bay reserves a hub's 2x2 footprint at its rack row.
 func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
-	if side == "in":
-		return [Vector2i(0, row), Vector2i(1, row)]
-	return [Vector2i(sim.size.x - 2, row), Vector2i(sim.size.x - 1, row)]
+	var x := 0 if side == "in" else sim.size.x - 2
+	return [Vector2i(x, row), Vector2i(x + 1, row), Vector2i(x, row + 1), Vector2i(x + 1, row + 1)]
 
 
 ## Add every port open at the current level, in creation order: [input row 1, output row 1]
@@ -496,6 +497,7 @@ func _ensure_ports(sim: Simulation) -> void:
 			continue
 		var m := Machine.new(0, "usb_input" if side == "in" else LabDef.OUTPUT_TYPE, LabDef.port_cell(sim.size, side, row), 1)
 		m.locked = true
+		m.port_row = row  # its identity: the player may move the hub anywhere
 		m.socket = true  # Lab port semantics on both sides (module/device slot)
 		if side == "in":
 			m.loop = true
@@ -504,10 +506,11 @@ func _ensure_ports(sim: Simulation) -> void:
 		m.label = "USB In %d" % n if side == "in" else "USB Out %d" % n
 
 
+## The hub that opened at rack `row` (wherever the player moved it since).
 func _port_at(sim: Simulation, side: String, row: int) -> Machine:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.cell.y != row:
+		if m.port_row != row and not (m.port_row < 0 and m.cell.y == row):
 			continue
 		if side == "in":
 			if m.type == "usb_input":
@@ -533,26 +536,23 @@ func _job_drive(sim: Simulation) -> Machine:
 	return null
 
 
-## Move every output port to the new east edge, keeping its incoming wire (re-routed through
-## the new, empty tiles). If a wire cannot be re-routed, drop that one and warn — never crash.
-## Input ports never move.
-func _move_output_ports(sim: Simulation) -> void:
+## Move the output hubs still on the old east edge to the new one, keeping their incoming wire
+## (re-routed through the new, empty tiles). A hub the player moved stays where it is. If a wire
+## cannot be re-routed, drop that one and warn — never crash. Input hubs never move.
+func _move_output_ports(sim: Simulation, old_size: Vector2i) -> void:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type != LabDef.OUTPUT_TYPE:
+		if m.type != LabDef.OUTPUT_TYPE or m.cell.x != old_size.x - 2:
 			continue
 		var target := LabDef.port_cell(sim.size, "out", m.cell.y)
 		if m.cell == target:
 			continue
-		var was_locked := m.locked
-		m.locked = false
 		if not sim.move(m.id, target):
 			var c := sim.connection_at_port(m.id, "in")
 			if c != null:
 				sim.disconnect_wire(c.id)
 			_io_warning = "A wire to an output port could not be re-routed."
 			sim.move(m.id, target)
-		m.locked = was_locked
 
 
 func _trim(q: int, tick: int) -> void:

@@ -171,7 +171,7 @@ func _build() -> void:
 		_codec_slot = CodecSlot.new()
 		_codec_slot.name = "CodecSlot"
 		body.add_child(_codec_slot)
-	if machine.type == "usb_input" and machine.socket:
+	if machine.type == "usb_input":
 		_usb_socket = UsbSocketView.new()
 		_usb_socket.machine = machine
 		_usb_socket.name = "UsbSocket"
@@ -190,12 +190,16 @@ func _build() -> void:
 	var asz := Art.area_size(_area_kind)
 	_progress.area_rect = Rect2(_progress.center - asz * 0.5, asz) if asz != Vector2.ZERO else Rect2()
 	_progress.chassis = Rect2(Vector2.ZERO, Vector2(Catalog.SIZES[machine.def()["size"]]) * T)
+	if machine.type in ["usb_input", "usb_output"] or machine.type in CODEC_TYPES:
+		_progress.chassis = Rect2(0, 0, 2 * T, T)  # the chassis is the top row (bay / screen below)
 	body.add_child(_progress)
 	# 12b resource indicators (STYLE_GUIDE §3): a child of the rotating Body so it rotates
 	# with the chassis like other silk (tiny geometry, no text -> no upright problem).
 	# Player machines only: mission IO / lab infrastructure (locked) and ghosts show none.
 	if not machine.locked and not ghost:
 		var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
+		if machine.type in CODEC_TYPES:
+			base = Vector2(2 * T, T)  # on the chassis row, above the conversion screen
 		_ri = ResourceIndicators.new()
 		_ri.name = "ResourceIndicators"
 		if _size_key == "s":
@@ -835,18 +839,25 @@ func _update_codec_slot() -> void:
 	var glyph := ""
 	var st := "Idle"
 	if not machine.job.is_empty():
-		if enc:
-			var inp: Packet = machine.job.get("input")
-			if inp != null and inp.is_raw():
-				glyph = inp.raw.glyph()
-				st = "Absorbing"
-		else:
-			var results: Dictionary = machine.job.get("results", {})
-			var res: Packet = results.get("out")
-			if res != null and res.is_raw():
-				glyph = res.raw.glyph()
-				st = "Emitting"
+		var inp: Packet = machine.job.get("input")
+		var res: Packet = machine.job.get("results", {}).get("out")
+		if enc and inp != null and inp.is_raw():
+			glyph = inp.raw.glyph()
+			st = "Absorbing"
+		elif not enc and res != null and res.is_raw():
+			glyph = res.raw.glyph()
+			st = "Emitting"
+		# the job holds its input and its result from the start: the screen shows the pair
+		if inp != null and res != null:
+			_codec_slot.set_conversion(_codec_text(inp if enc else res), _codec_text(res if enc else inp))
 	_codec_slot.set_data(enc, glyph, st)
+
+
+## A codec value as the screen shows it: a raw glyph, or the bits as 0/1.
+static func _codec_text(p: Packet) -> String:
+	if p.is_raw():
+		return p.raw.glyph()
+	return ViewMode.format(p.data, ViewMode.Mode.BIN).replace(" ", "")
 
 
 # ------------------------------------------------------------------ L1 port contact ring
@@ -923,6 +934,15 @@ class CodecSlot extends Node2D:
 	var enc := true
 	var glyph := ""
 	var state := "Idle"
+	var raw := ""   # the last conversion, kept on the screen: raw glyph ↔ bits
+	var bits := ""
+
+	func set_conversion(r: String, b: String) -> void:
+		if r == raw and b == bits:
+			return
+		raw = r
+		bits = b
+		queue_redraw()
 
 	func set_data(e: bool, g: String, s: String) -> void:
 		if e == enc and g == glyph and s == state:
@@ -943,6 +963,33 @@ class CodecSlot extends Node2D:
 			SystemsDraw.text_center(self, Rect2(slot_x, 24, 26, 16), glyph, 10.0 if glyph.length() > 1 else 12.0, col)
 		var chev := PackedVector2Array([Vector2(chev_x + 1, 28), Vector2(chev_x + 5, 32), Vector2(chev_x + 1, 36)])
 		draw_polyline(chev, Color(Palette.MATERIAL_SILK, 0.5), 1.5, true)
+		_draw_screen()
+
+	## The bottom row: a conversion screen, RAW → BITS (encoder) or BITS → RAW (decoder), showing
+	## the last value the codec turned so the player can read what it does.
+	func _draw_screen() -> void:
+		var plate := Rect2(2, 66, 124, 60)
+		SystemsDraw.rrect(self, plate, 6.0, Palette.MATERIAL_PLATE_LO)
+		SystemsDraw.rrect_outline(self, plate, 6.0, Palette.MACHINE_FRAME, 1.5)
+		var scr := Rect2(8, 72, 112, 48)
+		SystemsDraw.rrect(self, scr, 4.0, Palette.MACHINE_SCREEN)
+		SystemsDraw.rrect_outline(self, scr, 4.0, Palette.MATERIAL_FRAME, 1.0)
+		var on := state != "Idle"
+		var a := 1.0 if on else 0.6
+		var raw_box := Rect2(12, 82, 34, 34) if enc else Rect2(82, 82, 34, 34)
+		var bit_box := Rect2(46, 82, 70, 34) if enc else Rect2(12, 82, 70, 34)
+		SystemsDraw.text_center(self, Rect2(raw_box.position.x, 73, raw_box.size.x, 10), "RAW", 7.0, Color(Palette.MATERIAL_SILK, 0.55))
+		SystemsDraw.text_center(self, Rect2(bit_box.position.x, 73, bit_box.size.x, 10), "BITS", 7.0, Color(Palette.MATERIAL_SILK, 0.55))
+		if raw == "":
+			SystemsDraw.text_center(self, Rect2(12, 82, 104, 34), "—", 12.0, Color(Palette.MATERIAL_SILK, 0.4))
+			return
+		SystemsDraw.text_center(self, raw_box, raw, 20.0 if raw.length() <= 2 else 12.0, Color(Palette.FAMILY_IO, a))
+		var fs := 13.0 if bits.length() <= 5 else (11.0 if bits.length() <= 8 else 7.0)
+		SystemsDraw.text_center(self, bit_box, bits, fs, Color(Palette.DATA_NUMBER, a))
+		# the direction of the conversion
+		var cx := 46.0 if enc else 82.0
+		var arrow := PackedVector2Array([Vector2(cx - 3, 94), Vector2(cx + 1, 99), Vector2(cx - 3, 104)])
+		draw_polyline(arrow, Color(Palette.MATERIAL_SILK, 0.6 * a), 1.5, true)
 
 
 ## USB socket overlay (D4): the female port face + the plugged data module, with the MOTION §8
@@ -1001,15 +1048,30 @@ class UsbSocketView extends Node2D:
 		return 1.0 - pow(1.0 - c, 3.0)
 
 	func _draw() -> void:
+		SystemsDraw.hub_bay(self, false)
+		var face := SystemsDraw.HUB_FACE_IN
+		var at := SystemsDraw.HUB_STICK_IN
+		if not machine.socket:
+			# a mission's USB input: its stick is fixed (it carries the mission's stream)
+			SystemsDraw.data_module(self, at, "bit", {"inserted": true, "cursor": _cursor, "glyph": _mission_glyph(), "acc": Palette.DATA_NUMBER})
+			SystemsDraw.port_face(self, face, true, _lit, false)
+			return
 		var plugged := machine.device != "" or (_anim_start >= 0.0 and not _anim_plug)
-		SystemsDraw.port_face(self, Vector2(-6, 14), plugged, _lit, false)
 		if _anim_device != "":
 			var lr = SimulationManager.run
-			SystemsDraw.data_module(self, Vector2(-102 + _offset, 4), _anim_device, DeskView.stick_opts(
+			SystemsDraw.data_module(self, at + Vector2(_offset, 0), _anim_device, DeskView.stick_opts(
 				lr as LabRun if lr is LabRun else null, _anim_device, {"inserted": true, "cursor": _cursor, "alpha": _alpha}))
 		elif hovered and machine.device == "":
-			SystemsDraw.data_module(self, Vector2(-128, 4), "bit", {"ghost": true})
-			SystemsDraw.rrect_outline(self, Rect2(-8, 12, 20, 40), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
+			SystemsDraw.data_module(self, at, "bit", {"ghost": true})
+			SystemsDraw.rrect_outline(self, Rect2(face - Vector2(2, 2), Vector2(20, 40)), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
+		SystemsDraw.port_face(self, face, plugged, _lit, false)
+
+	func _mission_glyph() -> String:
+		if machine.stream.is_empty():
+			return ""
+		var v = machine.stream[0]
+		var g := str(v) if v is BitVector else (str(v.glyph()) if v is Object and v.has_method("glyph") else "")
+		return g.substr(0, 5)
 
 
 ## Locked USB Output contract drive (D4, lab only): flipped port face + job module showing the
@@ -1064,7 +1126,7 @@ class ContractDriveView extends Node2D:
 			value = last.label(vm) if last.is_raw() else ViewMode.format(last.data, vm).replace(" ", "")
 			if value.length() > 8:
 				value = value.substr(0, 8)
-		SystemsDraw.monitor(self, Vector2(134, 4), value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
+		SystemsDraw.monitor(self, SystemsDraw.HUB_STICK_OUT, value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
 
 	var _glyph_q := -1
 	var _glyph_cache := ""
@@ -1102,18 +1164,20 @@ class ContractDriveView extends Node2D:
 			glyph = _glyph_cache
 			accent = Palette.FAMILY_IO if LabDef.view_mode(q) == ViewMode.Mode.CHAR else Palette.DATA_NUMBER
 		var dev: String = machine.device if machine.socket else "job"
-		SystemsDraw.port_face(self, Vector2(118, 14), dev != "", false, true)
+		SystemsDraw.hub_bay(self, true)
+		SystemsDraw.port_face(self, SystemsDraw.HUB_FACE_OUT, dev != "", false, true)
 		if dev == "monitor":
 			_draw_monitor()
 			return
 		if not Devices.is_job(dev):
 			return  # an empty output port: nothing is there (wires into it stall)
-		SystemsDraw.data_module(self, Vector2(134, 4), "job", {
+		var at := SystemsDraw.HUB_STICK_OUT
+		SystemsDraw.data_module(self, at, "job", {
 			"flip": true, "inserted": true, "glyph": glyph, "fill": fill, "acc": accent, "tag": tag, "done": done,
 		})
 		if _flash_start >= 0.0:
 			if now - _flash_start < SEAM_S:
-				draw_line(Vector2(134, 14), Vector2(134, 46), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)
+				draw_line(at + Vector2(0, 10), at + Vector2(0, 42), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)
 				if _underline:
 					draw_rect(Rect2(18, 44, 80, 1.5), Color(Palette.STATE_BLOCKED, 0.9))
 			else:
@@ -1122,9 +1186,9 @@ class ContractDriveView extends Node2D:
 			var el := now - _lct_start
 			if el < PULSE_S * 2.0:
 				var a := absf(sin(PI * el / PULSE_S))
-				SystemsDraw.rrect_outline(self, Rect2(132, 2, 100, 60), 6.0, Color(Palette.STATE_SUCCESS, a), 1.5)
+				SystemsDraw.rrect_outline(self, Rect2(at - Vector2(2, 2), Vector2(100, 60)), 6.0, Color(Palette.STATE_SUCCESS, a), 1.5)
 			else:
-				SystemsDraw.rrect_outline(self, Rect2(132, 2, 100, 60), 6.0, Palette.STATE_SUCCESS, 1.5)
+				SystemsDraw.rrect_outline(self, Rect2(at - Vector2(2, 2), Vector2(100, 60)), 6.0, Palette.STATE_SUCCESS, 1.5)
 				_lct_start = -1.0
 
 

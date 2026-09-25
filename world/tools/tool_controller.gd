@@ -294,7 +294,7 @@ func duplicate_machine(mid: int) -> void:
 ## Quick action bar "Move": the machine follows the pointer until the next click drops it.
 func begin_move(mid: int) -> void:
 	var sim := SimulationManager.sim
-	if sim == null or not sim.machines.has(mid) or sim.machines[mid].locked:
+	if sim == null or not sim.machines.has(mid) or not sim.machines[mid].movable():
 		return
 	var m: Machine = sim.machines[mid]
 	_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "carry": true}
@@ -603,10 +603,10 @@ func _track_press_drag(world: Vector2) -> void:
 		_begin_wire(mid, str(_press_hit["port"]), world)  # any port: an input starts a reverse wire
 		return
 	var sim := SimulationManager.sim
-	if sim != null and sim.machines.has(mid) and not sim.machines[mid].locked and kind == "machine":
+	if sim != null and sim.machines.has(mid) and sim.machines[mid].movable() and kind == "machine":
 		var m: Machine = sim.machines[mid]
-		# Alt + drag drags a duplicate; the original stays
-		_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "duplicate": Input.is_key_pressed(KEY_ALT)}
+		# Alt + drag drags a duplicate; the original stays (never for a USB hub: there is one each)
+		_move_drag = {"machine_id": mid, "cell": m.cell, "from": m.cell, "duplicate": Input.is_key_pressed(KEY_ALT) and not m.locked}
 		hover_changed.emit({})
 		_rebuild_ghost(m.cell, m.type, m.rot)
 

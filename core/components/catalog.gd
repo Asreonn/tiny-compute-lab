@@ -56,7 +56,7 @@ static var DEFS := {
 		"params": {},
 	},
 	"usb_input": {
-		"name": "USB Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
+		"name": "USB Input", "family": "io", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
 		"desc": "Streams raw bits from the lab's USB line.",
 		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true)],
 		"params": {},
@@ -68,7 +68,7 @@ static var DEFS := {
 		"params": {},
 	},
 	"usb_output": {
-		"name": "USB Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
+		"name": "USB Output", "family": "io", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
 		"desc": "Hands processed data back out through the lab's USB line.",
 		# width "*" = accepts any width (the ONE exception to the width-match rule,
 		# docs/ARCHITECTURE.md §4.3): the Lab USB Output validates bits + width itself.
@@ -225,7 +225,7 @@ static var DEFS := {
 		"params": {"to": {"label": "To bits", "kind": "int", "default": 3, "min": 1, "max": 64}},
 	},
 	"number_encoder": {
-		"name": "Number Encoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"name": "Number Encoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
 		"desc": "Turns a raw number into bits of the chosen width. A value that does not fit sets the overflow LED.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
@@ -234,7 +234,7 @@ static var DEFS := {
 		"params": {"width": {"label": "Width", "kind": "int", "default": 3, "min": 1, "max": 16}},
 	},
 	"char_encoder": {
-		"name": "Character Encoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"name": "Character Encoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
 		"desc": "Turns a raw character into its charset code. 5 bits use TCL-5; an unencodable char is dropped.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_RAW, 0, Vector2i(0, 0), Side.W, "RAW"),
@@ -243,7 +243,7 @@ static var DEFS := {
 		"params": {"width": {"label": "Width", "kind": "int", "default": 5, "min": 5, "max": 8}},
 	},
 	"number_decoder": {
-		"name": "Number Decoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"name": "Number Decoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
 		"desc": "Turns bits into a raw number, unsigned or signed.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),
@@ -255,7 +255,7 @@ static var DEFS := {
 		},
 	},
 	"char_decoder": {
-		"name": "Character Decoder", "family": "conversion", "size": "M", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
+		"name": "Character Decoder", "family": "conversion", "size": "L", "ticks": 1, "campaign_ticks": 2, "power": 1, "icon": "op_counter",
 		"desc": "Turns bits into a raw character using the charset of the width.",
 		"ports": [
 			_p("in", DIR_IN, ROLE_DATA, "P:width", Vector2i(0, 0), Side.W, "IN", true),

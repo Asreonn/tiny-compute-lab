@@ -201,7 +201,7 @@ func rotate(id: int) -> bool:
 ## touches the machine, and emits changed. Returns false without touching the board when
 ## the move is refused.
 func move(id: int, cell: Vector2i) -> bool:
-	if not machines.has(id) or machines[id].locked:
+	if not machines.has(id) or not machines[id].movable():
 		return false
 	var m: Machine = machines[id]
 	last_error = placement_error(m.type, cell, m.rot, id)
@@ -963,6 +963,7 @@ func load_player_layout(d: Dictionary) -> void:
 				used[mid] = true
 				map[i] = mid
 				var lm: Machine = machines[mid]
+				_restore_hub_cell(lm, md)
 				if md.has("last_device"):
 					lm.last_device = str(md["last_device"])
 				var dev := str(md.get("device", ""))
@@ -980,6 +981,17 @@ func load_player_layout(d: Dictionary) -> void:
 		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
 			connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
 	_emit_changed()
+
+
+## A moved USB hub goes back to its saved cell (kept where it is when that cell is taken). Only
+## saves that know hubs (a `port_row`) carry a hub's cell; older ones keep the rack cell.
+func _restore_hub_cell(m: Machine, md: Dictionary) -> void:
+	var c: Array = md.get("cell", [])
+	if m.port_row < 0 or int(md.get("port_row", -1)) != m.port_row or c.size() != 2:
+		return
+	var cell := Vector2i(int(c[0]), int(c[1]))
+	if cell != m.cell:
+		move(m.id, cell)
 
 
 func _emit_changed() -> void:
@@ -1037,6 +1049,10 @@ func apply_layout(d: Dictionary) -> void:
 		var c: Connection = connections[cid]
 		if not keep.has("%d:%s>%d:%s" % [c.from_id, c.from_port, c.to_id, c.to_port]):
 			disconnect_wire(cid, false)
+	# moved USB hubs go back to their cells before anything new is placed
+	for i in entries.size():
+		if map.has(i) and entries[i].get("locked", false):
+			_restore_hub_cell(machines[map[i]], entries[i])
 	for i in create:
 		var md: Dictionary = entries[i]
 		var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))
@@ -1227,6 +1243,12 @@ func _group_placement_error(group: Dictionary, delta: Vector2i) -> String:
 ## (port racks can open in a different order than they were saved), else the `li`-th by creation
 ## order (older saves), never one already matched. -1 when there is none.
 func _locked_match(md: Dictionary, locked_by_index: Array, li: int, used: Dictionary) -> int:
+	var pr := int(md.get("port_row", -1))
+	if pr >= 0:
+		for id in locked_by_index:
+			var m: Machine = machines[id]
+			if not used.has(id) and m.type == str(md.get("type", "")) and m.port_row == pr:
+				return id
 	var c: Array = md.get("cell", [])
 	if c.size() == 2:
 		var cell := Vector2i(int(c[0]), int(c[1]))
