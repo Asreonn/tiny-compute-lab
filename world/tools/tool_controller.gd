@@ -135,6 +135,126 @@ func duplicate_group() -> void:
 	_update_group_drag(get_global_mouse_position())
 
 
+# ------------------------------------------------------------------ clipboard (Ctrl+C / X / V / D / A)
+
+## A snapshot of the last copied / cut machines (and the wires between them): pasting works even
+## after the originals are gone.
+var clipboard: Dictionary = {}
+
+
+func _selection_ids() -> Array:
+	if not selected_group.is_empty():
+		return selected_group.duplicate()
+	return [selected_machine] if selected_machine >= 0 else []
+
+
+## Ctrl+C (cut: Ctrl+X) — the selected machine or group goes to the clipboard.
+func copy_selection(cut := false) -> void:
+	var sim := SimulationManager.sim
+	var ids := _selection_ids()
+	if sim == null or ids.is_empty():
+		notice.emit("Select machines to %s" % ("cut" if cut else "copy"), "info")
+		return
+	var clip := sim.copy_group(ids)
+	if clip.is_empty():
+		notice.emit("Mission I/O can't be copied", "error")
+		return
+	clipboard = clip
+	var n: int = (clip["machines"] as Array).size()
+	if cut:
+		_delete_selection()
+	notice.emit("%s %d machine%s" % ["Cut" if cut else "Copied", n, "" if n == 1 else "s"], "info")
+
+
+## Ctrl+V — the clipboard lands under the pointer (or the nearest free spot) and is selected.
+func paste_clipboard() -> void:
+	if clipboard.is_empty():
+		notice.emit("Nothing to paste — copy machines with Ctrl+C", "info")
+		return
+	_paste_near(_cell_of(get_global_mouse_position()), "Pasted")
+
+
+## Ctrl+D — a copy of the selection right beside it (the clipboard is left alone).
+func duplicate_selection() -> void:
+	var sim := SimulationManager.sim
+	var ids := _selection_ids()
+	if sim == null or ids.is_empty():
+		notice.emit("Select machines to duplicate", "info")
+		return
+	var clip := sim.copy_group(ids)
+	if clip.is_empty():
+		notice.emit("Mission I/O can't be duplicated", "error")
+		return
+	var r := Rect2i()
+	for id in ids:
+		if sim.machines.has(id) and not sim.machines[id].locked:
+			var m: Machine = sim.machines[id]
+			var fr := Rect2i(m.cell, Catalog.size_of(m.type, m.rot))
+			r = fr if r.size == Vector2i.ZERO else r.merge(fr)
+	var saved := clipboard
+	clipboard = clip
+	_paste_near(r.position + Vector2i(r.size.x + 1, 0), "Duplicated")
+	clipboard = saved
+
+
+func _paste_near(at: Vector2i, verb: String) -> void:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return
+	# the copy's footprint stays on the board (the pointer may be over the desk or the HUD)
+	var span := Vector2i.ONE
+	for e in clipboard.get("machines", []):
+		span = span.max((e["cell"] as Vector2i) + Catalog.size_of(str(e["type"]), int(e["rot"])))
+	at = at.clamp(Vector2i.ZERO, (sim.size - span).max(Vector2i.ZERO))
+	SimulationManager.request_edit()
+	var ids := []
+	for ring in 12:
+		for spot in _ring_cells(at, ring):
+			ids = sim.paste_group(clipboard, spot)
+			if not ids.is_empty():
+				break
+		if not ids.is_empty():
+			break
+	if ids.is_empty():
+		notice.emit("No room here for the copy", "error")
+		return
+	AudioBus.event("machine_place")
+	if ids.size() == 1:
+		_set_selection(ids[0], -1)
+	else:
+		select_group(ids)
+	notice.emit("%s %d machine%s" % [verb, ids.size(), "" if ids.size() == 1 else "s"], "info")
+
+
+## The cells at Chebyshev distance `r` from `c`, in a fixed order (r = 0: just `c`).
+static func _ring_cells(c: Vector2i, r: int) -> Array:
+	if r == 0:
+		return [c]
+	var out := []
+	for dx in range(-r, r + 1):
+		out.append(c + Vector2i(dx, -r))
+		out.append(c + Vector2i(dx, r))
+	for dy in range(-r + 1, r):
+		out.append(c + Vector2i(-r, dy))
+		out.append(c + Vector2i(r, dy))
+	return out
+
+
+## Ctrl+A — every player machine.
+func select_all() -> void:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return
+	var ids := []
+	for id in sim.sorted_machine_ids():
+		if not sim.machines[id].locked:
+			ids.append(id)
+	if ids.is_empty():
+		notice.emit("Nothing to select yet", "info")
+		return
+	select_group(ids)
+
+
 ## Quick bar "Move" on a group: the group follows the pointer until the next click.
 func move_group_carry() -> void:
 	if selected_group.is_empty():
@@ -428,15 +548,24 @@ func _on_key(k: InputEventKey) -> void:
 		return
 	var key := k.keycode
 	if k.is_command_or_control_pressed():
-		# Ctrl+Z / Ctrl+Y live in the HUD
-		if key == KEY_D and not selected_group.is_empty():
-			duplicate_group()
-		elif key == KEY_D and selected_machine >= 0:
-			duplicate_machine(selected_machine)
-		elif key == KEY_C and k.shift_pressed and selected_machine >= 0:
+		# Ctrl+Z / Ctrl+Y live in the HUD; Ctrl+Shift+C / V copy a machine's settings
+		if key == KEY_C and k.shift_pressed and selected_machine >= 0:
 			copy_settings(selected_machine)
 		elif key == KEY_V and k.shift_pressed and selected_machine >= 0:
 			paste_settings(selected_machine)
+		elif key == KEY_C:
+			copy_selection()
+		elif key == KEY_X:
+			copy_selection(true)
+		elif key == KEY_V:
+			paste_clipboard()
+		elif key == KEY_D:
+			duplicate_selection()
+		elif key == KEY_A:
+			select_all()
+		else:
+			return
+		get_viewport().set_input_as_handled()
 		return
 	# Space is the CameraRig's (tap = play/pause, hold + drag = pan).
 	if key == KEY_PERIOD:
@@ -490,6 +619,7 @@ func _allowed(type: String) -> bool:
 
 func _lmb_press(world: Vector2) -> void:
 	_press_world = world
+	get_viewport().gui_release_focus()  # a click on the board hands the keys back to the board (shortcuts)
 	var sim := SimulationManager.sim
 	if sim == null:
 		return

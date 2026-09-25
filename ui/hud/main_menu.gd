@@ -12,6 +12,7 @@ const COLS := 4
 
 var _dim: ColorRect
 var _panel: Panel
+var _hidden: Array = []  # HUD panels hidden while the menu is open
 
 
 func _ready() -> void:
@@ -25,15 +26,26 @@ func _mgr() -> Node:
 	return get_node("/root/SimulationManager")
 
 
-## Open the modal: dim the world, pause the simulation, build the content.
+## Open the modal: dim the world, pause the simulation, build the content. The HUD panels behind
+## (quest cards, palette, dock …) step away while the menu is open.
 func open() -> void:
 	_mgr().pause()
 	visible = true
+	_hidden.clear()
+	for c in get_parent().get_children():
+		var n := c as Control
+		if n != null and n != self and n.visible and n.get_class() == "Control":
+			n.visible = false
+			_hidden.append(n)
 	_build()
 
 
 func close() -> void:
 	visible = false
+	for n in _hidden:
+		if is_instance_valid(n):
+			n.visible = true
+	_hidden.clear()
 	if _dim:
 		_dim.queue_free()
 		_dim = null

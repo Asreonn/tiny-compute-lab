@@ -93,7 +93,7 @@ func _gui_input(event: InputEvent) -> void:
 		if _group():
 			match str(GROUP_ACTIONS[_hover][0]):
 				"move": tools.move_group_carry()
-				"duplicate": tools.duplicate_group()
+				"duplicate": tools.duplicate_selection()
 				"delete": tools.delete_group()
 			return
 		var m := _machine()
@@ -101,7 +101,7 @@ func _gui_input(event: InputEvent) -> void:
 			return
 		match str(ACTIONS[_hover][0]):
 			"move": tools.begin_move(m.id)
-			"duplicate": tools.duplicate_machine(m.id)
+			"duplicate": tools.duplicate_selection()
 			"rotate": tools.rotate_machine(m.id)
 			"copy": tools.copy_settings(m.id)
 			"delete": tools.delete_machine(m.id)

@@ -1182,6 +1182,62 @@ func duplicate_group(ids: Array, delta: Vector2i) -> Array:
 	return order
 
 
+## Clipboard snapshot of the unlocked machines in `ids` and the wires between them (Ctrl+C / X):
+## {"machines": [{type, cell (relative to the group's top-left), rot, params, width}],
+##  "wires": [{from, from_port, to, to_port}] (indices into machines)}. Survives the originals.
+func copy_group(ids: Array) -> Dictionary:
+	var group := _group_of(ids)
+	if group.is_empty():
+		return {}
+	var origin := Vector2i(1 << 30, 1 << 30)
+	for id in group:
+		var c: Vector2i = machines[id].cell
+		origin = Vector2i(mini(origin.x, c.x), mini(origin.y, c.y))
+	var idx := {}
+	var ms := []
+	for id in sorted_machine_ids():
+		if not group.has(id):
+			continue
+		var m: Machine = machines[id]
+		idx[id] = ms.size()
+		ms.append({"type": m.type, "cell": m.cell - origin, "rot": m.rot, "params": m.params.duplicate(true), "width": m.width})
+	var ws := []
+	for cid in sorted_connection_ids():
+		var w: Connection = connections[cid]
+		if idx.has(w.from_id) and idx.has(w.to_id):
+			ws.append({"from": idx[w.from_id], "from_port": w.from_port, "to": idx[w.to_id], "to_port": w.to_port})
+	return {"machines": ms, "wires": ws}
+
+
+## Place a clipboard snapshot with its top-left at `at` (Ctrl+V), wires included. All or nothing:
+## [] (and last_error) when any machine does not fit. Returns the new ids in clipboard order.
+func paste_group(clip: Dictionary, at: Vector2i) -> Array:
+	var ms: Array = clip.get("machines", [])
+	if ms.is_empty():
+		last_error = "The clipboard is empty"
+		return []
+	for e in ms:
+		var err := placement_error(str(e["type"]), at + (e["cell"] as Vector2i), int(e["rot"]))
+		if err != "":
+			last_error = err
+			return []
+	_quiet += 1
+	var out := []
+	for e in ms:
+		var m := place(str(e["type"]), at + (e["cell"] as Vector2i), int(e["rot"]), (e["params"] as Dictionary).duplicate(true), int(e["width"]))
+		if m == null:
+			for nid in out:
+				remove(nid)
+			_quiet -= 1
+			return []
+		out.append(m.id)
+	for w in clip.get("wires", []):
+		connect_ports(out[int(w["from"])], str(w["from_port"]), out[int(w["to"])], str(w["to_port"]))
+	_quiet -= 1
+	_emit_changed()
+	return out
+
+
 ## Remove every unlocked machine of `ids` (their wires go with them); `changed` fires once.
 func remove_group(ids: Array) -> int:
 	_quiet += 1

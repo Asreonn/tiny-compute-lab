@@ -9,6 +9,7 @@ static func run(t) -> void:
 	_move_refused(t)
 	_duplicate(t)
 	_delete(t)
+	_clipboard(t)
 
 
 static func _chain(sim: Simulation) -> Array:
@@ -67,3 +68,22 @@ static func _delete(t) -> void:
 	sim.changed.connect(func(): fired[0] += 1)
 	t.check(sim.remove_group([ab[0].id, ab[1].id]) == 2 and sim.machines.is_empty() and sim.connections.is_empty(), "delete removes the group and its wires")
 	t.check(fired[0] == 1, "one change for the whole group")
+
+
+## Ctrl+C / Ctrl+V: a snapshot of machines + their internal wires, pasted anywhere, all or nothing,
+## and still there after the originals are deleted (Ctrl+X).
+static func _clipboard(t) -> void:
+	var sim := Simulation.new()
+	sim.size = Vector2i(20, 12)
+	sim.default_width = 3
+	var ab := _chain(sim)
+	var clip := sim.copy_group([ab[0].id, ab[1].id])
+	t.check((clip["machines"] as Array).size() == 2 and (clip["wires"] as Array).size() == 1, "a copy holds both machines and their wire")
+	sim.remove_group([ab[0].id, ab[1].id])
+	t.check(sim.machines.is_empty(), "the originals are gone (cut)")
+	var ids := sim.paste_group(clip, Vector2i(3, 6))
+	t.check(ids.size() == 2 and sim.machines[ids[0]].cell == Vector2i(3, 6) and sim.machines[ids[1]].cell == Vector2i(7, 6), "a paste keeps the layout at the new spot")
+	t.check(sim.connections.size() == 1 and int(sim.machines[ids[1]].params["k"]) == 2, "the wire and the settings come along")
+	var n := sim.machines.size()
+	t.check(sim.paste_group(clip, Vector2i(3, 6)).is_empty() and sim.machines.size() == n, "a paste over machines places nothing")
+	t.check(sim.copy_group([]).is_empty(), "copying nothing gives an empty clipboard")

@@ -210,6 +210,8 @@ func _finish() -> void:
 		_camera.set_process_unhandled_input(true)
 	if not _hud_started:
 		_start_hud(true)
+	if _hud != null and is_instance_valid(_hud):
+		_hud.modulate.a = 1.0
 	for it in _hud_items:
 		var n: Control = it["node"]
 		if is_instance_valid(n):
@@ -226,6 +228,9 @@ func _finish() -> void:
 func _prepare_hud() -> void:
 	if _hud == null:
 		return
+	# the whole HUD stays hidden until the entrance: a panel's own fade-in (HudKit.panel_show, e.g.
+	# the quest cards rebuilding) can never pop it up over the title screen or the dive
+	_hud.modulate.a = 0.0
 	var vs := get_viewport_rect().size
 	var items := []
 	for c in _hud.get_children():
@@ -258,6 +263,8 @@ func _prepare_hud() -> void:
 
 func _start_hud(instant := false) -> void:
 	_hud_started = true
+	if _hud != null and is_instance_valid(_hud):
+		_hud.modulate.a = 1.0
 	for it in _hud_items:
 		var n: Control = it["node"]
 		if not is_instance_valid(n):
@@ -266,6 +273,8 @@ func _start_hud(instant := false) -> void:
 			n.position = it["home"]
 			n.modulate.a = 1.0
 			continue
+		n.position = it["from"]  # (re)start from the docking side, whatever touched it meanwhile
+		n.modulate.a = 0.0
 		var tw := n.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.tween_property(n, "position", it["home"], HUD_DUR).set_delay(it["delay"])
 		tw.tween_property(n, "modulate:a", 1.0, HUD_DUR).set_delay(it["delay"])

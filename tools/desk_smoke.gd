@@ -66,6 +66,22 @@ func _slot_of(kind: String) -> int:
 	return -1
 
 
+func _key(code: Key) -> void:
+	var e := InputEventKey.new()
+	e.keycode = code
+	e.ctrl_pressed = true
+	e.pressed = true
+	root.get_viewport().push_input(e)
+
+
+func _players() -> int:
+	var n := 0
+	for id in _sm.sim.machines:
+		if not _sm.sim.machines[id].locked:
+			n += 1
+	return n
+
+
 func _inside(kind: String) -> bool:
 	var side := "out" if kind.begins_with("job") or kind == "monitor" else "in"
 	return _desk.area_rect(side).has_point(_desk.body_pos(kind))
@@ -130,6 +146,23 @@ func _process(_d: float) -> bool:
 		240:
 			_check(_inside("text@5"), "the refused stick slid back onto its desk")
 			_check(_desk.body_pos("job@6") != get_meta("job0") and _inside("job@6"), "a tap pushes the sticks; they stay on the desk")
+			# keyboard shortcuts through the real viewport: Ctrl+C / V / A / D / X
+			var tools = root.get_node("Main/World/Tools")
+			var a: Machine = _sm.sim.place("add", Vector2i(8, 8), 0, {"k": 3}, 5)
+			tools._set_selection(a.id, -1)
+			_key(KEY_C)
+			_key(KEY_V)
+		243:
+			var tools = root.get_node("Main/World/Tools")
+			_check(_players() == 2, "Ctrl+C, Ctrl+V pastes a copy (%d machines)" % _players())
+			_key(KEY_A)
+			_check(tools.selected_group.size() == 2, "Ctrl+A selects every machine")
+			_key(KEY_D)
+		246:
+			var tools = root.get_node("Main/World/Tools")
+			_check(_players() == 4, "Ctrl+D duplicates the selection (%d machines)" % _players())
+			_key(KEY_X)
+			_check(_players() == 2 and not tools.clipboard.is_empty(), "Ctrl+X cuts the selection into the clipboard (%d left)" % _players())
 			SaveStore.clear()
 			if _fails == 0:
 				print("DESK PASS")
