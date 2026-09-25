@@ -163,7 +163,7 @@ static func _lab_io(sim: Simulation) -> Dictionary:
 			if socket < 0:
 				socket = id  # the first input port drives the contract's primary origin
 		elif m.type == "usb_output":
-			if m.device == "job":
+			if Devices.is_job(m.device):
 				drive = id
 			elif drive < 0:
 				drive = id

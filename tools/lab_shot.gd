@@ -46,7 +46,7 @@ func _process(_d: float) -> bool:
 		if _view != "":
 			sm.set_overlay(_view)
 		sm.sim.changed.emit()
-	if _frame == (30 if _view != "" else 8):
+	if _frame == (30 if _view != "" else 90):
 		root.get_texture().get_image().save_png(_out)
 		print("lab_shot: wrote %s" % _out)
 		SaveStore.clear()

@@ -186,7 +186,7 @@ static func _power_cap_level(t) -> void:
 		var m: Machine = sim.machines[id]
 		if m.type == "usb_input" and m.cell.y == 1:
 			s = id
-		elif m.type == "usb_output" and m.device == "job":
+		elif m.type == "usb_output" and Devices.is_job(m.device):
 			d = id
 	sim.remove_device(s)
 	sim.insert_device(s, "bit")

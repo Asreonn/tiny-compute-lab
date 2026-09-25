@@ -171,7 +171,7 @@ func _build() -> void:
 		_codec_slot = CodecSlot.new()
 		_codec_slot.name = "CodecSlot"
 		body.add_child(_codec_slot)
-	if machine.type == "usb_input":
+	if machine.type == "usb_input" and machine.socket:
 		_usb_socket = UsbSocketView.new()
 		_usb_socket.machine = machine
 		_usb_socket.name = "UsbSocket"
@@ -191,8 +191,8 @@ func _build() -> void:
 	var asz := Art.area_size(_area_kind)
 	_progress.area_rect = Rect2(_progress.center - asz * 0.5, asz) if asz != Vector2.ZERO else Rect2()
 	_progress.chassis = Rect2(Vector2.ZERO, Vector2(Catalog.SIZES[machine.def()["size"]]) * T)
-	if machine.type in ["usb_input", "usb_output"] or machine.type in CODEC_TYPES:
-		_progress.chassis = Rect2(0, 0, 2 * T, T)  # the chassis is the top row (bay / screen below)
+	if machine.type in CODEC_TYPES:
+		_progress.chassis = Rect2(0, 0, 2 * T, T)  # the chassis is the top row (the screen below)
 	body.add_child(_progress)
 	# 12b resource indicators (STYLE_GUIDE §3): a child of the rotating Body so it rotates
 	# with the chassis like other silk (tiny geometry, no text -> no upright problem).
@@ -662,9 +662,10 @@ func resolve_view_mode() -> int:
 	return ViewMode.Mode.BIN
 
 
-## Constants are amounts, not characters: under CHR they are shown as DEC.
-static func const_mode(vm: int) -> int:
-	return ViewMode.Mode.UDEC if vm == ViewMode.Mode.CHAR else vm
+## Constants are bits, like the data they meet: always shown as 0/1 (the player's request —
+## the machines work on bits, never on digits).
+static func const_mode(_vm: int) -> int:
+	return ViewMode.Mode.BIN
 
 
 func _display_value(vm: int) -> String:
@@ -677,15 +678,15 @@ func _display_value(vm: int) -> String:
 		"multiply":
 			var k := int(m.params.get("k", 0))
 			var sgn := "−" if k < 0 else ""
-			return "×" + sgn + ViewMode.format(BitVector.of(abs(k), m.width), vm)
+			return "×" + sgn + ViewMode.format(BitVector.of(abs(k), m.width), const_mode(vm))
 		"delay":
 			return "%dt" % int(m.params.get("ticks", 3))
 		"register":
 			# the stored value (the initial value until the first write)
 			var v: BitVector = m.memory[0] if not m.memory.is_empty() else BitVector.of(int(m.params.get("init", 0)), m.width)
-			return ViewMode.format(v, vm)
+			return ViewMode.format(v, const_mode(vm))
 		"program_counter":
-			return str(m.counter if m.primed else int(m.params.get("start", 0)))
+			return ViewMode.format(BitVector.of(m.counter if m.primed else int(m.params.get("start", 0)), m.width), const_mode(vm))
 	return ""
 
 
@@ -1049,14 +1050,8 @@ class UsbSocketView extends Node2D:
 		return 1.0 - pow(1.0 - c, 3.0)
 
 	func _draw() -> void:
-		SystemsDraw.hub_bay(self, false)
-		var face := SystemsDraw.HUB_FACE_IN
-		var at := SystemsDraw.HUB_STICK_IN
-		if not machine.socket:
-			# a mission's USB input: its stick is fixed (it carries the mission's stream)
-			SystemsDraw.data_module(self, at, "bit", {"inserted": true, "cursor": _cursor, "glyph": _mission_glyph(), "acc": Palette.DATA_NUMBER})
-			SystemsDraw.port_face(self, face, true, _lit, false)
-			return
+		var face := SystemsDraw.PORT_FACE_IN
+		var at := SystemsDraw.PORT_STICK_IN
 		var plugged := machine.device != "" or (_anim_start >= 0.0 and not _anim_plug)
 		if _anim_device != "":
 			var lr = SimulationManager.run
@@ -1065,7 +1060,7 @@ class UsbSocketView extends Node2D:
 			if bool(o.get("done", false)) and not HudKit.REDUCED_MOTION:
 				_draw_shimmer(at + Vector2(_offset, 0))
 		elif hovered and machine.device == "":
-			SystemsDraw.data_module(self, at, "bit", {"ghost": true})
+			SystemsDraw.data_module(self, at - Vector2(26, 0), "bit", {"ghost": true})
 			SystemsDraw.rrect_outline(self, Rect2(face - Vector2(2, 2), Vector2(20, 40)), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
 		SystemsDraw.port_face(self, face, plugged, _lit, false)
 
@@ -1076,13 +1071,6 @@ class UsbSocketView extends Node2D:
 			return
 		var x := at.x + 8.0 + ph * 80.0
 		draw_line(Vector2(x, at.y + 4.0), Vector2(x - 10.0, at.y + 52.0), Color(Palette.STATE_SUCCESS, 0.45 * sin(PI * ph)), 2.0, true)
-
-	func _mission_glyph() -> String:
-		if machine.stream.is_empty():
-			return ""
-		var v = machine.stream[0]
-		var g := ViewMode.format(v, ViewMode.Mode.BIN).replace(" ", "") if v is BitVector else (str(v.glyph()) if v is Object and v.has_method("glyph") else "")
-		return g.substr(0, 5)
 
 
 ## Locked USB Output contract drive (D4, lab only): flipped port face + job module showing the
@@ -1115,7 +1103,7 @@ class ContractDriveView extends Node2D:
 			_spawned_for = _flash_start
 			_spawn_digits(2, Palette.DATA_NUMBER)
 		if run is LabRun:
-			var q: int = run.quest_for_drive(machine.id)
+			var q: int = run.quest_for_drive(machine.id, SimulationManager.sim)
 			var filled: bool = run.quest_progress(q).filled
 			if filled and not _was_filled:
 				_spawn_digits(12, Palette.STATE_SUCCESS)
@@ -1148,7 +1136,7 @@ class ContractDriveView extends Node2D:
 			value = last.label(vm) if last.is_raw() else ViewMode.format(last.data, vm).replace(" ", "")
 			if value.length() > 8:
 				value = value.substr(0, 8)
-		SystemsDraw.monitor(self, SystemsDraw.HUB_STICK_OUT, value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
+		SystemsDraw.monitor(self, SystemsDraw.PORT_STICK_OUT, value, hist, Palette.FAMILY_IO if raw else Palette.DATA_NUMBER, {"inserted": true})
 
 	var _glyph_q := -1
 	var _glyph_cache := ""
@@ -1162,7 +1150,7 @@ class ContractDriveView extends Node2D:
 		if HudKit.REDUCED_MOTION:
 			return
 		var now := Time.get_ticks_msec() / 1000.0
-		var at := SystemsDraw.HUB_STICK_OUT + Vector2(48, 4)
+		var at := SystemsDraw.PORT_STICK_OUT + Vector2(48, 4)
 		for i in n:
 			var v := Vector2(_rng.randf_range(-14.0, 14.0), _rng.randf_range(-34.0, -18.0))
 			_digits.append([at + Vector2(_rng.randf_range(-30.0, 30.0), 0.0), v, now + i * 0.06, "1" if _rng.randf() < 0.5 else "0", col])
@@ -1204,7 +1192,7 @@ class ContractDriveView extends Node2D:
 		var done := false
 		if run is LabRun and not run.all_done():
 			# a drive shows the quest it served last: its request, its progress, "Q6"
-			var q: int = run.quest_for_drive(machine.id)
+			var q: int = run.quest_for_drive(machine.id, SimulationManager.sim)
 			fill = run.quest_fill(q)
 			done = run.quest_progress(q).filled
 			tag = "Q%d" % (q + 1)
@@ -1215,14 +1203,13 @@ class ContractDriveView extends Node2D:
 			glyph = _glyph_cache
 			accent = Palette.FAMILY_IO if LabDef.view_mode(q) == ViewMode.Mode.CHAR else Palette.DATA_NUMBER
 		var dev: String = machine.device if machine.socket else "job"
-		SystemsDraw.hub_bay(self, true)
-		SystemsDraw.port_face(self, SystemsDraw.HUB_FACE_OUT, dev != "", false, true)
+		SystemsDraw.port_face(self, SystemsDraw.PORT_FACE_OUT, dev != "", false, true)
 		if dev == "monitor":
 			_draw_monitor()
 			return
 		if not Devices.is_job(dev):
 			return  # an empty output port: nothing is there (wires into it stall)
-		var at := SystemsDraw.HUB_STICK_OUT
+		var at := SystemsDraw.PORT_STICK_OUT
 		SystemsDraw.data_module(self, at, "job", {
 			"flip": true, "inserted": true, "glyph": glyph, "fill": fill, "acc": accent, "tag": tag, "done": done,
 		})

@@ -4,12 +4,13 @@ extends RunBase
 ## Simulation calls on MissionRun (allows / on_output / on_overflow / after_tick / reset /
 ## build_board) plus the fields the HUD reads. Pure data — no Node, no signals.
 ##
-## QUESTS. Up to QUEST_WINDOW quests are active at once. Each comes with its own sticks (quest
-## sticks, "text@11"); every value a stick emits carries its quest, so a Job drive judges each
-## result against the right quest's contract (lineage-driven, never a constant). A match counts
-## as that quest's `delivered`, anything else as `rejected`. A quest is FILLED once its count AND
-## its constraints are met; the player then unplugs one of its sticks and files it in the desk's
-## COMPLETED tray (file_quest) — only then does it count as done and the next quest arrives.
+## QUESTS. Up to QUEST_WINDOW quests are active at once. Each comes with its own sticks: input
+## sticks ("text@11") and a Job stick ("job@11"). Every value an input stick emits carries its
+## quest; a quest's Job stick judges only that quest's results against its contract (lineage-
+## driven, never a constant). A match counts as that quest's `delivered`, anything else as
+## `rejected`. A quest is FILLED once its count AND its constraints are met; the player then
+## unplugs its Job stick (or any of its sticks) and files it in the desk's COMPLETED tray
+## (file_quest) — only then does it count as done and the next quest arrives.
 ## Breaking a constraint is soft: it only restarts that quest's window, never fails the run.
 ## Plain modules ("text") belong to the current quest (`level`) — tests and old saves.
 
@@ -58,6 +59,9 @@ var window_rejected: int:
 ## Every owned device is in exactly one place: a desk slot or a port.
 var desk_inputs: Dictionary = {}
 var desk_outputs: Dictionary = {}
+## Where each stick lies on its free desk area (view data, saved with the desk): kind -> [x, y,
+## rot], relative to the area. The desk physics lives in the view (world/desk/desk_view.gd).
+var desk_pos: Dictionary = {}
 ## Devices that landed on the desk on the last level-up (the views pulse them as "New").
 var new_devices := PackedStringArray()
 ## PSU tier (SYSTEMS_EXPANSION §4): 0 Starter 8 · 1 Improved 16 · 2 Desktop 32 · 3 High-Capacity 64.
@@ -118,8 +122,13 @@ func quest_fill(q: int) -> float:
 	return clampf(float(_q(q).delivered) / float(n), 0.0, 1.0) if n > 0 else 0.0
 
 
-## The quest a drive shows: the one it judged last while that is still active, else the current.
-func quest_for_drive(port_id: int) -> int:
+## The quest a drive shows: its Job stick's, else the one it judged last while that is still
+## active, else the current.
+func quest_for_drive(port_id: int, sim: Simulation = null) -> int:
+	if sim != null and sim.machines.has(port_id):
+		var dq := Devices.quest_of(sim.machines[port_id].device)
+		if dq >= 0:
+			return dq
 	var q := int(drive_quest.get(port_id, level))
 	return q if q in active_quests() else level
 
@@ -137,7 +146,17 @@ func quest_rate(q: int) -> float:
 	return float(_q(q).accepted_ticks.size()) * Simulation.TICKS_PER_SEC / 60.0
 
 
-## The sticks a quest comes with ("text@11", "key@11").
+## The Job stick a quest comes with ("job@11").
+func quest_job(q: int) -> String:
+	return Devices.stick("job", q)
+
+
+## True when the quest's Job stick sits in an output port.
+func quest_job_plugged(sim: Simulation, q: int) -> bool:
+	return _plugged(sim, "out").has(quest_job(q))
+
+
+## The input sticks a quest comes with ("text@11", "key@11").
 func quest_sticks(q: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	for kind in LabDef.quest_kinds(q):
@@ -217,9 +236,11 @@ func devices_owned() -> PackedStringArray:
 	return out
 
 
-## The output devices: two Job drives from the start, the Monitor from L9 (idx 8) on.
+## The output devices: every active quest's Job stick, the Monitor from L9 (idx 8) on.
 func output_devices_owned() -> PackedStringArray:
-	var out := PackedStringArray(["job", "job2"])
+	var out := PackedStringArray()
+	for q in active_quests():
+		out.append(quest_job(q))
 	if frontier() >= 8:
 		out.append("monitor")
 	return out
@@ -252,6 +273,11 @@ func build_board(sim: Simulation) -> void:
 	unlocked = LabDef.unlocks_upto(frontier())
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))  # rewards of every finished level
 	_ensure_io(sim)
+	# a fresh board has the current quest's Job stick in output port 1 (a save re-applies its own)
+	var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
+	if not all_done() and first_out != null and first_out.device == "":
+		sim.insert_device(first_out.id, quest_job(level))
+		sync_desk(sim)
 	new_devices = PackedStringArray()  # a fresh board is not a level-up: nothing pulses as "New"
 	reset(sim)
 	sim.changed.emit()
@@ -277,11 +303,15 @@ func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
 	if m.type != LabDef.OUTPUT_TYPE or not Devices.is_job(m.device):
 		return
 	var q := _quest_of_packet(p)
+	# a quest's Job stick takes that quest's results only; a plain Job drive judges any quest
+	var dq := Devices.quest_of(m.device)
+	var target := dq if dq >= 0 else q
 	var ok := false
-	if q >= 0:
-		drive_quest[m.id] = q
-	if q >= 0 and q in active_quests() and not _q(q).filled:
-		ok = quest_contract(q).judge(p, _socket_ids_for(sim, q))
+	if target >= 0:
+		drive_quest[m.id] = target
+	if target >= 0 and target in active_quests() and not _q(target).filled:
+		ok = q == target and quest_contract(target).judge(p, _socket_ids_for(sim, target))
+		q = target
 		var qp := _q(q)
 		if ok:
 			qp.delivered += 1
@@ -391,14 +421,15 @@ func file_quest(sim: Simulation, q: int) -> bool:
 	files += 1
 	last_filed = q
 	level_completed_tick = sim.tick
-	# the quest's sticks leave the ports and the desk
+	# the quest's sticks (inputs and its Job stick) leave the ports and the desks
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type == "usb_input" and Devices.quest_of(m.device) == q:
+		if m.socket and Devices.quest_of(m.device) == q:
 			sim.remove_device(id)
-	for slot in desk_inputs.keys():
-		if Devices.quest_of(str(desk_inputs[slot])) == q:
-			desk_inputs.erase(slot)
+	for d in [desk_inputs, desk_outputs]:
+		for slot in d.keys():
+			if Devices.quest_of(str(d[slot])) == q:
+				d.erase(slot)
 	while completed.has(level):
 		completed.erase(level)
 		_qp.erase(level)
@@ -415,16 +446,19 @@ func file_quest(sim: Simulation, q: int) -> bool:
 func _restock_ports(sim: Simulation) -> void:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type != "usb_input" or m.device != "" or m.last_device == "":
+		var side := _port_side(m)
+		if side == "" or m.device != "" or m.last_device == "" or Devices.quest_of(m.last_device) < 0:
 			continue
+		var d := _desk(side)
 		for q in active_quests():
 			var st := Devices.stick(m.last_device, q)
-			if st in quest_sticks(q) and not _plugged(sim, "in").has(st):
+			var owned := quest_sticks(q) if side == "in" else PackedStringArray([quest_job(q)])
+			if st in owned and not _plugged(sim, side).has(st):
 				var slot := -1
-				for k in desk_inputs:
-					if desk_inputs[k] == st:
+				for k in d:
+					if d[k] == st:
 						slot = k
-				if slot >= 0 and plug_from_desk(sim, "in", slot, id):
+				if slot >= 0 and plug_from_desk(sim, side, slot, id):
 					break
 
 
@@ -462,10 +496,6 @@ func _ensure_io(sim: Simulation) -> void:
 		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
 		if first_in != null and first_in.device == "":
 			sim.insert_device(first_in.id, Devices.stick("bit", 0))
-	if _plugged(sim, "out").find("job") < 0 and not desk_outputs.values().has("job"):
-		var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
-		if first_out != null and first_out.device == "":
-			sim.insert_device(first_out.id, "job")
 	sync_desk(sim)
 
 
@@ -481,10 +511,10 @@ func _sync_reservations(sim: Simulation) -> void:
 			sim.reserved[c] = LabDef.slot_label("out", row)
 
 
-## A sealed bay reserves a hub's 2x2 footprint at its rack row.
 func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
-	var x := 0 if side == "in" else sim.size.x - 2
-	return [Vector2i(x, row), Vector2i(x + 1, row), Vector2i(x, row + 1), Vector2i(x + 1, row + 1)]
+	if side == "in":
+		return [Vector2i(0, row), Vector2i(1, row)]
+	return [Vector2i(sim.size.x - 2, row), Vector2i(sim.size.x - 1, row)]
 
 
 ## Add every port open at the current level, in creation order: [input row 1, output row 1]
@@ -497,7 +527,7 @@ func _ensure_ports(sim: Simulation) -> void:
 			continue
 		var m := Machine.new(0, "usb_input" if side == "in" else LabDef.OUTPUT_TYPE, LabDef.port_cell(sim.size, side, row), 1)
 		m.locked = true
-		m.port_row = row  # its identity: the player may move the hub anywhere
+		m.port_row = row  # its identity in saves
 		m.socket = true  # Lab port semantics on both sides (module/device slot)
 		if side == "in":
 			m.loop = true
@@ -506,7 +536,7 @@ func _ensure_ports(sim: Simulation) -> void:
 		m.label = "USB In %d" % n if side == "in" else "USB Out %d" % n
 
 
-## The hub that opened at rack `row` (wherever the player moved it since).
+## The port that opened at rack `row`.
 func _port_at(sim: Simulation, side: String, row: int) -> Machine:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
@@ -536,23 +566,26 @@ func _job_drive(sim: Simulation) -> Machine:
 	return null
 
 
-## Move the output hubs still on the old east edge to the new one, keeping their incoming wire
-## (re-routed through the new, empty tiles). A hub the player moved stays where it is. If a wire
-## cannot be re-routed, drop that one and warn — never crash. Input hubs never move.
-func _move_output_ports(sim: Simulation, old_size: Vector2i) -> void:
+## Move every output port to the new east edge, keeping its incoming wire (re-routed through
+## the new, empty tiles). If a wire cannot be re-routed, drop that one and warn — never crash.
+## Input ports never move.
+func _move_output_ports(sim: Simulation, _old_size: Vector2i) -> void:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
-		if m.type != LabDef.OUTPUT_TYPE or m.cell.x != old_size.x - 2:
+		if m.type != LabDef.OUTPUT_TYPE:
 			continue
 		var target := LabDef.port_cell(sim.size, "out", m.cell.y)
 		if m.cell == target:
 			continue
+		var was_locked := m.locked
+		m.locked = false
 		if not sim.move(m.id, target):
 			var c := sim.connection_at_port(m.id, "in")
 			if c != null:
 				sim.disconnect_wire(c.id)
 			_io_warning = "A wire to an output port could not be re-routed."
 			sim.move(m.id, target)
+		m.locked = was_locked
 
 
 func _trim(q: int, tick: int) -> void:
@@ -705,7 +738,7 @@ func move_on_desk(side: String, from_slot: int, to_slot: int) -> bool:
 
 ## Save form: {"in": {slot: kind}, "out": {...}} with string keys (JSON).
 func desk_to_dict() -> Dictionary:
-	var out := {"in": {}, "out": {}}
+	var out := {"in": {}, "out": {}, "pos": desk_pos.duplicate(true)}
 	for k in desk_inputs:
 		out["in"][str(k)] = desk_inputs[k]
 	for k in desk_outputs:
@@ -720,6 +753,8 @@ func desk_from_dict(d: Dictionary, sim: Simulation) -> void:
 		desk_inputs[int(k)] = str(d["in"][k])
 	for k in d.get("out", {}):
 		desk_outputs[int(k)] = str(d["out"][k])
+	var pos = d.get("pos", {})
+	desk_pos = (pos as Dictionary).duplicate(true) if pos is Dictionary else {}
 	sync_desk(sim)
 	new_devices = PackedStringArray()  # restoring a save is not a level-up
 
@@ -780,10 +815,30 @@ func migrate_plain(sim: Simulation) -> void:
 			sim.remove_device(id)
 		else:
 			plugged.append(target)
+	# plain Job drives ("job", "job2") become an active quest's Job stick (the current one first)
+	var outs := _plugged(sim, "out")
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type != LabDef.OUTPUT_TYPE or not Devices.is_job(m.device) or Devices.quest_of(m.device) >= 0:
+			continue
+		var job := ""
+		for q in active_quests():
+			if not outs.has(quest_job(q)):
+				job = quest_job(q)
+				break
+		if job == "":
+			sim.remove_device(id)
+		else:
+			sim.insert_device(id, job)
+			outs.append(job)
 	var owned := devices_owned()
 	for slot in desk_inputs.keys():
 		if not owned.has(str(desk_inputs[slot])):
 			desk_inputs.erase(slot)
+	var owned_out := output_devices_owned()
+	for slot in desk_outputs.keys():
+		if not owned_out.has(str(desk_outputs[slot])):
+			desk_outputs.erase(slot)
 	sync_desk(sim)
 	new_devices = PackedStringArray()
 
@@ -811,12 +866,13 @@ func job_plugged(sim: Simulation) -> bool:
 
 # ------------------------------------------------------------------ the COMPLETED tray
 
-## Drop a quest stick lying on the input desk into the tray: files its quest when it is filled.
-## False (and last_error on `sim` says why) when it is not a quest stick or not finished yet.
-func file_from_desk(sim: Simulation, slot: int) -> bool:
-	if not desk_inputs.has(slot):
+## Drop a quest stick lying on a desk into the tray: files its quest when it is filled. False
+## (and last_error on `sim` says why) when it is not a quest stick or not finished yet.
+func file_from_desk(sim: Simulation, slot: int, side := "in") -> bool:
+	var d := _desk(side)
+	if not d.has(slot):
 		return false
-	return _file_stick(sim, str(desk_inputs[slot]))
+	return _file_stick(sim, str(d[slot]))
 
 
 ## Drop a plugged quest stick straight from its port into the tray.

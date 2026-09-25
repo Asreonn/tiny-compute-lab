@@ -17,10 +17,12 @@ const KINDS := {
 	"sensor": {"name": "Sensor module", "out": "raw", "raw_kind": RawValue.Kind.SENSOR},
 }
 
-## Output devices the player plugs into an output port (docs/SYSTEMS_EXPANSION.md §2.1). Two Job
-## drives: any quest's results can be delivered to either.
+## Output devices the player plugs into an output port (docs/SYSTEMS_EXPANSION.md §2.1). In the
+## Lab every quest brings its own Job stick ("job@11"): it takes that quest's results only, fills
+## up, and is the stick the player files. A plain "job" judges any quest (tests, old saves);
+## "job2" only survives in old saves.
 const OUTPUT_KINDS := {
-	"job": {"name": "Job drive"},
+	"job": {"name": "Job stick"},
 	"job2": {"name": "Job drive 2"},
 	"monitor": {"name": "Monitor"},
 }
@@ -48,7 +50,7 @@ static func stick(kind: String, quest: int) -> String:
 
 
 static func is_job(kind: String) -> bool:
-	return kind == "job" or kind == "job2"
+	return base(kind) == "job" or kind == "job2"
 
 
 static func has(kind: String) -> bool:
@@ -56,13 +58,13 @@ static func has(kind: String) -> bool:
 
 
 static func has_output(kind: String) -> bool:
-	return OUTPUT_KINDS.has(kind)
+	return OUTPUT_KINDS.has(base(kind))
 
 
 static func output_display_name(kind: String) -> String:
-	if not OUTPUT_KINDS.has(kind):
+	if not OUTPUT_KINDS.has(base(kind)):
 		return ""
-	return str(OUTPUT_KINDS[kind]["name"])
+	return str(OUTPUT_KINDS[base(kind)]["name"])
 
 
 ## "bits" or "raw" for a known kind; an unknown/absent module reads as "bits" so an empty

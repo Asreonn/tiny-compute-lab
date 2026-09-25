@@ -291,7 +291,7 @@ func _refresh_rows(sm: Node, lr: LabRun) -> void:
 		var key: String = r[0]
 		var l: Label = r[1]
 		if qp.filled:
-			HudKit.set_text(l, "✓ Drop a Q%d stick in COMPLETED" % (q + 1) if key == "needs" else "", Palette.STATE_SUCCESS)
+			HudKit.set_text(l, "✓ Drop the Q%d Job stick in COMPLETED" % (q + 1) if key == "needs" else "", Palette.STATE_SUCCESS)
 			continue
 		match key:
 			"needs":
@@ -307,10 +307,10 @@ func _refresh_rows(sm: Node, lr: LabRun) -> void:
 				else:
 					HudKit.set_text(l, "Plug the Q%d %s stick into a USB port" % [q + 1, " + ".join(missing)], Palette.STATE_BLOCKED)
 			"output":
-				if lr.job_plugged(sm.sim):
-					HudKit.set_text(l, "✓ Job drive plugged in", Palette.STATE_VALID)
+				if lr.quest_job_plugged(sm.sim, q):
+					HudKit.set_text(l, "✓ Q%d Job stick plugged in" % (q + 1), Palette.STATE_VALID)
 				else:
-					HudKit.set_text(l, "Plug a Job drive into an output port", Palette.STATE_BLOCKED)
+					HudKit.set_text(l, "Plug the Q%d Job stick into an output port" % (q + 1), Palette.STATE_BLOCKED)
 			"rate":
 				var rt := lr.quest_rate(q)
 				HudKit.set_text(l, "%.1f / %.1f values/s" % [rt, c.min_rate], Palette.STATE_VALID if rt >= c.min_rate else Palette.TEXT_SECONDARY)

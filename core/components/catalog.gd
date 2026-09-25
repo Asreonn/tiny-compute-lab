@@ -56,7 +56,7 @@ static var DEFS := {
 		"params": {},
 	},
 	"usb_input": {
-		"name": "USB Input", "family": "io", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
+		"name": "USB Input", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_input",
 		"desc": "Streams raw bits from the lab's USB line.",
 		"ports": [_p("out", DIR_OUT, ROLE_DATA, "W", Vector2i(1, 0), Side.E, "OUT", true)],
 		"params": {},
@@ -68,7 +68,7 @@ static var DEFS := {
 		"params": {},
 	},
 	"usb_output": {
-		"name": "USB Output", "family": "io", "size": "L", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
+		"name": "USB Output", "family": "io", "size": "M", "ticks": 1, "campaign_ticks": 1, "power": 0, "icon": "io_output",
 		"desc": "Hands processed data back out through the lab's USB line.",
 		# width "*" = accepts any width (the ONE exception to the width-match rule,
 		# docs/ARCHITECTURE.md §4.3): the Lab USB Output validates bits + width itself.

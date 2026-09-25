@@ -16,6 +16,7 @@ static func run(t) -> void:
 	_two_quests_at_once(t)
 	_quest_save(t)
 	_old_save_migrates(t)
+	_job_sticks(t)
 
 
 static func _board(level_idx: int, auto := true) -> Array:
@@ -69,7 +70,7 @@ static func _initial(t) -> void:
 	var run: LabRun = b[1]
 	t.check(run.active_quests() == [0, 1], "two quests are active at once")
 	t.check(_port(sim, "in", 1).device == "bit@0" and run.desk_inputs.values() == ["bit@1"], "L1: quest 1's stick is plugged, quest 2's lies on the desk")
-	t.check(_port(sim, "out", 1).device == "job" and run.desk_outputs.values() == ["job2"], "the Job drive is plugged, the second one lies on the desk")
+	t.check(_port(sim, "out", 1).device == "job@0" and run.desk_outputs.values() == ["job@1"], "quest 1's Job stick is plugged, quest 2's lies on the desk")
 	t.check(run.desk_slot_count("in") == 4, "the input desk has owned + 2 slots (got %d)" % run.desk_slot_count("in"))
 	var b6 := _board(5)
 	var run6: LabRun = b6[1]
@@ -123,11 +124,11 @@ static func _outputs(t) -> void:
 	var b := _board(8)
 	var sim: Simulation = b[0]
 	var run: LabRun = b[1]
-	t.check(run.desk_outputs.values().has("monitor") and run.desk_outputs.values().has("job2"), "L9: the Monitor and the second Job drive lie on the output desk")
+	t.check(run.desk_outputs.values().has("monitor") and run.desk_outputs.values().has("job@9"), "L9: the Monitor and quest 10's Job stick lie on the output desk")
 	var o2 := _port(sim, "out", 4)
 	t.check(run.plug_from_desk(sim, "out", _slot_of(run, "out", "monitor"), o2.id) and o2.device == "monitor", "the Monitor plugs into output port 2")
 	t.check(run.unplug_to_desk(sim, _port(sim, "out", 1).id), "a Job drive can be put on the desk")
-	t.check(run.desk_outputs.values().has("job") and _consistent(sim, run), "the Job drive lies on the desk")
+	t.check(run.desk_outputs.values().has("job@8") and _consistent(sim, run), "the Job stick lies on the desk")
 
 
 static func _new_sticks_arrive(t) -> void:
@@ -188,7 +189,7 @@ static func _two_quests_at_once(t) -> void:
 	run.plug_from_desk(sim, "in", _slot_of(run, "in", "bit@1"), p1.id)
 	run.plug_from_desk(sim, "in", _slot_of(run, "in", "bit@2"), p2.id)
 	var o2 := _port(sim, "out", 4)
-	run.plug_from_desk(sim, "out", _slot_of(run, "out", "job2"), o2.id)
+	run.plug_from_desk(sim, "out", _slot_of(run, "out", "job@2"), o2.id)
 	var a2 := sim.place("add", Vector2i(8, 1), 0, {"k": 2}, 3)
 	var a7 := sim.place("add", Vector2i(8, 4), 0, {"k": 7}, 3)
 	sim.connect_ports(p1.id, "out", a2.id, "in")
@@ -238,7 +239,38 @@ static func _old_save_migrates(t) -> void:
 	var p1 := _port(sim, "in", 1)
 	sim.insert_device(p1.id, "text")
 	run.desk_inputs[3] = "number"
+	var o1 := _port(sim, "out", 1)
+	sim.insert_device(o1.id, "job")
 	run.migrate_plain(sim)
+	t.check(o1.device == "job@5", "an old plain Job drive becomes the current quest's Job stick (got '%s')" % o1.device)
 	t.check(p1.device == "text@5", "a plugged plain module becomes the current quest's stick (got '%s')" % p1.device)
 	t.check(not run.desk_inputs.values().has("number") and not run.desk_inputs.values().has("text@5"), "a spare plain module leaves the desk")
 	t.check(_consistent(sim, run), "consistency after the migration")
+
+
+## Each quest's Job stick takes that quest's results only; it is what the player files.
+static func _job_sticks(t) -> void:
+	var b := _board(0, false)
+	var sim: Simulation = b[0]
+	var run: LabRun = b[1]
+	var p1 := _port(sim, "in", 1)
+	var o1 := _port(sim, "out", 1)
+	var o2 := _port(sim, "out", 4)
+	run.plug_from_desk(sim, "out", _slot_of(run, "out", "job@1"), o2.id)
+	sim.connect_ports(p1.id, "out", o2.id, "in")  # quest 1's values into quest 2's Job stick
+	sim.reset_run()
+	for i in 200:
+		sim.step()
+	t.check(run.quest_progress(1).delivered == 0 and run.quest_progress(1).rejected > 0, "a Job stick rejects another quest's values")
+	t.check(run.quest_progress(0).delivered == 0, "they never count for the quest they came from")
+	sim.disconnect_wire(sim.connection_at_port(o2.id, "in").id)
+	sim.connect_ports(p1.id, "out", o1.id, "in")
+	sim.reset_run()
+	for i in 1200:
+		sim.step()
+		if run.quest_progress(0).filled:
+			break
+	t.check(run.quest_progress(0).filled, "quest 1's Job stick fills with quest 1's values")
+	t.check(run.file_from_port(sim, o1.id), "the filled Job stick goes in the tray")
+	t.check(run.files == 1 and o1.device == "" and not run.desk_outputs.values().has("job@0") and p1.device == "", "filing takes all of the quest's sticks")
+	t.check(run.desk_outputs.values().has("job@2"), "the next quest's Job stick lands on the output desk")

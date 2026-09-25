@@ -104,7 +104,7 @@ func _page_main() -> void:
 ## The Lab's quests: the active ones (progress, ready to file) and the next one waiting.
 func _page_quests() -> void:
 	var lr: LabRun = _sm().lab_run
-	_tagline("Two quests at a time. Each brings its own USB stick — drop a finished one in COMPLETED.")
+	_tagline("Two quests at a time, each with its own USB sticks. File a full Job stick in COMPLETED.")
 	if lr == null:
 		_add("back", "Back", "Main menu", "icon_chevron_left", {"primary": true})
 		return

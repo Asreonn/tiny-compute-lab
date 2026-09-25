@@ -12,7 +12,6 @@ static func run(t) -> void:
 	_monitor(t)
 	_empty_output_stalls(t)
 	_old_port_order(t)
-	_hubs_move_freely(t)
 
 
 static func _board(level_idx: int) -> Array:
@@ -39,7 +38,7 @@ static func _l1_layout(t) -> void:
 	var inp := _port(sim, "in", 1)
 	var outp := _port(sim, "out", 1)
 	t.check(inp != null and inp.cell == Vector2i(0, 1) and inp.device == "bit@0", "input port 1 at (0,1) holds quest 1's bit stick")
-	t.check(outp != null and outp.cell == Vector2i(26, 1) and outp.device == "job", "output port 1 at (26,1) holds the Job drive")
+	t.check(outp != null and outp.cell == Vector2i(26, 1) and outp.device == "job@0", "output port 1 at (26,1) holds quest 1's Job stick")
 	t.check(_port(sim, "in", 4) != null and _port(sim, "out", 4) != null, "two input and two output ports are open from the start")
 	for row in [7, 10]:
 		t.check(sim.is_reserved(Vector2i(0, row)) and sim.is_reserved(Vector2i(1, row)), "input row %d is a sealed bay" % row)
@@ -80,9 +79,9 @@ static func _job_drive_moves(t) -> void:
 	var run: LabRun = b[1]
 	var o1 := _port(sim, "out", 1)
 	var o2 := _port(sim, "out", 4)
-	t.check(sim.insert_device(o2.id, "job"), "the Job drive can be plugged into output port 2")
-	t.check(o2.device == "job" and o1.device == "", "there is exactly one Job drive: port 1 is now empty")
-	t.check(run.output_devices_owned() == PackedStringArray(["job", "job2", "monitor"]), "L9 owns two Job drives and the Monitor")
+	t.check(sim.insert_device(o2.id, "job@8"), "a Job stick can be plugged into output port 2")
+	t.check(o2.device == "job@8" and o1.device == "", "each Job stick is one device: port 1 is now empty")
+	t.check(run.output_devices_owned() == PackedStringArray(["job@8", "job@9", "monitor"]), "L9: each active quest's Job stick and the Monitor (got %s)" % str(run.output_devices_owned()))
 
 
 static func _monitor(t) -> void:
@@ -101,7 +100,7 @@ static func _monitor(t) -> void:
 		sim.step()
 	t.check(o2.received.size() > 0 and o2.received.size() <= 10, "the Monitor keeps at most 10 samples (got %d)" % o2.received.size())
 	t.check(run.delivered == 0 and run.rejected == 0, "the Monitor judges nothing")
-	t.check(o1.device == "job", "the Job drive stayed on port 1")
+	t.check(o1.device == "job@8", "the Job stick stayed on port 1")
 
 
 static func _empty_output_stalls(t) -> void:
@@ -137,39 +136,3 @@ static func _old_port_order(t) -> void:
 	t.check(_port(sim, "in", 4).device == "key" and _port(sim, "out", 4).device == "monitor" and _port(sim, "in", 1).device == "text", "an old save's modules land on their own ports")
 
 
-
-## USB hubs are 2x2 and move anywhere like components, but are never deleted or rotated. A moved
-## hub keeps its identity (its rack row): saves, undo and board growth respect where it stands.
-static func _hubs_move_freely(t) -> void:
-	var b := _board(6)  # Q8 filed → Q9 arrives and the board grows
-	var sim: Simulation = b[0]
-	var run: LabRun = b[1]
-	var inp := _port(sim, "in", 1)
-	var out4 := _port(sim, "out", 4)
-	t.check(Catalog.size_of("usb_input") == Vector2i(2, 2), "a USB hub is 2x2")
-	t.check(sim.move(inp.id, Vector2i(6, 8)) and inp.cell == Vector2i(6, 8), "an input hub moves anywhere on the grid")
-	t.check(not sim.remove(inp.id) and not sim.rotate(inp.id), "a hub is never deleted or rotated")
-	t.check(not sim.move(inp.id, Vector2i(0, 7)), "a hub cannot move into a sealed bay (%s)" % sim.last_error)
-	var n := sim.machines.size()
-	run._progress_changed(sim)
-	t.check(sim.machines.size() == n and run._port_at(sim, "in", 1) == inp, "a moved hub is still its rack's port (no duplicate)")
-	# save + restore keeps the moved hub
-	var lay = JSON.parse_string(JSON.stringify(sim.layout_to_dict()))
-	var sim2 := Simulation.new()
-	var run2 := LabRun.new()
-	run2.level = 6
-	run2.build_board(sim2)
-	sim2.load_player_layout(lay)
-	t.check(run2._port_at(sim2, "in", 1).cell == Vector2i(6, 8), "restore puts a moved hub back where it was")
-	# undo (apply_layout) moves it back
-	var before = JSON.parse_string(JSON.stringify(sim2.layout_to_dict()))
-	sim2.move(run2._port_at(sim2, "in", 1).id, Vector2i(10, 12))
-	sim2.apply_layout(before)
-	t.check(run2._port_at(sim2, "in", 1).cell == Vector2i(6, 8), "undo moves a hub back")
-	# growth: an output hub still on the east edge follows it; a moved one stays
-	var old_w := sim.size.x
-	t.check(sim.move(out4.id, Vector2i(14, 4)), "an output hub moves too")
-	run._advance(sim)
-	var out1 := run._port_at(sim, "out", 1)
-	t.check(sim.size.x > old_w and out1.cell.x == sim.size.x - 2, "an output hub on the edge follows the growing board")
-	t.check(out4.cell == Vector2i(14, 4), "a moved output hub stays where the player put it")

@@ -167,6 +167,9 @@ func _param_row(m: Machine, key: String, pdef: Dictionary, y: float) -> float:
 		lo = maxi(lo, 0)
 		hi = mini(hi, (1 << m.width) - 1)
 	var v := clampi(int(m.params[key]), lo, hi)
+	if key == "k" and lo >= 0 and m.type in ["add", "compare", "modulo", "multiply"] and m.width <= 8:
+		_bit_cells(ctl, key, v, m.width, hi)
+		return y + 38
 	var shown := HudKit.fmt_const(BitVector.of(v, m.width)) if lo >= 0 else str(v)
 	HudKit.icon(ctl, "icon_minus", Vector2(8, 8), 16, Palette.TEXT_SECONDARY)
 	HudKit.label(ctl, shown, Vector2(32, 8), 12, HudKit.W_XBOLD, Palette.DATA_NUMBER, 76, HORIZONTAL_ALIGNMENT_CENTER)
@@ -174,6 +177,21 @@ func _param_row(m: Machine, key: String, pdef: Dictionary, y: float) -> float:
 	HudKit.hit(_body, Vector2(150, y), Vector2(32, 32), func(): _set_param(key, clampi(v - 1, lo, hi)), "−1")
 	HudKit.hit(_body, Vector2(258, y), Vector2(32, 32), func(): _set_param(key, clampi(v + 1, lo, hi)), "+1")
 	return y + 38
+
+
+## A constant as its bits (MSB left): click a bit to flip it. The machines work on bits, so the
+## constant is set the same way.
+func _bit_cells(ctl: Panel, key: String, v: int, width: int, hi: int) -> void:
+	var cw := minf(16.0, 132.0 / width)
+	var x0 := (140.0 - cw * width) * 0.5
+	for i in width:
+		var bit := width - 1 - i
+		var on := (v >> bit) & 1 == 1
+		var p := Vector2(x0 + i * cw + 1.0, 4.0)
+		var cell := HudKit.box(ctl, p, Vector2(cw - 2.0, 24), Palette.SURFACE_SUNKEN if not on else Palette.SURFACE_RAISED, Palette.DATA_NUMBER if on else Palette.SURFACE_BORDER, 1, 3)
+		HudKit.label(cell, "1" if on else "0", Vector2(0, 5), 11, HudKit.W_XBOLD, Palette.DATA_NUMBER if on else Palette.TEXT_MUTED, cw - 2.0, HORIZONTAL_ALIGNMENT_CENTER)
+		var nv := v ^ (1 << bit)
+		HudKit.hit(ctl, p, Vector2(cw - 2.0, 24), func(): _set_param(key, mini(nv, hi)), "Flip bit %d" % bit)
 
 
 func _view_as_row(y: float) -> float:

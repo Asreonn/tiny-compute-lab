@@ -61,7 +61,7 @@ static func _io(sim: Simulation) -> Dictionary:
 		var m: Machine = sim.machines[id]
 		if m.type == "usb_input" and m.cell.y == LabDef.PORT_ROWS[0]:
 			socket = id
-		elif m.type == "usb_output" and m.device == "job":
+		elif m.type == "usb_output" and Devices.is_job(m.device):
 			drive = id
 	return {"socket": socket, "drive": drive}
 

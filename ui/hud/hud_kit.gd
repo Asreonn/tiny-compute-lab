@@ -323,9 +323,9 @@ static func fmt(bv: BitVector) -> String:
 
 
 ## Constants (shift amounts, moduli) are amounts, not characters: CHR shows them as DEC.
+## A machine constant: always bits (0/1), whatever the view mode.
 static func fmt_const(bv: BitVector) -> String:
-	var mode := view_mode()
-	return ViewMode.format(bv, ViewMode.Mode.UDEC if mode == ViewMode.Mode.CHAR else mode)
+	return ViewMode.format(bv, ViewMode.Mode.BIN)
 
 
 ## Machine icon for palette tiles / inspector headers: the op_* icon, or the def's glyph_text

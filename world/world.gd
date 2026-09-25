@@ -27,6 +27,8 @@ const REVEAL_DURATION := 2.5
 ## Horizontal room outside the grid: the plugged USB modules (112 px) + the desk mats beside
 ## the laptop (gap 32 + mat 168 + margin 16) — SYSTEMS_EXPANSION §2.2.
 const IO_OVERHANG := 328.0
+## The Lab frames its free desk areas too (DeskView: overhang 112 + gap 32 + area 300 + margin).
+const LAB_OVERHANG := 460.0
 var _known_ids: Array = []
 var _prev_size := Vector2i.ZERO
 var _reveal_ids: Array = []
@@ -99,7 +101,8 @@ func _rebuild(_def: Variant = null) -> void:
 		# The USB modules and the contract drive's job module stick out past the west/east grid
 		# edges (laptop side ports, STYLE_GUIDE §14.4): frame them too.
 		var board := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
-		camera_rig.fit_board(board.grow_individual(IO_OVERHANG, 0.0, IO_OVERHANG, 0.0))
+		var side := LAB_OVERHANG if SimulationManager.in_lab else IO_OVERHANG
+		camera_rig.fit_board(board.grow_individual(side, 0.0, side, 0.0))
 
 
 func _process(delta: float) -> void:

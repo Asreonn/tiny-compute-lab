@@ -133,7 +133,7 @@ static func _migrate_v1(t) -> void:
 		var m: Machine = sim.machines[id]
 		if m.locked and m.type == "usb_input" and m.cell.y == 1:
 			socket = id
-		elif m.locked and m.type == "usb_output" and m.device == "job":
+		elif m.locked and m.type == "usb_output" and Devices.is_job(m.device):
 			drive = id
 		elif m.type == "add":
 			add = id

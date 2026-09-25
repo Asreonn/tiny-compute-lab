@@ -179,26 +179,14 @@ static func port_face(ci: CanvasItem, pos: Vector2, plugged: bool, lit: bool, fl
 		ci.draw_rect(Rect2(Vector2(sx, pos.y + 3), Vector2(1.5, 30)), Color(Palette.TEXT_PRIMARY, 0.55))
 
 
-# ================================================================ USB hub bay
+# ================================================================ USB port overhang
 
-## USB hub (2x2): the chassis is the top row, the stick bay the bottom one. The bay is a low plate
-## with a recess; the female face sits at its east end (input hub) or west end (output hub, flip).
-const HUB_FACE_IN := Vector2(106, 78)
-const HUB_FACE_OUT := Vector2(6, 78)
-const HUB_STICK_IN := Vector2(10, 68)   # stick body top-left (plug east, into the face)
-const HUB_STICK_OUT := Vector2(22, 68)  # flipped stick / monitor body top-left (plug west)
-
-
-static func hub_bay(ci: CanvasItem, flip: bool, alpha := 1.0) -> void:
-	var plate := Rect2(2, 66, 124, 60)
-	rrect(ci, plate, 6.0, Color(Palette.MATERIAL_PLATE_LO, alpha))
-	rrect_outline(ci, plate, 6.0, Color(Palette.MACHINE_FRAME, alpha), 1.5)
-	var recess := Rect2(8 if not flip else 24, 70, 96, 52)
-	rrect(ci, recess, 4.0, Color(Palette.MATERIAL_VENT, 0.55 * alpha))
-	# two screws on the plate's free end
-	var sx := 12.0 if flip else 116.0
-	for sy in [72.0, 118.0]:
-		ci.draw_circle(Vector2(sx, sy), 1.5, Color(Palette.MACHINE_FRAME, alpha))
+## Where a plugged stick sits beside its 2x1 port (body-local): input sticks hang off the west
+## edge (plug east into the port face), output drives off the east edge (flipped, plug west).
+const PORT_FACE_IN := Vector2(-6, 14)
+const PORT_FACE_OUT := Vector2(118, 14)
+const PORT_STICK_IN := Vector2(-102, 4)   # stick body top-left
+const PORT_STICK_OUT := Vector2(134, 4)   # flipped stick / monitor body top-left
 
 
 # ================================================================ data module (96x56)

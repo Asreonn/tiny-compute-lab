@@ -127,46 +127,41 @@
   - Output ports stay glued to the east edge and move with their wires.
   - Port rows never move.
 
-**USB hubs (player request 2026-09-25; supersedes the fixed rim ports above).**
-- Every port is now a **2×2 USB hub** (`usb_input` / `usb_output`, size L):
-  - the chassis sits on the top row and keeps the port anchor;
-  - the stick bay is the bottom row, with the female face at its east end (input) or west end
-    (output).
-- A plugged stick or drive lies in the bay, on the board. Nothing hangs off the laptop rim any more,
-  and the rim has no ports.
-- **Moving hubs.** Hubs move anywhere on the grid like components (drag the chassis):
-  - They are never deleted or rotated.
-  - A hub keeps its identity (`Machine.port_row`, the rack row it opened at). Saves, undo
-    (`apply_layout`) and new ports respect where it stands.
-  - When the board grows, only an output hub still on the old east edge follows the edge.
-- **Sealed bays** are 2×2 reservations at the rack rows. The next hub opens there.
-- **Encoders and decoders are 2×2 as well:** the chassis is on top, and a conversion screen below
-  shows the last value turned (`U › 10100`, `00101 › F`).
+**Encoders and decoders are 2×2** (player request 2026-09-25): the chassis is on top, and a
+conversion screen below it shows the last value turned (`U › 10100`, `00101 › F`). The USB ports
+stay 2×1 on the laptop's edges, with the sticks hanging off the side, as above. A 2×2 movable
+"hub" version was tried and dropped: the player wanted the ports as before and the *desk* free.
 
-### 2.2 Desk zones (player request 2026-09-24): the physical inventory
+### 2.2 The desk (player requests 2026-09-24/25): free areas with a little physics
 
-- Two **desk zones** lie beside the laptop, outside the board:
-  - **left, INPUT MODULES:** a mat of slots where owned input modules lie (plug pointing east, toward
-    the laptop);
-  - **right, OUTPUT DEVICES:** the Job drive and the Monitor (plug pointing west).
-- Each zone is a vertical column of slots, one module per slot. It has at least as many slots as owned
-  devices, plus 2 spare.
-- **Drag and drop:**
-  - Drag a desk module onto an open port to plug it in. If that port already holds a module, the two
-    swap: the old module goes to the slot the new one came from.
-  - Drag a plugged module out of its port onto the desk to unplug it into that slot.
-  - Drag between slots to rearrange.
-  - Click a module, then click a port (or a slot): the same, without dragging.
-  - Sealed ports and wrong-side drops are refused. A red slash shows the refusal, and the module snaps
-    back.
+- Two **free desk areas** lie beside the laptop, outside the board. They have no slots:
+  - **left, INPUT STICKS:** the input sticks lie here; the PSU brick lies under it;
+  - **right, OUTPUT STICKS:** the Job sticks and the Monitor lie here; the **COMPLETED tray** lies
+    under it.
+- **The sticks lie loose, with a little weight** (view-only physics in `world/desk/desk_view.gd`):
+  - a stick is a capsule (two circles);
+  - friction is high and bounce is low, so a flicked stick slides a short way and stops;
+  - a held stick trails the hand a little;
+  - a stick settles with a slight tilt;
+  - sticks bump each other and the area edges.
+- **Playing while the quests fill:**
+  - Tap the desk: a ripple, and the sticks nearby hop away a little.
+  - Click a stick: it hops.
+  - Bumps and taps have soft sounds (`desk_bump`, `desk_tap`).
+- **Plug and file:**
+  - Drag a stick onto an open port to plug it in. A stick already there pops back out onto the desk.
+  - Drag a plugged stick onto the desk to unplug it; it lies where you let go.
+  - Drop a filled quest's stick in the tray to file the quest.
+  - Click-then-click also works.
+  - Wrong-side and sealed drops are refused with a note. A stick let go over the board slides back
+    home.
 - **Rules:**
-  - An input module can only go to input ports; an output device only to output ports.
-  - A module is always in exactly one place: a desk slot or a port.
-  - Plugging still respects the wire rule (`insert_device` refuses a module that would break the port's
-    wire; the module snaps back and the reason is shown).
-- **State:** LabRun keeps `desk_inputs` / `desk_outputs` (slot index → module kind), saved in the lab
-  section. Newly owned modules appear in the first free slot with the "New" pulse.
-- The Device/Drive Tray popover stays only as a fallback, for clicking a port with no desk visible.
+  - A stick is always in exactly one place: a desk or a port.
+  - Plugging respects the wire rule.
+- **State:**
+  - LabRun keeps `desk_inputs` / `desk_outputs` (index → kind) as before.
+  - It also keeps `desk_pos` (kind → `[x, y, rot]`, relative to the area), saved with the desk.
+  - A new quest's sticks drop onto the desk from above, with the "New" pulse.
 
 ### 2.3 Quests (player request 2026-09-25): sticks and the COMPLETED tray
 
@@ -176,14 +171,17 @@
   `"text@11"` is quest 12's Text stick (`Devices.stick` / `base` / `quest_of`).
   - It carries its quest's stream.
   - It stamps `quest` into every value's lineage (`origins[socket]["quest"]`).
-  - Either Job drive (`job`, `job2`) judges a value against the quest it came from. A value that
-    mixes two quests' data counts for neither.
+  - Each quest also brings its own **Job stick** (`"job@11"`, an output device). It judges only
+    its own quest's values: another quest's value, or one that mixes two quests, is rejected.
+    The Job stick's store fills with the quest's progress.
+    A plain `job` drive (tests, old saves) judges any quest. Old `job` / `job2` drives migrate to
+    the current quest's Job stick.
   - Plain kinds (`"text"`) still work, for tests and old saves: they belong to `level`.
 - **Filled → filed.**
   - A quest is **filled** once its count and constraints are met. Its sticks turn green: a success
     key bar and outline, a full store, and "Q12" in success colour.
-  - The player unplugs one of its sticks, from a port or from the desk, and drops it into the
-    **COMPLETED tray** under the input mat. The quest is then **filed** (`LabRun.file_quest`): it
+  - The player unplugs its full Job stick (or any of its sticks), from a port or from the desk,
+    and drops it into the **COMPLETED tray** under the output desk. The quest is then **filed** (`LabRun.file_quest`): it
     counts as done, its sticks leave, and the next quest arrives with its sticks.
   - Unlocks, the board size and the open ports follow the highest active quest (`frontier()`). The
     PSU tier follows `level`.
@@ -200,6 +198,12 @@
 - **Save.** `lab.quests = {completed: [q], progress: {q: {delivered, rejected, filled}}, files}`.
   Old saves get the defaults, and `LabRun.migrate_plain` turns plugged plain modules into the
   current quest's sticks.
+
+**Constants are bits** (player request 2026-09-25):
+- The Add / Modulo / Multiply / Compare constants are shown as 0/1 on the machines.
+- In the Inspector they are set by flipping bit cells, MSB on the left, up to 8 bits.
+- Register and program-counter readouts are bits too.
+- Only the Monitor and the HUD's "View as" still read values in the view mode.
 
 ### 2.4 Views (player request 2026-09-25): a main mechanic
 
