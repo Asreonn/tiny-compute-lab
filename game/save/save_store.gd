@@ -138,6 +138,7 @@ static func _migrate_layout(layout: Dictionary) -> Dictionary:
 		var nc: Dictionary = (cd as Dictionary).duplicate(true)
 		nc["from"] = remap[a]
 		nc["to"] = remap[b]
+		nc["lanes"] = int(nc.get("lanes", 1))  # older layouts carried no lane count
 		new_conns.append(nc)
 	return {"size": layout.get("size", [28, 16]), "machines": new_machines, "connections": new_conns}
 

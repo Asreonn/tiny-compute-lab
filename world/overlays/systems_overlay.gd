@@ -100,11 +100,8 @@ func _draw_flow(sim: Simulation) -> void:
 		var c: Connection = sim.connections[cid]
 		if c.cells.is_empty():
 			continue
-		var full := 0
-		for sl in c.slots:
-			if sl != null:
-				full += 1
-		var load := float(full) / float(maxi(c.slots.size(), 1))
+		var full := c.packet_count()  # spans every lane
+		var load := float(full) / float(maxi(c.slots.size() * c.lanes, 1))
 		var col := Palette.STATE_BLOCKED if c.blocked else Palette.STATE_VALID
 		var pts := _route_pts(c)
 		if pts.size() >= 2 and (c.blocked or load > 0.0):

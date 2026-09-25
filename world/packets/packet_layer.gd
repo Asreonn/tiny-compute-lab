@@ -161,10 +161,8 @@ func _locations(sim: Simulation) -> Dictionary:
 			continue
 		var n: int = c.slots.size()
 		var plen := _path_len(cid)
-		for i in n:
-			var p: Packet = c.slots[i]
-			if p != null:
-				out[p.id] = {"k": "wire", "conn": cid, "arc": plen * float(i + 1) / float(n + 1), "packet": p}
+		for e in c.all_packets():
+			out[e["packet"].id] = {"k": "wire", "conn": cid, "lane": e["lane"], "arc": plen * float(int(e["slot"]) + 1) / float(n + 1), "packet": e["packet"]}
 	for mid in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[mid]
 		for port in m.inq:

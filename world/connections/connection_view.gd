@@ -211,8 +211,9 @@ func _comet_arcs() -> Array:
 		return packet_positions.call()
 	var out := []
 	var path_len := SignalGeom.poly_len(_path)
-	for i in connection.slots.size():
-		if connection.slots[i] == null or i >= connection.cells.size():
+	for e in connection.all_packets():
+		var i := int(e["slot"])
+		if i >= connection.cells.size():
 			continue
 		var centre := Vector2(connection.cells[i]) * T + Vector2.ONE * (T * 0.5)
 		out.append(SignalGeom.project(_path, centre) * path_len)

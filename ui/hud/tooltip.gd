@@ -91,9 +91,9 @@ func _on_hover(info: Dictionary) -> void:
 
 func _find_packet(sim: Simulation, pid: int) -> Packet:
 	for cid in sim.sorted_connection_ids():
-		for p in sim.connections[cid].slots:
-			if p != null and p.id == pid:
-				return p
+		for e in sim.connections[cid].all_packets():
+			if e["packet"].id == pid:
+				return e["packet"]
 	for mid in sim.sorted_machine_ids():
 		for e in sim.machines[mid].packets_inside():
 			if e["packet"].id == pid:

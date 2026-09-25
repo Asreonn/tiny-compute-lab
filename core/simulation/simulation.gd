@@ -560,6 +560,16 @@ func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null
 	return c
 
 
+## Set the number of parallel conveyors (lanes) on a wire; false when the wire does not
+## exist. Counts snap to the valid set {1, 2, 4, 8} (Connection.set_lanes).
+func set_wire_lanes(cid: int, n: int) -> bool:
+	if not connections.has(cid):
+		return false
+	connections[cid].set_lanes(n)
+	_emit_changed()
+	return true
+
+
 ## Wires a new (a, pa) -> (b, pb) connection would replace: the wire already on the source
 ## output and the wire already on the target input (rewiring, player QoL).
 func replaced_by(a: int, pa: String, b: int, pb: String) -> Array:
@@ -704,19 +714,24 @@ func step() -> void:
 	for id in cids:
 		connections[id].blocked = false
 		connections[id].moved_this_tick = false
-	# 2. deliver
+		connections[id].saturated = false
+	var delivered := {}  # connection id -> packets delivered this tick (saturation detection)
+	# 2. deliver — one head per lane, so a multi-lane wire hands out more than one packet/tick
 	for id in cids:
 		var c: Connection = connections[id]
-		var h := c.head()
-		if h == null:
-			continue
 		var target: Machine = machines[c.to_id]
-		if target.can_accept(c.to_port):
-			target.accept(c.to_port, c.pop_head())
-			events.append({"kind": "deliver", "packet": h.id, "machine": target.id, "port": c.to_port})
-			activity = true
-		else:
-			c.blocked = true
+		for k in c.lanes:
+			var h := c.head()
+			if h == null:
+				break
+			if target.can_accept(c.to_port):
+				target.accept(c.to_port, c.pop_head())
+				delivered[id] = int(delivered.get(id, 0)) + 1
+				events.append({"kind": "deliver", "packet": h.id, "machine": target.id, "port": c.to_port})
+				activity = true
+			else:
+				c.blocked = true
+				break
 	# 3. move
 	for id in cids:
 		connections[id].advance()
@@ -753,6 +768,10 @@ func step() -> void:
 				# BLOCKED means congestion: a wire exists but its entry is full. An output with
 				# no wire is simply waiting (OUTPUT_READY), not blocked.
 				blocked_now[id] = true
+				# Saturated: the wire flowed this tick (delivered ≥ 1) yet its entry is full —
+				# the multi-lane wire itself is the bandwidth bottleneck (FACTORY_SYSTEMS §2.2).
+				if delivered.has(c.id) and int(delivered[c.id]) > 0:
+					c.saturated = true
 	# 6. start
 	for id in mids:
 		var m: Machine = machines[id]
@@ -943,7 +962,7 @@ func layout_to_dict() -> Dictionary:
 	var cs := []
 	for id in sorted_connection_ids():
 		var c: Connection = connections[id]
-		cs.append({"from": idx[c.from_id], "from_port": c.from_port, "to": idx[c.to_id], "to_port": c.to_port})
+		cs.append({"from": idx[c.from_id], "from_port": c.from_port, "to": idx[c.to_id], "to_port": c.to_port, "lanes": c.lanes})
 	return {"size": [size.x, size.y], "machines": ms, "connections": cs}
 
 
@@ -979,7 +998,9 @@ func load_player_layout(d: Dictionary) -> void:
 		i += 1
 	for cd in d.get("connections", []):
 		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
-			connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
+			var nc := connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
+			if nc != null and cd.has("lanes"):
+				nc.set_lanes(int(cd["lanes"]))  # no per-wire emit: the batch is quiet
 	_emit_changed()
 
 
@@ -1031,13 +1052,18 @@ func apply_layout(d: Dictionary) -> void:
 	# around a wire that is about to disappear
 	var conns: Array = d.get("connections", [])
 	var keep := {}
+	var target_lanes := {}  # "f:fport>t:tport" -> lanes the target layout wants
 	for cd in conns:
 		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
 			keep["%d:%s>%d:%s" % [map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"]]] = true
+			target_lanes["%d:%s>%d:%s" % [map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"]]] = int(cd.get("lanes", 1))
 	for cid in sorted_connection_ids():
 		var c: Connection = connections[cid]
-		if not keep.has("%d:%s>%d:%s" % [c.from_id, c.from_port, c.to_id, c.to_port]):
+		var k := "%d:%s>%d:%s" % [c.from_id, c.from_port, c.to_id, c.to_port]
+		if not keep.has(k):
 			disconnect_wire(cid, false)
+		elif target_lanes.has(k) and c.lanes != int(target_lanes[k]):
+			c.set_lanes(int(target_lanes[k]))
 	for i in create:
 		var md: Dictionary = entries[i]
 		var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))
@@ -1066,7 +1092,9 @@ func apply_layout(d: Dictionary) -> void:
 		if map.has(int(cd["from"])) and map.has(int(cd["to"])):
 			var k4 := "%d:%s>%d:%s" % [map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"]]
 			if not have.has(k4):
-				connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
+				var nc := connect_ports(map[int(cd["from"])], cd["from_port"], map[int(cd["to"])], cd["to_port"])
+				if nc != null:
+					nc.set_lanes(int(cd.get("lanes", 1)))
 	_quiet -= 1
 	_emit_changed()
 
