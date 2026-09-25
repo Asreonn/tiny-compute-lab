@@ -5,7 +5,7 @@ extends ComponentLogic
 
 
 func start(m, sim) -> void:
-	if not m.outputs_empty():
+	if not m.has_free_lane():
 		return
 	match m.type:
 		"number_encoder":

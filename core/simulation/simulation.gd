@@ -741,9 +741,9 @@ func step() -> void:
 	_demand = power_demand()
 	for id in mids:
 		var m: Machine = machines[id]
-		var had := not m.job.is_empty()
+		var had := not m.jobs.is_empty()
 		m.advance(self)
-		if had and m.job.is_empty():
+		if had and m.jobs.is_empty():
 			events.append({"kind": "complete", "machine": id})
 			activity = true
 	# 4b. heat: after the machines worked; the stage sets next tick's thermal factor
@@ -754,31 +754,34 @@ func step() -> void:
 	for id in mids:
 		var m: Machine = machines[id]
 		for port in m.outq:
-			var p: Packet = m.outq[port]
-			if p == null:
-				continue
 			var c := connection_at_port(id, port)
+			if m.outq[port] == null:
+				continue
 			if c != null and c.entry_free():
-				c.push(p)
-				m.outq[port] = null
-				m.sent_ports.append(port)
-				events.append({"kind": "emit", "packet": p.id, "machine": id, "port": port})
-				activity = true
-			elif c != null:
-				# BLOCKED means congestion: a wire exists but its entry is full. An output with
-				# no wire is simply waiting (OUTPUT_READY), not blocked.
-				blocked_now[id] = true
-				# Saturated: the wire flowed this tick (delivered ≥ 1) yet its entry is full —
-				# the multi-lane wire itself is the bandwidth bottleneck (FACTORY_SYSTEMS §2.2).
-				if delivered.has(c.id) and int(delivered[c.id]) > 0:
-					c.saturated = true
+				# A multi-lane wire takes several packets per tick: push the head, then the
+				# backlog, as long as the wire still has a free entry (P1a lanes).
+				while m.outq[port] != null and c.entry_free():
+					var p: Packet = m.pop_output(port)
+					c.push(p)
+					m.sent_ports.append(port)
+					events.append({"kind": "emit", "packet": p.id, "machine": id, "port": port})
+					activity = true
+			if c == null or m.outq[port] == null:
+				continue
+			# BLOCKED means congestion: a wire exists but its entry is full. An output with
+			# no wire is simply waiting (OUTPUT_READY), not blocked.
+			blocked_now[id] = true
+			# Saturated: the wire flowed this tick (delivered ≥ 1) yet its entry is full —
+			# the multi-lane wire itself is the bandwidth bottleneck (FACTORY_SYSTEMS §2.2).
+			if delivered.has(c.id) and int(delivered[c.id]) > 0:
+				c.saturated = true
 	# 6. start
 	for id in mids:
 		var m: Machine = machines[id]
-		var had := not m.job.is_empty()
+		var had := not m.jobs.is_empty()
 		var before := m.emitted
 		m.start(self)
-		if (not had and not m.job.is_empty()) or m.emitted != before:
+		if (not had and not m.jobs.is_empty()) or m.emitted != before:
 			activity = true
 			if m.type == "input" and m.emitted != before:
 				_in_times.append(tick)

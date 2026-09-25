@@ -938,3 +938,15 @@ func thermal_enabled() -> bool:
 func clock_unlocked() -> bool:
 	return level > POWER_LEVEL  # the reward of L16 Power Cap
 
+
+## The highest lane count (1/2/4/8) this run allows. Placeholder: the progression job sets the
+## real gates (FACTORY_SYSTEMS §3.1); the Inspector hides the Lanes param while it returns 1.
+func max_lanes() -> int:
+	return 1
+
+
+## Whether the Efficiency upgrade is unlocked. Placeholder: the progression job sets the real
+## gate (FACTORY_SYSTEMS §3.1); the Inspector hides the Efficiency param while it is false.
+func efficiency_unlocked() -> bool:
+	return false
+

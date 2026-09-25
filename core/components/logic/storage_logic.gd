@@ -7,7 +7,7 @@ func start(m, sim) -> void:
 		_start_delay(m, sim)
 		return
 	# buffer
-	if not m.outputs_empty():
+	if not m.has_free_lane():
 		return
 	if m.inq["in"].is_empty():
 		return

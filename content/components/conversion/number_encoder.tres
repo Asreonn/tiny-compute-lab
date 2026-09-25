@@ -38,6 +38,7 @@ family = "conversion"
 size = "L"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 icon = "op_counter"
 description = "Turns a raw number into bits of the chosen width. A value that does not fit sets the overflow LED."
 ports = Array[ExtResource("3_fbftd")]([SubResource("Resource_2d35u"), SubResource("Resource_50acf")])

@@ -23,6 +23,7 @@ family = "logic"
 size = "S"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "!"
 description = "Flips every bit of a word."
 ports = Array[ExtResource("3_i5vre")]([SubResource("Resource_0qxpi"), SubResource("Resource_s7okg")])

@@ -33,6 +33,7 @@ id = "modulo"
 display_name = "Modulo"
 campaign_ticks = 4
 power = 1
+max_lanes = 8
 glyph_text = "%"
 description = "Keeps the remainder after dividing by a constant."
 ports = Array[ExtResource("3_ygyd7")]([SubResource("Resource_3ju2h"), SubResource("Resource_genr8")])

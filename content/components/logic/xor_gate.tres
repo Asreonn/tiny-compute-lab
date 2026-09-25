@@ -30,6 +30,7 @@ family = "logic"
 size = "L"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "^"
 description = "Bitwise XOR of two words: a bit is 1 where they differ. Flips bits."
 ports = Array[ExtResource("3_yht8x")]([SubResource("Resource_6po67"), SubResource("Resource_n70bq"), SubResource("Resource_r2a7a")])

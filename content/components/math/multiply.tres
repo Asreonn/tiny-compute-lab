@@ -34,6 +34,7 @@ display_name = "Multiply"
 ticks = 2
 campaign_ticks = 6
 power = 2
+max_lanes = 8
 icon = "op_multiply"
 description = "Multiplies each packet by a constant."
 ports = Array[ExtResource("3_o37kl")]([SubResource("Resource_5ml6t"), SubResource("Resource_5w8fi")])

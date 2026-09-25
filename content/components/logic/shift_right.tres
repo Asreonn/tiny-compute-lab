@@ -32,6 +32,7 @@ display_name = "Shift Right"
 family = "logic"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "»"
 description = "Moves every bit n places down, filling with 0; the low bits fall off. The same as ÷ 2ⁿ."
 ports = Array[ExtResource("3_rtcn0")]([SubResource("Resource_vbspi"), SubResource("Resource_n7c52")])

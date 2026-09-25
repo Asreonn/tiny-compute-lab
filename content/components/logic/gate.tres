@@ -34,6 +34,7 @@ family = "logic"
 size = "S"
 campaign_ticks = 3
 power = 1
+max_lanes = 4
 icon = "op_gate"
 description = "Passes the data packet only when the control signal is TRUE; otherwise discards it."
 ports = Array[ExtResource("3_16yui")]([SubResource("Resource_6olp0"), SubResource("Resource_66se2"), SubResource("Resource_e7eeq")])

@@ -77,9 +77,15 @@ func _rebuild() -> void:
 	y = _section("CONFIGURATION", y, true)
 	var run = _mgr().run
 	var clock_ok: bool = run != null and run.has_method("clock_unlocked") and run.clock_unlocked()
+	var lanes_ok: bool = run != null and run.has_method("max_lanes") and run.max_lanes() > 1
+	var eff_ok: bool = run != null and run.has_method("efficiency_unlocked") and run.efficiency_unlocked()
 	for key in def["params"]:
 		if key == "clock" and not clock_ok:
 			continue  # clock modes arrive with the power levels (SYSTEMS_EXPANSION §6)
+		if key == "lanes" and not lanes_ok:
+			continue  # lane upgrades arrive with the progression (FACTORY_SYSTEMS §3)
+		if key == "efficiency" and not eff_ok:
+			continue  # efficiency arrives with the progression (FACTORY_SYSTEMS §3)
 		y = _param_row(m, key, def["params"][key], y)
 	y = _row_static("Width", "%d-bit" % m.width, y, true)
 	y = _view_as_row(y)

@@ -18,6 +18,8 @@ const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "m
 @export var power := 0
 ## Heat per full-rate tick in tenths of °C; -1 = derived from the power (Catalog.heat_per_power).
 @export var heat := -1
+## How many parallel jobs an upgrade may give it (FACTORY_SYSTEMS §3.2); 1 = most machines.
+@export var max_lanes := 1
 ## Operation icon (assets/art/icon/<icon>.svg) or, when empty, the glyph text.
 @export var icon := ""
 @export var glyph_text := ""
@@ -41,7 +43,7 @@ func to_dict() -> Dictionary:
 	var d := {
 		"name": display_name, "family": family, "size": size, "ticks": ticks, "campaign_ticks": campaign_ticks,
 		"power": power, "icon": icon, "desc": description, "ports": pd, "params": pm,
-		"logic": logic, "order": menu_order,
+		"logic": logic, "order": menu_order, "max_lanes": max_lanes,
 	}
 	if glyph_text != "":
 		d["glyph_text"] = glyph_text

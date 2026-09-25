@@ -44,6 +44,7 @@ family = "logic"
 size = "S"
 campaign_ticks = 3
 power = 1
+max_lanes = 8
 icon = "op_compare"
 description = "Tests each value and emits a 1-bit result."
 ports = Array[ExtResource("3_xo55v")]([SubResource("Resource_nmtbv"), SubResource("Resource_hu30c")])

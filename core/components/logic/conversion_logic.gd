@@ -12,7 +12,7 @@ func start(m, sim) -> void:
 		return
 	if m.type != "bit_splitter":
 		return
-	if not m.outputs_empty():
+	if not m.has_free_lane():
 		return
 	if m.inq["in"].is_empty():
 		return
@@ -33,7 +33,7 @@ func start(m, sim) -> void:
 ## Zero / sign extend to the wider `to` width, or truncate to the narrower one. A `to` on the
 ## wrong side of the input width is a configuration error (the machine says so and stops).
 func _start_width(m, sim) -> void:
-	if not m.outputs_empty() or m.inq["in"].is_empty():
+	if not m.has_free_lane() or m.inq["in"].is_empty():
 		return
 	var to := int(m.params.get("to", m.width))
 	var w: int = m.width
@@ -52,7 +52,7 @@ func _start_width(m, sim) -> void:
 
 ## Bus Combiner: hi:lo, one pair at a time (the inverse of the Bit Splitter).
 func _start_combiner(m, sim) -> void:
-	if not m.outputs_empty() or m.inq["hi"].is_empty() or m.inq["lo"].is_empty():
+	if not m.has_free_lane() or m.inq["hi"].is_empty() or m.inq["lo"].is_empty():
 		return
 	var ph: Packet = m.pop("hi")
 	var pl: Packet = m.pop("lo")

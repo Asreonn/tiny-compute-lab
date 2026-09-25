@@ -38,6 +38,7 @@ family = "conversion"
 size = "L"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 icon = "op_counter"
 description = "Turns bits into a raw character using the charset of the width."
 ports = Array[ExtResource("3_yj5fs")]([SubResource("Resource_k3aq0"), SubResource("Resource_ej618")])

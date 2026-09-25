@@ -35,6 +35,7 @@ display_name = "Sign Extend"
 family = "conversion"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "SX"
 description = "Widens a signed word, copying its top bit into the new bits. −3 stays −3."
 ports = Array[ExtResource("3_twok7")]([SubResource("Resource_ai45i"), SubResource("Resource_wni1c")])

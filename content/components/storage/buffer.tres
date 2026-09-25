@@ -32,6 +32,7 @@ display_name = "Buffer"
 family = "storage"
 campaign_ticks = 2
 power = 1
+max_lanes = 4
 icon = "op_buffer"
 description = "Queues packets so bursts don't back up the line."
 ports = Array[ExtResource("3_5t13p")]([SubResource("Resource_6tx1f"), SubResource("Resource_126du")])

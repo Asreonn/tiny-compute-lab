@@ -35,6 +35,7 @@ display_name = "Zero Extend"
 family = "conversion"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "ZX"
 description = "Widens a word, filling the new high bits with 0. The value stays the same."
 ports = Array[ExtResource("3_t3180")]([SubResource("Resource_2yd2n"), SubResource("Resource_whtar")])

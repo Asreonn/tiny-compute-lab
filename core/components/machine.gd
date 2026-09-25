@@ -24,14 +24,26 @@ var label: String = ""  # e.g. "Multiply #2" — used in packet paths
 
 # --- runtime (reset() clears) ---
 var inq: Dictionary = {}  # in/ctrl port id -> Array[Packet]
-var outq: Dictionary = {}  # out port id -> Packet or null
-var job: Dictionary = {}  # {work_left, work_total, ticks_left, total, results: {port: Packet}, input: Packet}
+var outq: Dictionary = {}  # out port id -> Packet or null (the head of the output line)
+var out_backlog: Dictionary = {}  # out port id -> Array[Packet] waiting behind the head
+## Running jobs, up to lanes() (FACTORY_SYSTEMS §3.3). Each has today's job shape
+## {work_left, work_total, ticks_left, total, results: {port: Packet}, input: Packet}.
+var jobs: Array = []
+## Read-only view of jobs[0] for readers that predate lanes ({} when nothing runs).
+var job: Dictionary:
+	get:
+		return jobs[0] if not jobs.is_empty() else {}
 ## Work units per tick at the normal clock (docs/SYSTEMS_EXPANSION.md §6). A job costs
 ## processing_ticks() * WORK_PER_TICK units; clock modes, brownout and heat scale the rate.
 const WORK_PER_TICK := 12
 const CLOCK_RATE := {"normal": 12, "fast": 16, "overclocked": 24}
 const CLOCK_POWER := {"normal": 1.0, "fast": 1.5, "overclocked": 2.0}
 const CLOCK_HEAT := {"normal": 1, "fast": 2, "overclocked": 4}
+## Clock power multipliers in quarters: ×4 / 16 = the float multipliers 1.0 / 1.5 / 2.0.
+const CLOCK_Q := {"normal": 4, "fast": 6, "overclocked": 8}
+## Efficiency power multipliers in quarters: standard 4/4, efficient 3/4.
+const STANDARD_Q := 4
+const EFFICIENT_Q := 3
 ## Work units applied on the last advance (the progress ring interpolates with it).
 var last_rate := WORK_PER_TICK
 ## Thermal work factor (E2): numerator / denominator; 0 = paused (CRITICAL).
@@ -114,16 +126,45 @@ func ports() -> Array:
 
 
 func processing_ticks() -> int:
-	return Catalog.ticks(def_id(), campaign_timing)
+	return Catalog.ticks(def_id(), campaign_timing) + (1 if efficient() else 0)
 
 
 func power() -> int:
 	return int(def()["power"])
 
 
-## Heat per tick at the full normal-clock rate (tenths of °C), from the definition.
+## The number of parallel jobs this machine may run: params "lanes" snapped to the allowed set
+## {1, 2, 4, 8} and capped by the def's max_lanes (FACTORY_SYSTEMS §3).
+func lanes() -> int:
+	var l := int(params.get("lanes", "1"))
+	var cap := maxi(1, int(def().get("max_lanes", 1)))
+	for k in [8, 4, 2, 1]:
+		if l >= k and cap >= k:
+			return k
+	return 1
+
+
+## "efficient" trades one extra processing tick for ¾ power and ½ heat (FACTORY_SYSTEMS §3.1).
+func efficient() -> bool:
+	return str(params.get("efficiency", "standard")) == "efficient"
+
+
+## Display-only generation label from lanes: 1/2/4/8 -> Mk1..Mk4.
+func mk() -> int:
+	match lanes():
+		2: return 2
+		4: return 3
+		8: return 4
+		_: return 1
+
+
+## Heat per tick at the full normal-clock rate (tenths of °C): the rated heat scaled by the
+## value width; efficient runs at half. Lanes scale heat through work_done, not here.
 func heat() -> int:
-	return Catalog.heat(def_id())
+	var h := Catalog.heat(def_id()) * Catalog.width_factor(width)
+	if efficient():
+		h /= 2
+	return h
 
 
 ## "normal" | "fast" | "overclocked" (the clock param; machines without it run normal).
@@ -136,9 +177,12 @@ func clock_rate() -> int:
 	return int(CLOCK_RATE[clock_mode()])
 
 
-## Rated power × the clock multiplier, rounded up (fast Add = 2, overclocked Multiply = 4).
+## Rated power × lanes × width factor × clock multiplier × efficiency multiplier, computed in
+## integer quarters (FACTORY_SYSTEMS §3.1). Normal / 1 lane / ≤5-bit keeps today's numbers:
+## Add 1, fast Add 2, overclocked Multiply 4.
 func power_demand() -> int:
-	return int(ceil(power() * float(CLOCK_POWER[clock_mode()])))
+	var q: int = power() * lanes() * Catalog.width_factor(width) * CLOCK_Q[clock_mode()] * (EFFICIENT_Q if efficient() else STANDARD_Q)
+	return (q + 15) / 16
 
 
 func heat_mult() -> int:
@@ -148,7 +192,7 @@ func heat_mult() -> int:
 func in_capacity(port_id: String) -> int:
 	if type == "buffer" and port_id == "in":
 		return int(params.get("capacity", 4))
-	return 1
+	return maxi(1, lanes())
 
 
 func footprint() -> Array[Vector2i]:
@@ -235,12 +279,14 @@ func port_geom(port_id: String) -> Dictionary:
 func reset() -> void:
 	inq.clear()
 	outq.clear()
+	out_backlog = {}
 	for p in ports():
 		if p["dir"] == Catalog.DIR_OUT:
 			outq[p["id"]] = null
+			out_backlog[p["id"]] = []
 		else:
 			inq[p["id"]] = []
-	job = {}
+	jobs = []
 	state = State.IDLE
 	error_text = ""
 	processed = 0
@@ -300,6 +346,9 @@ func outputs_empty() -> bool:
 	for k in outq:
 		if outq[k] != null:
 			return false
+	for k in out_backlog:
+		if not out_backlog[k].is_empty():
+			return false
 	return true
 
 
@@ -307,7 +356,25 @@ func has_pending_output() -> bool:
 	return not outputs_empty()
 
 
+## Finished results waiting to leave: the outq heads plus every backlog packet.
+func waiting_results() -> int:
+	var n := 0
+	for k in outq:
+		if outq[k] != null:
+			n += 1
+	for k in out_backlog:
+		n += out_backlog[k].size()
+	return n
+
+
+## A lane is free to start a job when running jobs + waiting results are below the lane count
+## (FACTORY_SYSTEMS §3.3: a blocked output stalls every lane — back-pressure stays physical).
+func has_free_lane() -> bool:
+	return jobs.size() + waiting_results() < lanes()
+
+
 ## Packets currently inside this machine, for the view: [{packet, where: "in:<port>"|"core"|"out:<port>", index}]
+## Running jobs are indexed by their lane; backlog packets sit behind the outq head (index 1..n).
 func packets_inside() -> Array:
 	var out := []
 	for k in inq:
@@ -317,55 +384,99 @@ func packets_inside() -> Array:
 			i += 1
 	for i in delay_line.size():
 		out.append({"packet": delay_line[i][0], "where": "core", "index": i})
-	if not job.is_empty() and job.has("input") and job["input"] != null:
-		out.append({"packet": job["input"], "where": "core", "index": 0})
+	var lane := 0
+	for j in jobs:
+		if j.has("input") and j["input"] != null:
+			out.append({"packet": j["input"], "where": "core", "index": lane})
+		lane += 1
 	for k in outq:
 		if outq[k] != null:
 			out.append({"packet": outq[k], "where": "out:" + k, "index": 0})
+		var b := 1
+		for p in out_backlog.get(k, []):
+			out.append({"packet": p, "where": "out:" + k, "index": b})
+			b += 1
 	return out
 
 
 func job_progress() -> float:
-	if job.is_empty():
+	if jobs.is_empty():
 		return 0.0
-	return 1.0 - float(job["work_left"]) / float(max(1, job["work_total"]))
+	return 1.0 - float(jobs[0]["work_left"]) / float(max(1, jobs[0]["work_total"]))
+
+
+## Progress (0..1) of every running job, in start order (lane 0 first).
+func lane_progress() -> Array:
+	var out := []
+	for j in jobs:
+		out.append(1.0 - float(j["work_left"]) / float(max(1, j["work_total"])))
+	return out
 
 
 # ---------------------------------------------------------------- tick phases
 
-## Phase: advance processing. Completed jobs move their results to output slots.
+## Phase: advance processing. Completed jobs move their results to the output head, or onto
+## the output backlog when the head is taken; finished jobs leave in start order.
 func advance(sim) -> void:
 	work_done = 0
-	if job.is_empty():
+	if jobs.is_empty():
 		return
 	var rate: int = sim.work_rate(self) if sim != null and sim.has_method("work_rate") else WORK_PER_TICK
 	last_rate = rate
 	if rate <= 0:
-		return  # paused (thermal CRITICAL): the job keeps its progress
+		return  # paused (thermal CRITICAL): the jobs keep their progress
 	busy_ticks += 1
-	work_done = mini(rate, int(job["work_left"]))
-	job["work_left"] = int(job["work_left"]) - rate
-	job["ticks_left"] = int(ceil(maxf(float(job["work_left"]), 0.0) / float(WORK_PER_TICK)))
-	if int(job["work_left"]) <= 0:
-		for port in job["results"]:
-			outq[port] = job["results"][port]
-		job = {}
+	var finished: Array = []
+	for j in jobs:
+		work_done += mini(rate, int(j["work_left"]))
+		j["work_left"] = int(j["work_left"]) - rate
+		j["ticks_left"] = int(ceil(maxf(float(j["work_left"]), 0.0) / float(WORK_PER_TICK)))
+		if int(j["work_left"]) <= 0:
+			finished.append(j)
+	for j in finished:
+		for port in j["results"]:
+			if outq[port] == null:
+				outq[port] = j["results"][port]
+			else:
+				out_backlog[port].append(j["results"][port])
 		processed += 1
+	if not finished.is_empty():
+		var keep: Array = []
+		for j in jobs:
+			if j not in finished:
+				keep.append(j)
+		jobs = keep
 
 
-## Phase: start a new job if inputs are ready and all output slots are free.
-## Delegates the per-type behaviour to ComponentLogic.
+## Take the head result of an output line and refill the head from the backlog.
+func pop_output(port: String) -> Packet:
+	var p: Packet = outq[port]
+	outq[port] = out_backlog[port].pop_front() if not out_backlog[port].is_empty() else null
+	return p
+
+
+## Phase: start new jobs while inputs are ready and a lane is free. Several lanes can start in
+## one tick when inputs are queued (a lane is only taken when the logic actually begins a job).
+## Machines that push results straight out (IO sources/sinks, the delay line) bypass the lane
+## gate so their own rules — socket overrun, strict overflow, the delay's fixed hold — hold.
 func start(sim) -> void:
-	if not job.is_empty():
+	if type in ["input", "usb_input", "output", "terminal_output", "usb_output", "delay"]:
+		ComponentLogic.for_type(type).start(self, sim)
 		return
-	ComponentLogic.for_type(type).start(self, sim)
+	while true:
+		if not has_free_lane():
+			break
+		var n := jobs.size()
+		ComponentLogic.for_type(type).start(self, sim)
+		if jobs.size() == n:
+			break
 
 
-## Called by ComponentLogic to occupy the machine for `ticks` (default: processing time).
+## Called by ComponentLogic to occupy a lane for `ticks` (default: processing time).
 func begin_job(results: Dictionary, input: Packet, ticks: int = -1) -> void:
 	var t := processing_ticks() if ticks < 0 else ticks
 	var w := t * WORK_PER_TICK
-	job = {"work_left": w, "work_total": w, "ticks_left": t, "total": t, "results": results, "input": input}
+	jobs.append({"work_left": w, "work_total": w, "ticks_left": t, "total": t, "results": results, "input": input})
 
 
 func pop(port: String) -> Packet:
@@ -381,7 +492,7 @@ func update_state(blocked_now: bool) -> void:
 	if blocked_now:
 		blocked_ticks += 1
 		state = State.BLOCKED
-	elif not job.is_empty():
+	elif not jobs.is_empty():
 		state = State.PROCESSING
 		if queued_count() >= _total_in_capacity():
 			starved_full_ticks += 1

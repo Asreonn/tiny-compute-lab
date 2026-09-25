@@ -32,6 +32,7 @@ id = "add"
 display_name = "Add"
 campaign_ticks = 4
 power = 1
+max_lanes = 8
 icon = "op_add"
 description = "Adds a constant value to each packet."
 ports = Array[ExtResource("3_1vu75")]([SubResource("Resource_qwjqp"), SubResource("Resource_2lyug")])

@@ -46,6 +46,7 @@ family = "conversion"
 size = "L"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 icon = "op_counter"
 description = "Turns bits into a raw number, unsigned or signed."
 ports = Array[ExtResource("3_u3w0y")]([SubResource("Resource_6seio"), SubResource("Resource_8xd0j")])

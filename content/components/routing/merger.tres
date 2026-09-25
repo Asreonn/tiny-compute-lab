@@ -30,6 +30,7 @@ family = "routing"
 size = "L"
 campaign_ticks = 2
 power = 1
+max_lanes = 4
 icon = "op_merge"
 description = "Two streams in, one out. Takes turns fairly between inputs."
 ports = Array[ExtResource("3_m5lgg")]([SubResource("Resource_f1gxu"), SubResource("Resource_ycy7q"), SubResource("Resource_23bfy")])

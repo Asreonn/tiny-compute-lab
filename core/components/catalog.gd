@@ -51,6 +51,13 @@ const HEAT_PER_POWER_ROUTING := 42
 ## Every powered machine gets this param (SYSTEMS_EXPANSION §6); the Inspector only shows it once
 ## the run unlocks clock modes (run.clock_unlocked()).
 const CLOCK_PARAM := {"label": "Clock", "kind": "enum", "default": "normal", "options": ["normal", "fast", "overclocked"]}
+## Every machine with max_lanes > 1 gets this param (its options are the subset ≤ the max);
+## the Inspector only shows it once the run unlocks lane upgrades (run.max_lanes() > 1).
+const LANES_PARAM := {"label": "Lanes", "kind": "enum", "default": "1", "options": ["1", "2", "4", "8"]}
+const LANES_VALUES := [1, 2, 4, 8]
+## Every powered machine gets this param (FACTORY_SYSTEMS §3.1); the Inspector only shows it once
+## the run unlocks efficiency (run.efficiency_unlocked()).
+const EFFICIENCY_PARAM := {"label": "Efficiency", "kind": "enum", "default": "standard", "options": ["standard", "efficient"]}
 
 ## type -> ComponentDefinition dictionary, built from the content assets (docs/CONTENT.md):
 ## {name, family, size, ticks, campaign_ticks, power, heat, icon, glyph_text?, desc, ports,
@@ -104,14 +111,40 @@ static func register(r: Resource) -> bool:
 	return true
 
 
-## Derived fields every definition gets: heat from the power, the Clock param when powered.
+## Derived fields every definition gets: heat from the power, the Clock param when powered, the
+## Lanes param when the def allows parallel jobs, and the Efficiency param when powered.
 static func _finish(d: Dictionary) -> Dictionary:
 	if not d.has("heat"):
 		var per := HEAT_PER_POWER_ROUTING if d["family"] == "routing" else HEAT_PER_POWER
 		d["heat"] = per * int(d.get("power", 0))
-	if int(d.get("power", 0)) > 0 and not d["params"].has("clock"):
+	var pow := int(d.get("power", 0))
+	var max_l := int(d.get("max_lanes", 1))
+	if max_l > 1 and not d["params"].has("lanes"):
+		var lp := LANES_PARAM.duplicate(true)
+		lp["options"] = []
+		for k in LANES_VALUES:
+			if k <= max_l:
+				lp["options"].append(str(k))
+		d["params"]["lanes"] = lp
+	if pow > 0 and not d["params"].has("efficiency"):
+		d["params"]["efficiency"] = EFFICIENCY_PARAM.duplicate(true)
+	if pow > 0 and not d["params"].has("clock"):
 		d["params"]["clock"] = CLOCK_PARAM.duplicate(true)
 	return d
+
+
+## Power/heat multiplier for a value width (FACTORY_SYSTEMS §3.1):
+## 1–5 → 1, 6–8 → 2, 9–16 → 3, 17–32 → 4, 33–64 → 6.
+static func width_factor(w: int) -> int:
+	if w <= 5:
+		return 1
+	if w <= 8:
+		return 2
+	if w <= 16:
+		return 3
+	if w <= 32:
+		return 4
+	return 6
 
 
 ## A machine variant keeps its base's shape: size, ports and behaviour (and so its art).

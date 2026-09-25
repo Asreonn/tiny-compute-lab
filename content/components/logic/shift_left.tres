@@ -32,6 +32,7 @@ display_name = "Shift Left"
 family = "logic"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "«"
 description = "Moves every bit n places up; the top bits fall off. The same as × 2ⁿ, far cheaper."
 ports = Array[ExtResource("3_yvwpm")]([SubResource("Resource_bpxuu"), SubResource("Resource_26spn")])

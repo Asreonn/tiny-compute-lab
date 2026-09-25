@@ -35,6 +35,7 @@ display_name = "Truncate"
 family = "conversion"
 campaign_ticks = 2
 power = 1
+max_lanes = 8
 glyph_text = "TR"
 description = "Narrows a word, keeping only its low bits."
 ports = Array[ExtResource("3_bxpju")]([SubResource("Resource_somqx"), SubResource("Resource_npcje")])
