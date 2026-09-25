@@ -65,8 +65,10 @@ func _on_hover(info: Dictionary) -> void:
 				sub = p.raw.kind_name()
 				dot_col = Palette.FAMILY_IO
 			else:
-				big = HudKit.fmt(p.data)
-				sub = "%d-bit" % p.data.width
+				# bits read as bits; the view mode's reading is the second line
+				big = ViewMode.format(p.data, ViewMode.Mode.BIN)
+				var reading := HudKit.fmt(p.data)
+				sub = "%d-bit" % p.data.width + ("" if reading == big else " · %s" % reading)
 				dot_col = Palette.datatype(p.data.width)
 			sz = Vector2(120, 72)
 		_:

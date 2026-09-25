@@ -11,6 +11,7 @@ static func run(t) -> void:
 	_job_drive_moves(t)
 	_monitor(t)
 	_empty_output_stalls(t)
+	_old_port_order(t)
 
 
 static func _board(level_idx: int) -> Array:
@@ -38,10 +39,11 @@ static func _l1_layout(t) -> void:
 	var outp := _port(sim, "out", 1)
 	t.check(inp != null and inp.cell == Vector2i(0, 1) and inp.device == "bit", "input port 1 at (0,1) holds the Bit module")
 	t.check(outp != null and outp.cell == Vector2i(26, 1) and outp.device == "job", "output port 1 at (26,1) holds the Job drive")
-	for row in [4, 7, 10]:
+	t.check(_port(sim, "in", 4) != null and _port(sim, "out", 4) != null, "two input and two output ports are open from the start")
+	for row in [7, 10]:
 		t.check(sim.is_reserved(Vector2i(0, row)) and sim.is_reserved(Vector2i(1, row)), "input row %d is a sealed bay" % row)
 		t.check(sim.is_reserved(Vector2i(26, row)) and sim.is_reserved(Vector2i(27, row)), "output row %d is a sealed bay" % row)
-	t.check(sim.reserved_label(Vector2i(0, 4)).begins_with("USB 2"), "a sealed bay carries its label (got '%s')" % sim.reserved_label(Vector2i(0, 4)))
+	t.check(sim.reserved_label(Vector2i(0, 7)).begins_with("USB 3"), "a sealed bay carries its label (got '%s')" % sim.reserved_label(Vector2i(0, 7)))
 	# creation order: [input row 1, output row 1] first (save migration relies on it)
 	var ids := sim.sorted_machine_ids()
 	t.check(ids.size() >= 2 and sim.machines[ids[0]] == inp and sim.machines[ids[1]] == outp, "ports are created input-1 then output-1")
@@ -49,7 +51,7 @@ static func _l1_layout(t) -> void:
 
 static func _reserved_blocks_building(t) -> void:
 	var sim: Simulation = _board(1)[0]  # L2: the Add is unlocked
-	t.check(sim.placement_error("add", Vector2i(0, 4), 0) == "Sealed USB bay", "building on a sealed bay is refused")
+	t.check(sim.placement_error("add", Vector2i(0, 7), 0) == "Sealed USB bay", "building on a sealed bay is refused")
 	t.check(sim.placement_error("add", Vector2i(4, 4), 0) == "", "an ordinary tile is still buildable")
 	# a wire from row 3 to row 5 along column 0/1 must go around the bay, never through it
 	var a := sim.place("add", Vector2i(2, 3), 0, {"k": 1}, 3)
@@ -65,7 +67,7 @@ static func _reserved_blocks_building(t) -> void:
 static func _ports_open_with_levels(t) -> void:
 	var sim8: Simulation = _board(8)[0]
 	t.check(_port(sim8, "out", 4) != null and not sim8.is_reserved(Vector2i(sim8.size.x - 2, 4)), "output port 2 (row 4) opens at L9")
-	t.check(_port(sim8, "in", 4) == null and sim8.is_reserved(Vector2i(0, 4)), "input port 2 is still sealed at L9")
+	t.check(_port(sim8, "in", 7) == null and sim8.is_reserved(Vector2i(0, 7)), "input port 3 is still sealed at L9")
 	var sim11: Simulation = _board(10)[0]
 	t.check(sim11.size == Vector2i(40, 22), "L11 grows the grid to 40x22 (got %s)" % sim11.size)
 	t.check(_port(sim11, "out", 1).cell == Vector2i(38, 1), "output ports follow the east edge")
@@ -113,3 +115,23 @@ static func _empty_output_stalls(t) -> void:
 	for i in 40:
 		sim.step()
 	t.check(c != null and c.packet_count() > 0 and o2.received.is_empty(), "a wire into an empty output port stalls")
+
+
+## A layout saved when the racks opened in another order (in 1, out 1, out 4, out 7, in 4) still
+## gives every port its own module: locked entries match by type and cell.
+static func _old_port_order(t) -> void:
+	var sim := Simulation.new()
+	var run := LabRun.new()
+	run.level = 11
+	run.build_board(sim)
+	var ox := sim.size.x - 2
+	var lay := {"machines": [
+		{"type": "usb_input", "cell": [0, 1], "locked": true, "device": "text", "last_device": "text", "socket": true},
+		{"type": "usb_output", "cell": [ox, 1], "locked": true, "device": "job", "last_device": "job", "socket": true},
+		{"type": "usb_output", "cell": [ox, 4], "locked": true, "device": "monitor", "last_device": "monitor", "socket": true},
+		{"type": "usb_output", "cell": [ox, 7], "locked": true, "device": "", "last_device": "", "socket": true},
+		{"type": "usb_input", "cell": [0, 4], "locked": true, "device": "key", "last_device": "key", "socket": true},
+	], "connections": []}
+	sim.load_player_layout(lay)
+	t.check(_port(sim, "in", 4).device == "key" and _port(sim, "out", 4).device == "monitor" and _port(sim, "in", 1).device == "text", "an old save's modules land on their own ports")
+

@@ -85,7 +85,7 @@ func _show_level_banner() -> void:
 		return
 	var lvl: int = sm.lab_run.level
 	var lv: Dictionary = LabDef.level(lvl)
-	HudKit.set_text(_banner_label, "LEVEL %d COMPLETE" % lvl, Palette.STATE_VALID)
+	HudKit.set_text(_banner_label, "TASK COMPLETE", Palette.STATE_VALID)
 	if sm.lab_run.all_done():
 		HudKit.set_text(_banner_label, "ALL CONTRACTS COMPLETE", Palette.STATE_VALID)
 		lv = {}  # the last level's unlocks were already shown when it started

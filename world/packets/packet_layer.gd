@@ -371,11 +371,13 @@ func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: C
 		_draw_label(p, pos, design * scale_k)
 
 
-## Close tier: the packet value in the HUD view mode, DATA_NUMBER (DATA_BOOLEAN for width
-## 1), centred on the chip. Labels longer than 5 characters go in a small tag 14 px above
-## the packet instead (MACHINE_SCREEN fill, 1 px MATERIAL_FRAME stroke, radius 3).
+## Close tier: the packet's bits as 0 / 1, DATA_NUMBER (DATA_BOOLEAN for width 1), centred on
+## the chip. Bits always read as bits — a letter or a number is a raw token (drawn above), so an
+## encoder or decoder visibly changes what travels: H → 00111 → K. Labels longer than 5
+## characters go in a small tag 14 px above the packet instead (MACHINE_SCREEN fill, 1 px
+## MATERIAL_FRAME stroke, radius 3).
 func _draw_label(p: Packet, pos: Vector2, size: Vector2) -> void:
-	var text := ViewMode.format(p.data, _view_mode())
+	var text := ViewMode.format(p.data, ViewMode.Mode.BIN)
 	var pw: int = p.data.width
 	if pw <= 5:
 		text = text.replace(" ", "")  # compact on the chip (10101 fits; the panels keep 1 0101)
@@ -394,15 +396,3 @@ func _draw_label(p: Packet, pos: Vector2, size: Vector2) -> void:
 	else:
 		var base := Vector2(pos.x - size.x * 0.5, pos.y + (ascent - descent) * 0.5)
 		draw_string(f, base, text, HORIZONTAL_ALIGNMENT_CENTER, size.x, LABEL_SIZE, color)
-
-
-## Display view mode for packet labels: SimulationManager.view_mode, defaulting to the
-## mission's first view mode (then BIN).
-func _view_mode() -> int:
-	var vm: int = SimulationManager.view_mode
-	if vm >= ViewMode.Mode.BIN:
-		return vm
-	var md: MissionDef = SimulationManager.mission
-	if md != null and not md.view_modes.is_empty():
-		return int(md.view_modes[0])
-	return ViewMode.Mode.BIN

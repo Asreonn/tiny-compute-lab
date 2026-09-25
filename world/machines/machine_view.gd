@@ -189,6 +189,7 @@ func _build() -> void:
 	_progress.dial = _area_kind == "Dial"
 	var asz := Art.area_size(_area_kind)
 	_progress.area_rect = Rect2(_progress.center - asz * 0.5, asz) if asz != Vector2.ZERO else Rect2()
+	_progress.chassis = Rect2(Vector2.ZERO, Vector2(Catalog.SIZES[machine.def()["size"]]) * T)
 	body.add_child(_progress)
 	# 12b resource indicators (STYLE_GUIDE §3): a child of the rotating Body so it rotates
 	# with the chassis like other silk (tiny geometry, no text -> no upright problem).
@@ -1241,9 +1242,11 @@ func _update_progress() -> void:
 class ProcessProgress extends Node2D:
 	const RING_R := 17.0
 	const RING_W := 2.5
+	const BAR_W := 3.0
 	var center := Vector2.ZERO
 	var dial := false
 	var area_rect := Rect2()
+	var chassis := Rect2()  # machines without an activity area get their bar along its bottom
 	var _p := -1.0
 	var _a := 1.0
 
@@ -1261,12 +1264,25 @@ class ProcessProgress extends Node2D:
 			draw_arc(center, RING_R, 0.0, TAU, 48, Color(Palette.MATERIAL_VENT, 0.9 * _a), RING_W, true)
 			if _p > 0.0:
 				draw_arc(center, RING_R, -PI / 2.0, -PI / 2.0 + TAU * _p, maxi(4, int(48 * _p)), fill, RING_W, true)
-		elif area_rect.size.x > 0.0:
-			var y := area_rect.end.y - 3.0
-			var x0 := area_rect.position.x + 4.0
-			var w := area_rect.size.x - 8.0
-			draw_line(Vector2(x0, y), Vector2(x0 + w, y), Color(Palette.MATERIAL_VENT, 0.9 * _a), 2.0, true)
-			draw_line(Vector2(x0, y), Vector2(x0 + w * _p, y), fill, 2.0, true)
+		else:
+			# every other machine: a 3 px bar — inside its activity area's bottom edge, or along
+			# the inside bottom of the chassis when it has no area (register, ALU, gates …)
+			var y: float
+			var x0: float
+			var w: float
+			if area_rect.size.x > 0.0:
+				y = area_rect.end.y - 3.0
+				x0 = area_rect.position.x + 4.0
+				w = area_rect.size.x - 8.0
+			elif chassis.size.x > 0.0:
+				y = chassis.end.y - 6.0
+				x0 = chassis.position.x + 12.0
+				w = chassis.size.x - 24.0
+			else:
+				return
+			draw_line(Vector2(x0, y), Vector2(x0 + w, y), Color(Palette.MATERIAL_VENT, 0.9 * _a), BAR_W, true)
+			if _p > 0.0:
+				draw_line(Vector2(x0, y), Vector2(x0 + w * _p, y), fill, BAR_W, true)
 
 
 ## Heat stage strip (STYLE_GUIDE §14.8, systems_v1.js): a 2 px bar at (8, 3, w-16) inside the

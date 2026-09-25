@@ -16,7 +16,7 @@ signal history_changed
 const MAX_STEPS_PER_FRAME := 8
 ## Real-time playback at 1× (player feedback 2026-09-24: 1× should be calm; the former 1× of
 ## 10 ticks/s is now 3×). Visual motion is continuous between ticks at every speed.
-const TICK_RATE := float(Simulation.TICKS_PER_SEC) / 3.0
+const TICK_RATE := float(Simulation.TICKS_PER_SEC) / 4.0  # 1x = 2.5 ticks/s: every job is visible
 const SPEEDS := [1, 2, 5, 10]
 
 var sim: Simulation

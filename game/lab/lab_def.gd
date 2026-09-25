@@ -305,20 +305,18 @@ static func drive_cell(size: Vector2i) -> Vector2i:
 
 
 ## The input rows open at level index `idx`: row 1 from L1, row 4 from L12, row 7 from L18.
+## The input rows open at level index `idx`: rows 1 and 4 from the start (two sticks at once),
+## row 7 from L18 (BYTE).
 static func open_input_rows(level_idx: int) -> Array[int]:
-	var out: Array[int] = [PORT_ROWS[0]]
-	if level_idx >= 11:
-		out.append(PORT_ROWS[1])
+	var out: Array[int] = [PORT_ROWS[0], PORT_ROWS[1]]
 	if level_idx >= 17:
 		out.append(PORT_ROWS[2])
 	return out
 
 
-## The output rows open at level index `idx`: row 1 from L1, row 4 from L9, row 7 from L12.
+## The output rows open at level index `idx`: rows 1 and 4 from the start, row 7 from L12.
 static func open_output_rows(level_idx: int) -> Array[int]:
-	var out: Array[int] = [PORT_ROWS[0]]
-	if level_idx >= 8:
-		out.append(PORT_ROWS[1])
+	var out: Array[int] = [PORT_ROWS[0], PORT_ROWS[1]]
 	if level_idx >= 11:
 		out.append(PORT_ROWS[2])
 	return out
@@ -340,12 +338,11 @@ static func ports_upto(level_idx: int) -> Array:
 	var out: Array = [
 		{"side": "in", "row": PORT_ROWS[0]},
 		{"side": "out", "row": PORT_ROWS[0]},
+		{"side": "in", "row": PORT_ROWS[1]},
+		{"side": "out", "row": PORT_ROWS[1]},
 	]
-	if level_idx >= 8:
-		out.append({"side": "out", "row": PORT_ROWS[1]})
 	if level_idx >= 11:
 		out.append({"side": "out", "row": PORT_ROWS[2]})
-		out.append({"side": "in", "row": PORT_ROWS[1]})
 	if level_idx >= 17:
 		out.append({"side": "in", "row": PORT_ROWS[2]})
 	return out
@@ -356,14 +353,10 @@ static func slot_label(side: String, row: int) -> String:
 	var n := PORT_ROWS.find(row) + 1
 	var open_at := -1
 	if side == "in":
-		if row == PORT_ROWS[1]:
-			open_at = 11
-		elif row == PORT_ROWS[2]:
+		if row == PORT_ROWS[2]:
 			open_at = 17
 	else:
-		if row == PORT_ROWS[1]:
-			open_at = 8
-		elif row == PORT_ROWS[2]:
+		if row == PORT_ROWS[2]:
 			open_at = 11
 	if open_at >= 0:
 		return "USB %d · opens at L%d" % [n, open_at + 1]

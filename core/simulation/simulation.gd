@@ -954,10 +954,12 @@ func load_player_layout(d: Dictionary) -> void:
 			locked_by_index.append(id)
 	var li := 0
 	var i := 0
+	var used := {}
 	for md in d.get("machines", []):
 		if md.get("locked", false):
-			if li < locked_by_index.size():
-				var mid: int = locked_by_index[li]
+			var mid := _locked_match(md, locked_by_index, li, used)
+			if mid >= 0:
+				used[mid] = true
 				map[i] = mid
 				var lm: Machine = machines[mid]
 				if md.has("last_device"):
@@ -1002,14 +1004,17 @@ func apply_layout(d: Dictionary) -> void:
 				pool[k] = []
 			pool[k].append(id)
 	var map := {}
+	var used_locked := {}
 	var create := []  # target indices still to place
 	var li := 0
 	var entries: Array = d.get("machines", [])
 	for i in entries.size():
 		var md: Dictionary = entries[i]
 		if md.get("locked", false):
-			if li < locked_by_index.size():
-				map[i] = locked_by_index[li]
+			var lmid := _locked_match(md, locked_by_index, li, used_locked)
+			if lmid >= 0:
+				used_locked[lmid] = true
+				map[i] = lmid
 			li += 1
 		else:
 			var k2 := _layout_key(md)
@@ -1215,3 +1220,20 @@ func _group_placement_error(group: Dictionary, delta: Vector2i) -> String:
 			if reserved.has(n):
 				return "Sealed USB bay"
 	return ""
+
+
+## The locked machine a saved locked entry belongs to: the one of the same type on the same cell
+## (port racks can open in a different order than they were saved), else the `li`-th by creation
+## order (older saves), never one already matched. -1 when there is none.
+func _locked_match(md: Dictionary, locked_by_index: Array, li: int, used: Dictionary) -> int:
+	var c: Array = md.get("cell", [])
+	if c.size() == 2:
+		var cell := Vector2i(int(c[0]), int(c[1]))
+		for id in locked_by_index:
+			var m: Machine = machines[id]
+			if not used.has(id) and m.type == str(md.get("type", "")) and m.cell == cell:
+				return id
+	if li < locked_by_index.size() and not used.has(locked_by_index[li]):
+		return locked_by_index[li]
+	return -1
+
