@@ -1368,6 +1368,17 @@ func _on_run_finished(_status: int) -> void:
 	_apply_highlights(ids)
 
 
+## World built new views after a layout change: put the tool-driven flags back on them
+## (selection, hover, the failure highlight).
+func sync_view_flags() -> void:
+	_apply_selection()
+	_apply_hover(_hover)
+	var ids: Array = []
+	if SimulationManager.run != null and SimulationManager.run.status == MissionRun.Status.FAIL:
+		ids = SimulationManager.run.failure.get("machines", [])
+	_apply_highlights(ids)
+
+
 func _apply_highlights(ids: Array) -> void:
 	if _machine_layer == null:
 		return

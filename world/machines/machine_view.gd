@@ -70,6 +70,15 @@ var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
 var _progress: ProcessProgress
 var _ri: ResourceIndicators
+# per-frame change detection (refresh() only touches what changed)
+var _seen_tick := -2
+var _area_rel := ""
+var _opwin_busy := false
+var _port_wired := {}  # port id -> bool (layout-derived, see on_layout)
+var _tag_raw: Array = []  # tag i -> its port is a raw receptacle (layout-derived)
+var _texts_key := ""
+var _contacts_live := false  # a contact ring window is open: keep checking every frame
+var _completed_now := false  # a job finished on the current tick
 const DONE_HOLD := 0.25  # fraction of a tick a finished job shows 100 % before the next fills
 
 
@@ -222,6 +231,7 @@ func _build() -> void:
 	text_layer.name = "UprightText"
 	add_child(text_layer)
 	_build_texts(ly, area, disp, ro)
+	on_layout()
 
 
 func _build_thermal() -> void:
@@ -511,11 +521,50 @@ func port_anchor(port_id: String) -> Vector2:
 
 # ------------------------------------------------------------------ per-frame
 
+## Everything _build() reads from the model. World keeps a view across a layout change while its
+## key holds (only on_layout() runs) and rebuilds just this view when it changes.
+static func view_key(m: Machine) -> String:
+	var k := "%s|%d,%d|%d|%d|%s|%s|%s|%s" % [m.type, m.cell.x, m.cell.y, m.rot, m.width, str(m.params), m.locked, m.socket, str(m.port_width_override)]
+	if m.type == "heat_pipe":
+		k += "|" + ThermalPartView.links_key(m, SimulationManager.sim)
+	return k
+
+
+## The board layout changed (wires, devices, params) but this view was kept: refresh what only a
+## layout change can alter — port sprites (wired or not), raw receptacles, width tags, texts.
+func on_layout() -> void:
+	var sim := SimulationManager.sim
+	for pid in _port_nodes:
+		var wired := sim != null and sim.connection_at_port(machine.id, pid) != null
+		_port_wired[pid] = wired
+		var pt := Art.tex(Art.port_sprite(_port_dir[pid], _port_bus[pid], _port_w[pid], "connected" if wired else "idle"))
+		if _port_nodes[pid].texture != pt:
+			_port_nodes[pid].texture = pt
+	for pid in _raw_ports:
+		var raw_role: bool = machine.port_role(pid) == Catalog.ROLE_RAW
+		_raw_ports[pid].visible = raw_role
+		if _port_nodes.has(pid):
+			_port_nodes[pid].visible = not raw_role
+		if _port_contact.has(pid):
+			_port_contact[pid].visible = not raw_role
+	# width tags hide (sprite and silk digits) when their port is a raw receptacle
+	_tag_raw.clear()
+	for i in _tag_nodes.size():
+		var tpid: String = str(_tag_ports[i]) if i < _tag_ports.size() else ""
+		var raw_tag: bool = tpid != "" and machine.port_role(tpid) == Catalog.ROLE_RAW
+		_tag_raw.append(raw_tag)
+		_tag_nodes[i].visible = not raw_tag
+	_texts_key = ""  # re-evaluate the texts next frame
+
+
 func refresh(delta: float) -> void:
 	var m := machine
 	var sim := SimulationManager.sim
 	var running := SimulationManager.running
-	_update_progress()
+	var tick := sim.tick if sim != null else -1
+	var new_tick := tick != _seen_tick
+	_seen_tick = tick
+	_update_progress(new_tick)
 	# LED from machine state (lab sockets: Receiving on a packet leaving this tick, Idle when
 	# plugged, Off when empty — design/reference/systems_v1.js socket states)
 	var led_name: String = MACHINE_STATE_LED[m.state]
@@ -536,29 +585,25 @@ func refresh(delta: float) -> void:
 		_led_rel = led_name
 	# Activity area variant
 	if _area != null:
-		var rel := Art.area_file(_area_kind, _area_state(running))
-		var t := Art.tex(rel)
-		if _area.texture != t:
-			_area.texture = t
+		var ast := _area_state(running)
+		if ast != _area_rel:
+			_area_rel = ast
+			_area.texture = Art.tex(Art.area_file(_area_kind, ast))
 	if _opwin != null:
-		var busy := running and m.state in [Machine.State.PROCESSING, Machine.State.RECEIVING]
-		var ot := Art.tex(Art.area_file("OpWindow", "Active" if busy else "Idle"))
-		if _opwin.texture != ot:
-			_opwin.texture = ot
+		var busy := running and (m.state == Machine.State.PROCESSING or m.state == Machine.State.RECEIVING)
+		if busy != _opwin_busy:
+			_opwin_busy = busy
+			_opwin.texture = Art.tex(Art.area_file("OpWindow", "Active" if busy else "Idle"))
 	# State overlays (alpha tween 0.12 s); hover/selected driven by the tools. The
 	# processing/outputready body overlays stay at alpha 0 always (VFX ladder L2 is the
 	# ActivityArea / LED only, never a body glow).
-	var want := {
-		"processing": 0.0,  # listed so an already-visible sprite still fades out
-		"outputready": 0.0,
-		"blocked": 1.0 if m.state == Machine.State.BLOCKED else 0.0,
-		"error": 1.0 if (m.state == Machine.State.ERROR or highlighted) else 0.0,
-		"hover": 1.0 if hovered and not selected else 0.0,
-		"selected": 1.0 if selected else 0.0,
-	}
-	for k in want:
-		var o: Sprite2D = _overlays[k]
-		o.modulate.a = move_toward(o.modulate.a, want[k], delta / OVERLAY_TWEEN)
+	var step := delta / OVERLAY_TWEEN
+	_fade_overlay("processing", 0.0, step)
+	_fade_overlay("outputready", 0.0, step)
+	_fade_overlay("blocked", 1.0 if m.state == Machine.State.BLOCKED else 0.0, step)
+	_fade_overlay("error", 1.0 if (m.state == Machine.State.ERROR or highlighted) else 0.0, step)
+	_fade_overlay("hover", 1.0 if hovered and not selected else 0.0, step)
+	_fade_overlay("selected", 1.0 if selected else 0.0, step)
 	# Expansion reveal: newly added locked USB Inputs pulse their hover overlay for 2.5 s
 	# (2 fade-in/out pulses). Overrides the tween while active.
 	if reveal_active:
@@ -569,23 +614,13 @@ func refresh(delta: float) -> void:
 		else:
 			reveal_active = false
 			_overlays["hover"].modulate.a = 0.0
-	# Ports: connected / idle from SimulationManager.sim (never "active" — the baked halo
-	# texture is retired; L1 transfer is the procedural contact ring instead).
-	for pid in _port_nodes:
-		var st := _port_state(pid, running)
-		var rel2 := Art.port_sprite(_port_dir[pid], _port_bus[pid], _port_w[pid], st)
-		var pt := Art.tex(rel2)
-		if _port_nodes[pid].texture != pt:
-			_port_nodes[pid].texture = pt
-		_update_contact(pid, sim)
-	# D4: raw receptacles follow the port role; codec slot / socket / contract overlays.
-	for pid in _raw_ports:
-		var raw_role: bool = machine.port_role(pid) == Catalog.ROLE_RAW
-		_raw_ports[pid].visible = raw_role
-		if _port_nodes.has(pid):
-			_port_nodes[pid].visible = not raw_role
-		if _port_contact.has(pid):
-			_port_contact[pid].visible = not raw_role
+	# Port contact rings (L1): edge-detected on a new tick, drawn while their window is open.
+	# Sprites (connected / idle) and raw receptacles only change with the layout: on_layout().
+	if sim != null and (new_tick or _contacts_live):
+		_contacts_live = false
+		for pid in _port_nodes:
+			_update_contact(pid, sim)
+	# D4: codec slot / socket / contract overlays; E3 thermal hardware.
 	if _codec_slot != null:
 		_update_codec_slot()
 	if _usb_socket != null:
@@ -597,29 +632,31 @@ func refresh(delta: float) -> void:
 		_thermal.refresh(delta)
 	if _strip != null:
 		_strip.refresh(machine.heat_stage, delta)
-	# Upright texts
-	_update_texts(sim, running)
-	# Width tags hide (sprite and silk digits) when their port is a raw receptacle.
-	for i in _tag_nodes.size():
-		var tpid: String = str(_tag_ports[i]) if i < _tag_ports.size() else ""
-		var raw_tag: bool = tpid != "" and machine.port_role(tpid) == Catalog.ROLE_RAW
-		_tag_nodes[i].visible = not raw_tag
-		if raw_tag:
-			for t in _text_specs:
-				if t["key"] == "tag%d" % i:
-					t["text"] = ""
-	text_layer.queue_redraw()
+	# Upright texts: values change with ticks, edits (on_layout) and the view mode only.
+	var tkey := "%d|%d|%s" % [tick, SimulationManager.view_mode, running]
+	if tkey != _texts_key:
+		_texts_key = tkey
+		if _update_texts(sim, running):
+			text_layer.queue_redraw()
 	# Resource indicators: same visibility rule as the old stats silk (normal + close zoom,
 	# never at far zoom). Ghosts/locked machines have no _ri (they are not built).
 	if _ri != null:
 		var cam := get_viewport().get_camera_2d()
 		var far := cam != null and cam.zoom.x < Palette.ZOOM_FAR_BELOW
-		_ri.visible = not far
+		if _ri.visible == far:
+			_ri.visible = not far
 		if not far:
 			_ri.set_data(machine.processing_ticks(), machine.power(), str(machine.params.get("clock", "normal")))
 
 
-func _update_texts(sim: Simulation, _running: bool) -> void:
+func _fade_overlay(key: String, want: float, step: float) -> void:
+	var o: Sprite2D = _overlays[key]
+	if o.modulate.a != want:
+		o.modulate.a = move_toward(o.modulate.a, want, step)
+
+
+## Recompute every upright text; true when any of them changed (the layer then redraws).
+func _update_texts(sim: Simulation, _running: bool) -> bool:
 	var m := machine
 	var vm := resolve_view_mode()
 	var vals := {}
@@ -632,32 +669,39 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 	vals["bin"] = _bin_value(sim)
 	for i in _tag_values.size():
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
-		vals["tag%d" % i] = str(_tag_values[i])
+		vals["tag%d" % i] = "" if (i < _tag_raw.size() and _tag_raw[i]) else str(_tag_values[i])
+	var dirty := false
 	for t in _text_specs:
-		if t["key"] == "operator" and m.type in ["shift_left", "shift_right"]:
-			t["text"] = ("«%d" if m.type == "shift_left" else "»%d") % int(m.params.get("n", 1))  # the live amount
-			continue
-		if t["key"] == "operator" and m.type == "cond_router":
+		var key: String = t["key"]
+		var txt: String
+		var col: Color = t["color"]
+		if key == "operator" and (m.type == "shift_left" or m.type == "shift_right"):
+			txt = ("«%d" if m.type == "shift_left" else "»%d") % int(m.params.get("n", 1))  # the live amount
+		elif key == "operator" and m.type == "cond_router":
 			var op := str(m.params.get("op", ">"))
-			t["text"] = "b%d" % int(m.params.get("k", 0)) if op == "bit" else op  # the live test
-			continue
-		if t["key"] == "dial" or t["key"] == "operator":
+			txt = "b%d" % int(m.params.get("k", 0)) if op == "bit" else op  # the live test
+		elif key == "dial" or key == "operator":
 			continue  # static text
-		var txt: String = vals.get(t["key"], "")
-		t["text"] = txt
-		if t["key"] == "display":
+		else:
+			txt = vals.get(key, "")
+		if key == "display":
 			# bits in a 36 px chip: no group spaces, and the type shrinks to fit (never below 7 px)
 			txt = txt.replace(" ", "")
+			if txt != t["text"]:
+				var f := TclTheme.font("ExtraBold")
+				var fs := 11.0
+				while fs > 7.0 and f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs)).x > float(t["width"]):
+					fs -= 1.0
+				t["size"] = fs
+		if key == "bin":
+			col = _bin_color
+		elif key == "ro_value" and m.type == "terminal_output":
+			col = _bin_color if _bin_color == Palette.STATE_ERROR else (Palette.FAMILY_IO if vm == ViewMode.Mode.CHAR else Palette.DATA_NUMBER)
+		if txt != t["text"] or col != t["color"]:
 			t["text"] = txt
-			var f := TclTheme.font("ExtraBold")
-			var fs := 11.0
-			while fs > 7.0 and f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs)).x > float(t["width"]):
-				fs -= 1.0
-			t["size"] = fs
-		if t["key"] == "bin":
-			t["color"] = _bin_color
-		elif t["key"] == "ro_value" and m.type == "terminal_output":
-			t["color"] = _bin_color if _bin_color == Palette.STATE_ERROR else (Palette.FAMILY_IO if vm == ViewMode.Mode.CHAR else Palette.DATA_NUMBER)
+			t["color"] = col
+			dirty = true
+	return dirty
 
 
 func resolve_view_mode() -> int:
@@ -786,6 +830,17 @@ func _area_state(running: bool) -> String:
 			if not busy:
 				return _area_idle
 			return "write" if m.last_mem_op == "write" else "read"
+		"Bank":
+			# the buffer's four cells fill with its queue; a backed-up buffer shows blocked
+			if st == Machine.State.BLOCKED:
+				return "blocked"
+			return str(clampi(m.queued_count(), 0, 4))
+		"Comparator":
+			# the test result of the value being judged: true / false
+			if not busy:
+				return _area_idle
+			var res: Packet = (m.job.get("results", {}) as Dictionary).get("out")
+			return "true" if res != null and not res.is_raw() and res.data.as_bool() else "false"
 		_:
 			if not busy:
 				return _area_idle
@@ -798,22 +853,14 @@ func _area_state(running: bool) -> String:
 					return "active"
 
 
-func _port_state(pid: String, _running: bool) -> String:
-	var sim := SimulationManager.sim
-	if sim != null and sim.connection_at_port(machine.id, pid) != null:
-		return "connected"
-	return "idle"
-
-
 ## Edge-detect a port contact on a NEW simulation tick: when the port first becomes part of
 ## received_ports/sent_ports for sim.tick, stamp _contact_start so the L1 ring plays once.
+## Sets _contacts_live while a ring window is open so refresh() keeps calling in between ticks.
 func _update_contact(pid: String, sim: Simulation) -> void:
-	if sim == null:
-		return
 	# D4 raw receptacle: Idle / Connected when wired / Active during the 120 ms contact
 	# window (the rawPort Active ring itself is the L1 contact mark).
 	var rp: RawPortView = _raw_ports.get(pid)
-	if rp != null and machine.port_role(pid) == Catalog.ROLE_RAW:
+	if rp != null and rp.visible:
 		var rnow := Time.get_ticks_msec()
 		if pid in machine.received_ports or pid in machine.sent_ports:
 			if rp._seen_tick != sim.tick and (rp._start < 0 or rnow - rp._start >= PortContact.DURATION):
@@ -822,8 +869,9 @@ func _update_contact(pid: String, sim: Simulation) -> void:
 		else:
 			rp._seen_tick = -1
 		var ractive := rp._start >= 0 and rnow - rp._start <= PortContact.DURATION
-		var rwired := sim.connection_at_port(machine.id, pid) != null
-		rp.set_state("Active" if ractive else ("Connected" if rwired else "Idle"))
+		if ractive:
+			_contacts_live = true
+		rp.set_state("Active" if ractive else ("Connected" if _port_wired.get(pid, false) else "Idle"))
 		return
 	var ring: PortContact = _port_contact.get(pid)
 	if ring == null:
@@ -841,6 +889,7 @@ func _update_contact(pid: String, sim: Simulation) -> void:
 	# Redraw only while the 120 ms window is open (plus one frame to clear it).
 	if ring._start >= 0 and now - ring._start <= PortContact.DURATION + 34:
 		ring.queue_redraw()
+		_contacts_live = true
 
 
 ## Glyph shown in a codec's token slot: the job's raw input while an encoder absorbs, or the
@@ -1019,6 +1068,7 @@ class UsbSocketView extends Node2D:
 	var _alpha := 1.0
 	var _cursor := -1
 	var _lit := false
+	var _key := []
 
 	func refresh() -> void:
 		var dev: String = machine.device
@@ -1052,7 +1102,20 @@ class UsbSocketView extends Node2D:
 					_alpha = 1.0 - 0.5 * t
 		_lit = "out" in machine.sent_ports
 		_cursor = (machine.gen_seq - 1) % 30 if _lit else -1
-		queue_redraw()
+		# redraw on a change, while the plug motion runs, or while a finished stick shimmers
+		var lr = SimulationManager.run
+		var done := false
+		if _anim_device != "" and lr is LabRun:
+			var q := Devices.quest_of(_anim_device)
+			done = q >= 0 and (lr as LabRun).quest_progress(q).filled
+		var fill := 0.0
+		if _anim_device != "" and lr is LabRun:
+			fill = (lr as LabRun).quest_fill(Devices.quest_of(_anim_device)) if Devices.quest_of(_anim_device) >= 0 else 0.0
+		var key := [_anim_device, dev, _lit, _cursor, hovered, done, fill]
+		var shimmer := done and not HudKit.REDUCED_MOTION and fposmod(now, 2.4) < 0.65  # the sweep pass (+ a frame to clear)
+		if key != _key or _anim_start >= 0.0 or shimmer:
+			_key = key
+			queue_redraw()
 
 	func _ease_out(t: float) -> float:
 		var c := clampf(t, 0.0, 1.0)
@@ -1095,6 +1158,15 @@ class ContractDriveView extends Node2D:
 	var _last_tick := -1
 	var _last_lct := -100000
 	var _lct_start := -1.0
+	var _key := []
+	var _fx: ContractFx
+	var _fx_was_on := false
+
+	func _ready() -> void:
+		_fx = ContractFx.new()
+		_fx.name = "Fx"
+		_fx.host = self
+		add_child(_fx)
 
 	func refresh() -> void:
 		var run = SimulationManager.run
@@ -1123,7 +1195,19 @@ class ContractDriveView extends Node2D:
 			_last_lct = lct
 			if lct >= 0:
 				_lct_start = Time.get_ticks_msec() / 1000.0
-		queue_redraw()
+		# the module redraws when what it shows changes; the flash / digits / pulse live on the
+		# light Fx layer, redrawn only while one of them plays
+		var key := [machine.device, run.delivered, machine.received.size(), SimulationManager.view_mode]
+		if run is LabRun and not run.all_done():
+			var q2: int = run.quest_for_drive(machine.id, SimulationManager.sim)
+			key.append_array([q2, run.quest_fill(q2), run.quest_progress(q2).filled])
+		if key != _key:
+			_key = key
+			queue_redraw()
+		var fx_on := _flash_start >= 0.0 or not _digits.is_empty() or _lct_start >= 0.0
+		if fx_on or _fx_was_on:
+			_fx.queue_redraw()
+		_fx_was_on = fx_on
 
 	## The Monitor shows the last value it received (in the HUD view mode) + a 10-sample history.
 	func _draw_monitor() -> void:
@@ -1168,7 +1252,7 @@ class ContractDriveView extends Node2D:
 		var now := Time.get_ticks_msec() / 1000.0
 		_digits = _digits.filter(func(d): return now - float(d[2]) <= DIGIT_S)
 
-	func _draw_digits() -> void:
+	func _draw_digits(ci: CanvasItem) -> void:
 		var now := Time.get_ticks_msec() / 1000.0
 		var f := TclTheme.font("ExtraBold")
 		for d in _digits:
@@ -1177,7 +1261,7 @@ class ContractDriveView extends Node2D:
 				continue  # staggered: not born yet
 			var k := el / DIGIT_S
 			var pos: Vector2 = d[0] + (d[1] as Vector2) * el
-			draw_string(f, pos, str(d[3]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(d[4], 0.9 * (1.0 - k * k)))
+			ci.draw_string(f, pos, str(d[3]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(d[4], 0.9 * (1.0 - k * k)))
 
 	func _glyph(run) -> String:
 		if run.has_method("request_label"):
@@ -1222,22 +1306,42 @@ class ContractDriveView extends Node2D:
 		SystemsDraw.data_module(self, at, "job", {
 			"flip": true, "inserted": true, "glyph": glyph, "fill": fill, "acc": accent, "tag": tag, "done": done,
 		})
-		_draw_digits()
+
+	## The accept / reject seam, rising digits and the level pulse (drawn on the Fx child).
+	func _draw_fx(ci: CanvasItem) -> void:
+		var run = SimulationManager.run
+		if run == null or not run.has_method("request_bits"):
+			return
+		var dev: String = machine.device if machine.socket else "job"
+		if not Devices.is_job(dev):
+			return
+		var now := Time.get_ticks_msec() / 1000.0
+		var at := SystemsDraw.PORT_STICK_OUT
+		_draw_digits(ci)
 		if _flash_start >= 0.0:
 			if now - _flash_start < SEAM_S:
-				draw_line(at + Vector2(0, 10), at + Vector2(0, 42), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)
+				ci.draw_line(at + Vector2(0, 10), at + Vector2(0, 42), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)
 				if _underline:
-					draw_rect(Rect2(18, 44, 80, 1.5), Color(Palette.STATE_BLOCKED, 0.9))
+					ci.draw_rect(Rect2(18, 44, 80, 1.5), Color(Palette.STATE_BLOCKED, 0.9))
 			else:
 				_flash_start = -1.0
 		if _lct_start >= 0.0:
 			var el := now - _lct_start
 			if el < PULSE_S * 2.0:
 				var a := absf(sin(PI * el / PULSE_S))
-				SystemsDraw.rrect_outline(self, Rect2(at - Vector2(2, 2), Vector2(100, 60)), 6.0, Color(Palette.STATE_SUCCESS, a), 1.5)
+				SystemsDraw.rrect_outline(ci, Rect2(at - Vector2(2, 2), Vector2(100, 60)), 6.0, Color(Palette.STATE_SUCCESS, a), 1.5)
 			else:
-				SystemsDraw.rrect_outline(self, Rect2(at - Vector2(2, 2), Vector2(100, 60)), 6.0, Palette.STATE_SUCCESS, 1.5)
 				_lct_start = -1.0
+
+
+## The contract drive's short-lived marks, on their own canvas so the module itself only
+## redraws when its fill / glyph / quest change.
+class ContractFx extends Node2D:
+	var host: ContractDriveView
+
+	func _draw() -> void:
+		if host != null:
+			host._draw_fx(self)
 
 
 # ------------------------------------------------------------------ upright text
@@ -1338,7 +1442,7 @@ class ResourceIndicators extends Node2D:
 
 ## Processing progress, continuous between ticks: (total − ticks_left + tick fraction) / total
 ## while a job runs; 100% held through the completing tick, then faded out.
-func _update_progress() -> void:
+func _update_progress(new_tick := true) -> void:
 	if _progress == null or ghost:
 		return
 	var m := machine
@@ -1346,11 +1450,14 @@ func _update_progress() -> void:
 	var t: float = clampf(SimulationManager.alpha, 0.0, 1.0) if SimulationManager.running else 1.0
 	var p := -1.0
 	var alpha := 1.0
-	var completed_now := false
-	if sim != null:
-		for e in sim.events:
-			if str(e.get("kind", "")) == "complete" and int(e.get("machine", -1)) == m.id:
-				completed_now = true
+	if new_tick:
+		_completed_now = false
+		if sim != null:
+			for e in sim.events:
+				if e.get("kind", "") == "complete" and int(e.get("machine", -1)) == m.id:
+					_completed_now = true
+					break
+	var completed_now := _completed_now
 	if completed_now and t < DONE_HOLD:
 		p = 1.0  # a job finished this tick: show it complete before the next one fills
 	elif not m.job.is_empty():
@@ -1493,15 +1600,25 @@ class ThermalPartView extends Node2D:
 		if m.type != "heat_pipe":
 			return
 		var sim := SimulationManager.sim
-		var horiz := m.rot % 2 == 0
 		for d: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var along: bool = (d.x != 0) == horiz
-			var n: Machine = sim.machine_at(m.cell + d) if sim != null else null
-			var linked: bool = n != null and n.type == "heat_pipe" and (along or ((d.x != 0) == (n.rot % 2 == 0)))
-			if linked:
-				_links.append(d)
-			elif along:
-				_pads.append(d)
+			match _link(m, sim, d):
+				1: _links.append(d)
+				2: _pads.append(d)
+
+	## A heat pipe's side `d`: 1 linked to a neighbouring pipe, 2 an open end pad, 0 insulated.
+	static func _link(m: Machine, sim: Simulation, d: Vector2i) -> int:
+		var along: bool = (d.x != 0) == (m.rot % 2 == 0)
+		var n: Machine = sim.machine_at(m.cell + d) if sim != null else null
+		if n != null and n.type == "heat_pipe" and (along or ((d.x != 0) == (n.rot % 2 == 0))):
+			return 1
+		return 2 if along else 0
+
+	## What the conduit drawing depends on (MachineView.view_key): the four sides' links.
+	static func links_key(m: Machine, sim: Simulation) -> String:
+		var k := ""
+		for d: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			k += str(_link(m, sim, d))
+		return k
 
 	func refresh(delta: float) -> void:
 		var sim := SimulationManager.sim

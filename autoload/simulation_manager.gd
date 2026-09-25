@@ -44,6 +44,7 @@ var _undo: Array = []  # older snapshots, newest last
 var _redo: Array = []
 var _snap := ""  # JSON of the current snapshot
 var _hist_pending := false
+var _save_pending := false  # an autosave is queued for the end of this frame
 var _restoring := false
 # audio cue edges (AudioBus): what the last step looked like
 var _cue_delivered := 0
@@ -131,6 +132,17 @@ func _on_sim_changed() -> void:
 			mission = LabDef.mission_def(lab_run.level)
 			_reset_history()  # never undo across a level-up (the board itself changed)
 			mission_loaded.emit(lab_run)
+	if not _save_pending:
+		_save_pending = true
+		_autosave.call_deferred()  # several edits in one frame write the file once
+
+
+## The deferred autosave of the board (the Lab, or the tutorial mission's layout).
+func _autosave() -> void:
+	_save_pending = false
+	if sim == null:
+		return
+	if in_lab and lab_run != null:
 		_save_lab()
 	elif mission != null:
 		SaveStore.save_layout(mission.id, sim.layout_to_dict())

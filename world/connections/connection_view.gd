@@ -54,8 +54,35 @@ var _comet_color := Palette.DATA_NUMBER
 var _comets: Array = []  # float arc lengths
 
 
+## What the view is built from: the route and both port anchors. World rebuilds a wire view
+## only when this changes.
+var route_key := ""
+var _look_key := ""
+var _raw := false
+
+
+static func key_of(c: Connection) -> String:
+	var sim := SimulationManager.sim
+	var a := Vector2.ZERO
+	var b := Vector2.ZERO
+	if sim != null and sim.machines.has(c.from_id) and sim.machines.has(c.to_id):
+		a = MachineView.port_world(sim.machines[c.from_id], c.from_port)
+		b = MachineView.port_world(sim.machines[c.to_id], c.to_port)
+	return "%d:%s>%d:%s|%d|%s|%s|%s" % [c.from_id, c.from_port, c.to_id, c.to_port, c.width, str(c.cells), a, b]
+
+
+## The layout changed but this wire was kept: re-read what a layout change can alter (a raw
+## module plugged into its source socket turns the link raw).
+func on_layout() -> void:
+	var raw := _is_raw()
+	if raw != _raw:
+		_raw = raw
+		_look_key = ""
+
+
 func setup(c: Connection) -> ConnectionView:
 	connection = c
+	route_key = key_of(c)
 	name = "Connection_%d" % c.id
 	var sim := SimulationManager.sim
 	var fm: Machine = sim.machines[c.from_id]
@@ -91,6 +118,7 @@ func setup(c: Connection) -> ConnectionView:
 	_over.name = "Overlays"
 	_over.host = self
 	add_child(_over)
+	_raw = _is_raw()
 	return self
 
 
@@ -129,14 +157,23 @@ func _make_line(w: float) -> Line2D:
 
 # ------------------------------------------------------------------ per frame
 
+## Per frame: the look is re-applied only when the state changes; the overlay redraws while
+## its comets move. An idle wire costs a state check.
 func refresh(_delta: float) -> void:
 	if connection == null:
 		return
 	_state = _wire_state()
-	_comets = _comet_arcs()
-	_apply_layers()
-	_under.queue_redraw()
-	_over.queue_redraw()
+	var comets := _comet_arcs()
+	var key := "%s|%s" % [_state, _raw]
+	if key != _look_key:
+		_look_key = key
+		_comets = comets
+		_apply_layers()
+		_under.queue_redraw()
+		_over.queue_redraw()
+	elif comets != _comets:
+		_comets = comets
+		_over.queue_redraw()
 
 
 ## Model → visual state (L.wireLook states). Error > Blocked beat tool interaction so a
@@ -186,7 +223,7 @@ func _comet_arcs() -> Array:
 ## layer children. The opaque overlay node re-draws dashes, comets, chevrons and the
 ## bus width tag on top.
 func _apply_layers() -> void:
-	var raw := _is_raw()
+	var raw := _raw
 	var col := Palette.FAMILY_IO if raw else Palette.datatype(connection.width)
 	var dim := Palette.FAMILY_IO if raw else Palette.datatype_dim(connection.width)
 	_dash_on = connection.width == 1 and not _bus and not raw

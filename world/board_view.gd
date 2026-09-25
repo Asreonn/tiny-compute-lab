@@ -63,9 +63,14 @@ var _vignette: CanvasLayer
 const SUCCESS_SWEEP := 0.45
 var _success_start := -1.0
 var _success_level := -1
+var _fx: BoardFx  # the animated layers (reveal, ambience, success)
 
 
 func _ready() -> void:
+	_fx = BoardFx.new()
+	_fx.name = "Fx"
+	_fx.host = self
+	add_child(_fx)
 	SimulationManager.run_finished.connect(func(status: int):
 		if status == MissionRun.Status.PASS:
 			_start_success())
@@ -102,19 +107,28 @@ func _draw() -> void:
 		draw_line(Vector2(0.0, y), Vector2(board.size.x, y), c, 1.0)
 	# 2 px zone edge border
 	draw_rect(board, Palette.BOARD_ZONE_EDGE, false, 2.0)
-	_draw_reveal(sim, size, board)
 	_draw_decals(sim, size, board)
-	_draw_ambience(board)
-	_draw_success(board)
+
+
+## The animated layers (reveal, ambience, success sweep) draw on the Fx child, so the static
+## board above only redraws when the layout changes.
+func _draw_fx(ci: CanvasItem) -> void:
+	var sim := SimulationManager.sim
+	var size := sim.size if sim != null else Vector2i(16, 10)
+	var board := Rect2(Vector2.ZERO, Vector2(size) * T)
+	_draw_reveal(ci, size)
+	_draw_ambience(ci)
+	_draw_success(ci, board)
 
 
 func _start_success() -> void:
 	if HudKit.REDUCED_MOTION:
 		return
 	_success_start = Time.get_ticks_msec() / 1000.0
+	_fx.queue_redraw()
 
 
-func _draw_success(board: Rect2) -> void:
+func _draw_success(ci: CanvasItem, board: Rect2) -> void:
 	if _success_start < 0.0:
 		return
 	var el := Time.get_ticks_msec() / 1000.0 - _success_start
@@ -130,15 +144,15 @@ func _draw_success(board: Rect2) -> void:
 	var c1 := Color(Palette.STATE_VALID, 0.12)
 	var h := board.size.y
 	if x1 > x0:
-		draw_polygon(PackedVector2Array([Vector2(x0, 0), Vector2(x1, 0), Vector2(x1, h), Vector2(x0, h)]), PackedColorArray([c0, c1, c1, c0]))
+		ci.draw_polygon(PackedVector2Array([Vector2(x0, 0), Vector2(x1, 0), Vector2(x1, h), Vector2(x0, h)]), PackedColorArray([c0, c1, c1, c0]))
 	if x2 > x1:
-		draw_polygon(PackedVector2Array([Vector2(x1, 0), Vector2(x2, 0), Vector2(x2, h), Vector2(x1, h)]), PackedColorArray([c1, c0, c0, c1]))
+		ci.draw_polygon(PackedVector2Array([Vector2(x1, 0), Vector2(x2, 0), Vector2(x2, h), Vector2(x1, h)]), PackedColorArray([c1, c0, c0, c1]))
 
 
 ## Lab-expansion reveal: when the board grows (level-up), newly added tiles get a STATE_BUILD
 ## tint + a 1 px border along the new area's edge, both fading out over REVEAL_DURATION.
 ## The clock is local to this view; it only reads the simulation's size.
-func _draw_reveal(_sim, size: Vector2i, _board: Rect2) -> void:
+func _draw_reveal(ci: CanvasItem, size: Vector2i) -> void:
 	if _reveal_start < 0.0:
 		return
 	var elapsed := (Time.get_ticks_msec() / 1000.0) - _reveal_start
@@ -150,16 +164,16 @@ func _draw_reveal(_sim, size: Vector2i, _board: Rect2) -> void:
 	# New tiles form the right strip and the bottom strip beyond the old board.
 	if size.x > _reveal_old.x:
 		var x := float(_reveal_old.x) * T
-		draw_rect(Rect2(Vector2(x, 0.0), Vector2(size.x * T - x, size.y * T)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
+		ci.draw_rect(Rect2(Vector2(x, 0.0), Vector2(size.x * T - x, size.y * T)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
 	if size.y > _reveal_old.y:
 		var y := float(_reveal_old.y) * T
-		draw_rect(Rect2(Vector2(0.0, y), Vector2(old.x, size.y * T - y)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
+		ci.draw_rect(Rect2(Vector2(0.0, y), Vector2(old.x, size.y * T - y)), Color(Palette.STATE_BUILD, REVEAL_TINT * a))
 	# 1 px STATE_BUILD border along the new area's inner edge (the L-shape between old/new).
 	var border := Color(Palette.STATE_BUILD, REVEAL_BORDER * a)
 	if size.x > _reveal_old.x:
-		draw_line(Vector2(old.x, 0.0), Vector2(old.x, size.y * T), border, 1.0)
+		ci.draw_line(Vector2(old.x, 0.0), Vector2(old.x, size.y * T), border, 1.0)
 	if size.y > _reveal_old.y:
-		draw_line(Vector2(0.0, old.y), Vector2(old.x, old.y), border, 1.0)
+		ci.draw_line(Vector2(0.0, old.y), Vector2(old.x, old.y), border, 1.0)
 
 
 func _process(delta: float) -> void:
@@ -173,7 +187,7 @@ func _process(delta: float) -> void:
 			_reveal_start = Time.get_ticks_msec() / 1000.0
 		_prev_size = sim.size
 	if _reveal_start >= 0.0:
-		queue_redraw()  # drive the fade
+		_fx.queue_redraw()  # drive the fade
 	var lr = SimulationManager.lab_run
 	if lr != null:
 		if _success_level >= 0 and lr.files > _success_level:
@@ -182,7 +196,7 @@ func _process(delta: float) -> void:
 	else:
 		_success_level = -1
 	if _success_start >= 0.0:
-		queue_redraw()
+		_fx.queue_redraw()
 	_update_ambience(delta, sim)
 
 
@@ -194,11 +208,12 @@ func _draw_decals(sim, size: Vector2i, board: Rect2) -> void:
 	var count: int = 3 + absi(hash(mission_id + ":decal_count")) % 3  # 3..5 decals
 	var placed := 0
 	var used := []
+	var occ: Dictionary = sim.occupancy() if sim != null else {}
 	for attempt in 80:
 		if placed >= count:
 			break
 		var tile := Vector2i(rng.randi() % maxi(size.x, 1), rng.randi() % maxi(size.y, 1))
-		if _occupied_by_machine(sim, tile):
+		if _occupied_by_machine(occ, tile):
 			continue
 		var rel: String = DECAL_FILES[rng.randi() % DECAL_FILES.size()]
 		if rel in used and attempt < 60:  # prefer variety; repeats only when nothing else fits
@@ -209,7 +224,7 @@ func _draw_decals(sim, size: Vector2i, board: Rect2) -> void:
 		var scaled := Vector2(t.get_width() / Art.SCALE, t.get_height() / Art.SCALE)
 		var rect := Rect2(board.position + Vector2(tile) * T + (Vector2(T, T) - scaled) / 2.0, scaled)
 		# The whole decal stays inside the board and one tile clear of every machine.
-		if not board.encloses(rect) or _near_machine(sim, rect, board):
+		if not board.encloses(rect) or _near_machine(occ, rect, board):
 			continue
 		draw_texture_rect(t, rect, false, Color(1.0, 1.0, 1.0, DECAL_ALPHA))
 		used.append(rel)
@@ -221,22 +236,17 @@ func _draw_decals(sim, size: Vector2i, board: Rect2) -> void:
 			_vias_rect = rect
 
 
-func _occupied_by_machine(sim, tile: Vector2i) -> bool:
-	if sim == null:
-		return false
-	for id in sim.sorted_machine_ids():
-		if tile in sim.machines[id].footprint():
-			return true
-	return false
+func _occupied_by_machine(occ: Dictionary, tile: Vector2i) -> bool:
+	return occ.has(tile)
 
 
-func _near_machine(sim, rect: Rect2, board: Rect2) -> bool:
-	if sim == null:
-		return false
+func _near_machine(occ: Dictionary, rect: Rect2, board: Rect2) -> bool:
 	var grown := rect.grow(T)
-	for id in sim.sorted_machine_ids():
-		for c in sim.machines[id].footprint():
-			if grown.intersects(Rect2(board.position + Vector2(c) * T, Vector2(T, T))):
+	var a := Vector2i(((grown.position - board.position) / T).floor())
+	var b := Vector2i(((grown.end - board.position) / T).ceil())
+	for y in range(a.y, b.y):
+		for x in range(a.x, b.x):
+			if occ.has(Vector2i(x, y)) and grown.intersects(Rect2(board.position + Vector2(x, y) * T, Vector2(T, T))):
 				return true
 	return false
 
@@ -292,7 +302,7 @@ func _update_ambience(delta: float, sim) -> void:
 			_start_via()
 			redraw = true
 	if redraw:
-		queue_redraw()
+		_fx.queue_redraw()
 
 
 func _start_sweep(sim) -> void:
@@ -338,14 +348,14 @@ func _start_via() -> void:
 	_via_active = true
 
 
-func _draw_ambience(_board: Rect2) -> void:
+func _draw_ambience(ci: CanvasItem) -> void:
 	if not AMBIENCE:
 		return
 	# Trace sweep band: DATA_NUMBER α .06, 24 px long, 2 px wide, round caps.
 	if _sweep_active and _sweep_line.size() >= 2:
 		var head := _pline_pt(_sweep_line, _sweep_pos)
 		var tail := _pline_pt(_sweep_line, maxf(0.0, _sweep_pos - SWEEP_LEN))
-		draw_polyline(PackedVector2Array([tail, head]), Color(Palette.DATA_NUMBER, 0.06), 2.0, true)
+		ci.draw_polyline(PackedVector2Array([tail, head]), Color(Palette.DATA_NUMBER, 0.06), 2.0, true)
 	# Via twinkle: a 3 px dot of DATA_NUMBER brightening α .04 → .1 → .04 over VIA_DURATION.
 	if _via_active:
 		var ph := clampf(_via_elapsed / VIA_DURATION, 0.0, 1.0)
@@ -354,7 +364,7 @@ func _draw_ambience(_board: Rect2) -> void:
 			a = 0.04 + (0.1 - 0.04) * (ph / 0.5)
 		else:
 			a = 0.1 - (0.1 - 0.04) * ((ph - 0.5) / 0.5)
-		draw_circle(_via_pos, VIA_DOT_R, Color(Palette.DATA_NUMBER, a))
+		ci.draw_circle(_via_pos, VIA_DOT_R, Color(Palette.DATA_NUMBER, a))
 
 
 static func _pline_len(pts: PackedVector2Array) -> float:
@@ -375,6 +385,17 @@ static func _pline_pt(pts: PackedVector2Array, s: float) -> Vector2:
 			return pts[i - 1] + seg * ((s - d) / l)
 		d += l
 	return pts[pts.size() - 1]
+
+
+# ------------------------------------------------------------------ animated layers
+
+## Reveal, ambience and success sweep: redrawn only while one of them plays.
+class BoardFx extends Node2D:
+	var host: BoardView
+
+	func _draw() -> void:
+		if host != null:
+			host._draw_fx(self)
 
 
 # ------------------------------------------------------------------ vignette

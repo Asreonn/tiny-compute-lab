@@ -28,11 +28,9 @@ var dissipation := PackedInt32Array()  # d per tile on the last step (the therma
 var _base_d := PackedInt32Array()
 var _kx := PackedInt32Array()  # conductance of edge (x,y)-(x+1,y)
 var _ky := PackedInt32Array()  # conductance of edge (x,y)-(x,y+1)
-var _ea := PackedInt32Array()  # conducting edges (k > 0): tile a, tile b, conductance
-var _eb := PackedInt32Array()
-var _ek := PackedInt32Array()
 var _bodies: Array[PackedInt32Array] = []  # isothermal groups: machine footprints, pipe chains
 var _sig := -1  # layout hash the topology was built for
+var _box := Rect2i()  # every tile with t != 0 lies inside (empty = a cold board)
 
 
 func _init(board: Vector2i) -> void:
@@ -60,8 +58,10 @@ func at(c: Vector2i) -> int:
 ## Hottest tile of a machine's footprint.
 func machine_temp(m: Machine) -> int:
 	var hi := 0
-	for c in m.footprint():
-		hi = maxi(hi, at(c))
+	var s := Catalog.size_of(m.type, m.rot)
+	for y in s.y:
+		for x in s.x:
+			hi = maxi(hi, at(m.cell + Vector2i(x, y)))
 	return hi
 
 
@@ -87,9 +87,13 @@ static func pipe_horizontal(m: Machine) -> bool:
 
 ## One tick: generate → diffuse → equalise → dissipate. `mids` are the machine ids in ascending
 ## order; each machine's work_done this tick drives its heat.
+##
+## Only the warm part of the board is visited: `_box` bounds every tile that may hold heat, so a
+## cold board costs nothing and a hot corner costs its own size. Every skipped tile and edge is
+## exactly 0 → 0, so the result is bit-identical to a full pass.
 func step(sim, mids: Array) -> void:
 	_ensure_topology(sim, mids)
-	var n := t.size()
+	var w := size.x
 	# 1. generate
 	for id in mids:
 		var m: Machine = sim.machines[id]
@@ -103,29 +107,8 @@ func step(sim, mids: Array) -> void:
 		t[cells[0]] += h - q * cells.size()
 		for c in cells:
 			t[c] += q
-	# 2. diffuse (per-edge flux, truncated toward zero, applied symmetrically)
-	var nt := t.duplicate()
-	for e in _ea.size():
-		var a := _ea[e]
-		var b := _eb[e]
-		var diff := t[a] - t[b]
-		if diff == 0:
-			continue
-		var v := diff * _ek[e]
-		var f := v / 64 if v >= 0 else -((-v) / 64)
-		nt[a] -= f
-		nt[b] += f
-	t = nt
-	# 3. equalise machine bodies and heat-pipe chains
-	for body in _bodies:
-		var s := 0
-		for c in body:
-			s += t[c]
-		var q2 := s / body.size()
-		var r := s - q2 * body.size()
-		for j in body.size():
-			t[body[j]] = q2 + (1 if j < r else 0)
-	# 4. dissipate (rounded up so every warm tile keeps cooling)
+			_include(c % w, c / w)
+	# 4a. the dissipation map (bonus of every cooler; the thermal overlay reads it)
 	dissipation = _base_d.duplicate()
 	for id in mids:
 		var m: Machine = sim.machines[id]
@@ -142,10 +125,76 @@ func step(sim, mids: Array) -> void:
 		var r2: int = spec[1]
 		for y in range(maxi(0, s0.y - r2), mini(size.y - 1, s1.y + r2) + 1):
 			for x in range(maxi(0, s0.x - r2), mini(size.x - 1, s1.x + r2) + 1):
-				dissipation[y * size.x + x] += bonus
-	for i in n:
-		if t[i] > 0:
-			t[i] -= (t[i] * mini(dissipation[i], 1024) + 1023) / 1024
+				dissipation[y * w + x] += bonus
+	if not _box.has_area():
+		return  # a cold board stays cold
+	# 2. diffuse (per-edge flux, truncated toward zero, applied symmetrically) over the warm box
+	# plus a one-tile rim: heat moves at most one tile per tick
+	var b := _box.grow(1).intersection(Rect2i(Vector2i.ZERO, size))
+	var x0 := b.position.x
+	var x1 := b.end.x
+	var y1 := b.end.y
+	var nt := t.duplicate()
+	for y in range(b.position.y, y1):
+		var row := y * w
+		for x in range(x0, x1):
+			var i := row + x
+			if x + 1 < x1:
+				var kx := _kx[i]
+				if kx > 0:
+					var diff := t[i] - t[i + 1]
+					if diff != 0:
+						var v := diff * kx
+						var f := v / 64 if v >= 0 else -((-v) / 64)
+						nt[i] -= f
+						nt[i + 1] += f
+			if y + 1 < y1:
+				var ky := _ky[i]
+				if ky > 0:
+					var diff2 := t[i] - t[i + w]
+					if diff2 != 0:
+						var v2 := diff2 * ky
+						var f2 := v2 / 64 if v2 >= 0 else -((-v2) / 64)
+						nt[i] -= f2
+						nt[i + w] += f2
+	t = nt
+	_box = b
+	# 3. equalise machine bodies and heat-pipe chains (a long chain may carry heat past the box)
+	for body in _bodies:
+		var s := 0
+		for c in body:
+			s += t[c]
+		if s == 0:
+			continue
+		var q2 := s / body.size()
+		var r := s - q2 * body.size()
+		for j in body.size():
+			t[body[j]] = q2 + (1 if j < r else 0)
+			_include(body[j] % w, body[j] / w)
+	# 4b. dissipate (rounded up so every warm tile keeps cooling), shrinking the box to the tiles
+	# still warm
+	var lo := Vector2i(size.x, size.y)
+	var hi := Vector2i(-1, -1)
+	for y in range(_box.position.y, _box.end.y):
+		var row2 := y * w
+		for x in range(_box.position.x, _box.end.x):
+			var i2 := row2 + x
+			var ti := t[i2]
+			if ti > 0:
+				ti -= (ti * mini(dissipation[i2], 1024) + 1023) / 1024
+				t[i2] = ti
+			if ti != 0:
+				lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+				hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+	_box = Rect2i(lo, hi - lo + Vector2i.ONE) if hi.x >= 0 else Rect2i()
+
+
+## Grow the warm box to cover tile (x, y).
+func _include(x: int, y: int) -> void:
+	if not _box.has_area():
+		_box = Rect2i(x, y, 1, 1)
+	else:
+		_box = _box.expand(Vector2i(x, y))
 
 
 func _cells_sorted(m: Machine) -> PackedInt32Array:
@@ -170,20 +219,6 @@ func _ensure_topology(sim, mids: Array) -> void:
 		return
 	_sig = sig
 	_build_topology(sim, mids)
-	_ea.clear()
-	_eb.clear()
-	_ek.clear()
-	for y in size.y:
-		for x in size.x:
-			var i := y * size.x + x
-			if x + 1 < size.x and _kx[i] > 0:
-				_ea.append(i)
-				_eb.append(i + 1)
-				_ek.append(_kx[i])
-			if y + 1 < size.y and _ky[i] > 0:
-				_ea.append(i)
-				_eb.append(i + size.x)
-				_ek.append(_ky[i])
 
 
 func _build_topology(sim, mids: Array) -> void:

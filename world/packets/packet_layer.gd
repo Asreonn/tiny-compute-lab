@@ -32,6 +32,12 @@ var _loc := {}  # packet id -> logical location {k, pos, conn, arc} (current tic
 var _moves := {}  # packet id -> {packet, poly: PackedVector2Array, state, conn, arc0, arc1, fade}
 var _paths := {}  # connection id -> PackedVector2Array (simplified + chamfered draw path)
 var _tag_style: StyleBoxFlat = null
+var _path_lens := {}  # connection id -> length of its draw path (px)
+var _consumed := {}  # this tick: packet id -> the machine that took it (deliver/output/discard)
+var _emitted := {}  # this tick: packet id -> its emit event
+var _comets := {}  # connection id -> comet arcs (px), rebuilt once per frame / tick fraction
+var _comet_frame := -1
+var _comet_t := -1.0
 
 
 func _ready() -> void:
@@ -57,6 +63,7 @@ func _on_tier(tier: String) -> void:
 ## Layout edits replace wires/queues wholesale: drop every cached location and path.
 func _on_board_reset(_v: Variant = null) -> void:
 	_paths.clear()
+	_path_lens.clear()
 	_loc.clear()
 	_moves.clear()
 	_last_tick = -1
@@ -83,11 +90,12 @@ func _capture() -> void:
 	if sim.tick < _last_tick or sim.tick == 0:
 		_loc.clear()
 	_last_tick = sim.tick
+	_index_events(sim)
 	var now := _locations(sim)  # id -> {k, pos, conn, arc, packet, machine}
 	var moves := {}
 	for pid in now:
 		var cur: Dictionary = now[pid]
-		var prev: Dictionary = _loc.get(pid, _spawn(sim, cur))
+		var prev: Dictionary = _loc[pid] if _loc.has(pid) else _spawn(sim, cur)
 		moves[pid] = _transition(prev, cur)
 	# packets that left the board this tick (consumed by a sink, discarded): glide into the
 	# machine core and fade.
@@ -120,12 +128,27 @@ func _capture() -> void:
 	_moves = moves
 
 
-## Where a packet that disappeared this tick went (deliver/output/discard events).
-func _consumer(sim: Simulation, pid: int) -> int:
+## This tick's events by packet id, first match per kind group (one pass instead of a scan per
+## packet): "consumed" = the first deliver / output / discard, "emit" = the first emit.
+func _index_events(sim: Simulation) -> void:
+	_consumed = {}
+	_emitted = {}
 	for e in sim.events:
-		if int(e.get("packet", -1)) == pid and str(e.get("kind", "")) in ["deliver", "output", "discard"]:
-			return int(e.get("machine", -1))
-	return -1
+		var pid := int(e.get("packet", -1))
+		if pid < 0:
+			continue
+		var k: String = e.get("kind", "")
+		if k == "emit":
+			if not _emitted.has(pid):
+				_emitted[pid] = e
+		elif k == "deliver" or k == "output" or k == "discard":
+			if not _consumed.has(pid):
+				_consumed[pid] = int(e.get("machine", -1))
+
+
+## Where a packet that disappeared this tick went (deliver/output/discard events).
+func _consumer(_sim: Simulation, pid: int) -> int:
+	return int(_consumed.get(pid, -1))
 
 
 ## Logical locations of every packet visible on the board at the current tick.
@@ -137,7 +160,7 @@ func _locations(sim: Simulation) -> Dictionary:
 		if path.size() < 2:
 			continue
 		var n: int = c.slots.size()
-		var plen := SignalGeom.poly_len(path)
+		var plen := _path_len(cid)
 		for i in n:
 			var p: Packet = c.slots[i]
 			if p != null:
@@ -166,15 +189,15 @@ func _locations(sim: Simulation) -> Dictionary:
 ## machine's core; a fresh source packet at the source core; anything else where it is.
 func _spawn(sim: Simulation, cur: Dictionary) -> Dictionary:
 	var p: Packet = cur["packet"]
-	for e in sim.events:
-		if int(e.get("packet", -1)) == p.id and str(e.get("kind", "")) == "emit":
-			var mid := int(e.get("machine", -1))
-			if sim.machines.has(mid):
-				# a job result appears just inside the port it leaves from and fades in on its
-				# way onto the wire (the value itself was never drawn inside the machine)
-				var src: Machine = sim.machines[mid]
-				var from_job: bool = not src.inq.is_empty()  # machines with inputs emit job results; sources do not
-				return {"k": "core", "pos": _dock(src, str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid, "appear": from_job}
+	if _emitted.has(p.id):
+		var e: Dictionary = _emitted[p.id]
+		var mid := int(e.get("machine", -1))
+		if sim.machines.has(mid):
+			# a job result appears just inside the port it leaves from and fades in on its
+			# way onto the wire (the value itself was never drawn inside the machine)
+			var src: Machine = sim.machines[mid]
+			var from_job: bool = not src.inq.is_empty()  # machines with inputs emit job results; sources do not
+			return {"k": "core", "pos": _dock(src, str(e.get("port", "out")), EXIT_IN), "packet": p, "machine": mid, "appear": from_job}
 	if cur.has("port") and sim.machines.has(int(cur["machine"])):
 		# a fresh value in an output slot (sources): appears just inside that port
 		return {"k": "core", "pos": _dock(sim.machines[int(cur["machine"])], str(cur["port"]), EXIT_IN), "packet": p, "machine": cur["machine"]}
@@ -194,7 +217,7 @@ func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 	elif ka == "wire":
 		# leaving the wire into a port: rest of the wire to its end anchor, then inside
 		var path := _path(int(a["conn"]))
-		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), SignalGeom.poly_len(path))
+		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), _path_len(int(a["conn"])))
 		poly.append(b["pos"])
 		state = "entering"
 	elif kb == "wire":
@@ -211,13 +234,16 @@ func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 			"queued": state = "queued"
 	if poly.is_empty():
 		poly.append(_point(b))
-	return {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "appear": a.get("appear", false)}
+	var mv := {"packet": b["packet"], "poly": poly, "state": state, "to": b, "from_k": a["k"], "appear": a.get("appear", false)}
+	if ka == "wire" and kb == "wire" and a["conn"] == b["conn"]:
+		mv["arc0"] = float(a["arc"])  # along its own wire: the comet arc interpolates exactly
+	return mv
 
 
 func _point(loc: Dictionary) -> Vector2:
 	if loc["k"] == "wire":
 		var path := _path(int(loc["conn"]))
-		var plen := maxf(SignalGeom.poly_len(path), 1e-9)
+		var plen := maxf(_path_len(int(loc["conn"])), 1e-9)
 		return SignalGeom.sample(path, clampf(float(loc["arc"]) / plen, 0.0, 1.0))[0]
 	return loc["pos"]
 
@@ -237,7 +263,13 @@ func _path(cid: int) -> PackedVector2Array:
 		if sim == null or not sim.connections.has(cid):
 			return PackedVector2Array()
 		_paths[cid] = _build_path(sim.connections[cid])
+		_path_lens[cid] = SignalGeom.poly_len(_paths[cid])
 	return _paths[cid]
+
+
+func _path_len(cid: int) -> float:
+	_path(cid)
+	return float(_path_lens.get(cid, 0.0))
 
 
 ## The input port a job's packet arrived through (the last machine on its path), or "".
@@ -294,19 +326,37 @@ func _build_path(c: Connection) -> PackedVector2Array:
 ## `conn_id`, from the same interpolation the sprites use (ConnectionView.packet_positions).
 func comet_arcs(conn_id: int) -> Array:
 	_capture()
-	var out: Array = []
 	var t := frac()
-	var path := _path(conn_id)
-	var plen := SignalGeom.poly_len(path)
-	if plen <= 0.0:
-		return out
+	var f := Engine.get_process_frames()
+	if f != _comet_frame or t != _comet_t:
+		_comet_frame = f
+		_comet_t = t
+		_build_comets(t)
+	return _comets.get(conn_id, [])
+
+
+## Every wire's comet arcs in one pass over the moves (each wire asks once per frame). A value
+## gliding along its own wire sits at the interpolated arc; one joining a wire is projected.
+func _build_comets(t: float) -> void:
+	_comets = {}
 	for pid in _moves:
 		var mv: Dictionary = _moves[pid]
 		var to: Dictionary = mv["to"]
-		if to["k"] != "wire" or int(to["conn"]) != conn_id:
+		if to["k"] != "wire":
 			continue
-		out.append(SignalGeom.project(path, _along(mv["poly"], t)) * plen)
-	return out
+		var cid := int(to["conn"])
+		var path := _path(cid)
+		var plen := _path_len(cid)
+		if plen <= 0.0:
+			continue
+		var arc: float
+		if mv.has("arc0"):
+			arc = lerpf(float(mv["arc0"]), float(to["arc"]), clampf(t, 0.0, 1.0))
+		else:
+			arc = SignalGeom.project(path, _along(mv["poly"], t)) * plen
+		if not _comets.has(cid):
+			_comets[cid] = []
+		(_comets[cid] as Array).append(arc)
 
 
 ## World positions of every drawn packet, packet id -> Vector2 (tools' hit testing).

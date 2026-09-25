@@ -21,6 +21,7 @@ var _speed_labels := []  # [Label, speed]
 var _speed_tw: Tween
 var _metric := {}  # kind -> {box, value, unit}
 var _metric_last := {}  # kind -> float target, to detect change for the roll
+var _metric_shown := {}  # kind -> true once its label shows the current target
 var _power_cap := 0  # PSU capacity shown next to the demand; 0 = no PSU (plain demand)
 var _state_c := Palette.STATE_BUILD
 var _last_state := ""
@@ -207,12 +208,14 @@ func _process(_delta: float) -> void:
 			warn = true
 	var mt: Dictionary = _metric["throughput"]
 	_roll_metric("throughput", sm.real_rate(thr) if thr > 0.0 else -1.0)
-	mt["value"].add_theme_color_override("font_color", Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
+	HudKit.set_color(mt["value"], Palette.STATE_BLOCKED if warn else Palette.TEXT_PRIMARY)
 	HudKit.restyle(mt["box"], Palette.SURFACE_SUNKEN, Palette.STATE_BLOCKED if warn else Color(0, 0, 0, 0), 1 if warn else 0, 18)
 	# power: demand, or demand/capacity once the Lab has a PSU (amber near capacity, red when
 	# overloaded — a brownout; SYSTEMS_EXPANSION §4)
 	var cap: int = sm.sim.power_capacity()
 	var dem: int = sm.sim.power_demand()
+	if cap != _power_cap:
+		_metric_shown.erase("power")  # the label shows demand/capacity: redraw it
 	_power_cap = cap
 	_roll_metric("power", float(dem))
 	var pc := Color(0, 0, 0, 0)
@@ -221,7 +224,7 @@ func _process(_delta: float) -> void:
 	elif cap > 0 and dem * 4 >= cap * 3:
 		pc = Palette.STATE_BLOCKED
 	var pm: Dictionary = _metric["power"]
-	pm["value"].add_theme_color_override("font_color", pc if pc.a > 0.0 else Palette.TEXT_PRIMARY)
+	HudKit.set_color(pm["value"], pc if pc.a > 0.0 else Palette.TEXT_PRIMARY)
 	pm["icon"].modulate = pc if pc.a > 0.0 else Palette.TEXT_SECONDARY
 	HudKit.restyle(pm["box"], Palette.SURFACE_SUNKEN, pc, 1 if pc.a > 0.0 else 0, 18)
 	var lat: float = sm.sim.avg_latency()
@@ -235,8 +238,11 @@ func _power_text(v: int) -> String:
 
 
 func _roll_metric(kind: String, target: float) -> void:
+	if _metric_last.has(kind) and _metric_last[kind] == target and _metric_shown.has(kind):
+		return  # unchanged: the label already shows it
 	var last: float = _metric_last.get(kind, target)
 	_metric_last[kind] = target
+	_metric_shown[kind] = true
 	HudKit.roll_value(self, "roll_" + kind, last, target, _metric[kind]["display"])
 
 

@@ -174,7 +174,15 @@ static func set_text(l: Label, text: String, color = null) -> void:
 	if l.text != text:
 		l.text = text
 	if color != null:
-		l.add_theme_color_override("font_color", color)
+		set_color(l, color)
+
+
+## Font colour override that only touches the Label when the colour changes (an override is a
+## theme change: the Label re-shapes its text, so doing it every frame is not free).
+static func set_color(c: Control, color: Color, key := "font_color") -> void:
+	if c.has_theme_color_override(key) and c.get_theme_color(key) == color:
+		return
+	c.add_theme_color_override(key, color)
 
 
 ## White SVG icon (assets/art/icon/*.svg) tinted with `color`, drawn at size×size.

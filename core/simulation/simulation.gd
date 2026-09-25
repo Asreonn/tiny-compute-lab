@@ -108,8 +108,9 @@ func wire_tiles(ignore_conn: int = -1) -> Dictionary:
 
 func machine_at(c: Vector2i) -> Machine:
 	for id in sorted_machine_ids():
-		if c in machines[id].footprint():
-			return machines[id]
+		var m: Machine = machines[id]
+		if Rect2i(m.cell, Catalog.size_of(m.type, m.rot)).has_point(c):
+			return m
 	return null
 
 

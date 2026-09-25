@@ -84,12 +84,26 @@ var _save_t := 0.0
 var _font: Font
 var _psu_key := []  # [capacity, demand] last drawn (the gauge redraws when they change)
 var _psu_over_start := -1.0  # overload onset: the overflow chevrons pulse twice, then hold
+var _static: DeskLayer
+var _fixtures: DeskLayer
+var _fixtures_key := []
+var _sticks_key := []
 
 
 func _ready() -> void:
 	z_index = 5
 	_font = TclTheme.font("ExtraBold")
 	_rng.seed = 4242
+	_static = DeskLayer.new()
+	_static.name = "Static"
+	_static.painter = _draw_static
+	_static.show_behind_parent = true  # the mats lie under the sticks
+	add_child(_static)
+	_fixtures = DeskLayer.new()
+	_fixtures.name = "Fixtures"
+	_fixtures.painter = _draw_fixtures
+	_fixtures.show_behind_parent = true  # the tray and the PSU lie under the sticks too
+	add_child(_fixtures)
 
 
 func _lab() -> LabRun:
@@ -615,9 +629,14 @@ func _process(delta: float) -> void:
 			_psu_key = key
 			if int(key[1]) > int(key[0]) and not was_over and not HudKit.REDUCED_MOTION:
 				_psu_over_start = Time.get_ticks_msec() / 1000.0
-			queue_redraw()
+			_fixtures.queue_redraw()
 		if _psu_over_start >= 0.0:
-			queue_redraw()
+			_fixtures.queue_redraw()
+	var ready := not run.quests_ready().is_empty()
+	var fkey := [run.files, run.last_filed, ready, run.has_psu()]
+	if fkey != _fixtures_key or (ready and not HudKit.REDUCED_MOTION):
+		_fixtures_key = fkey
+		_fixtures.queue_redraw()
 	var now := Time.get_ticks_msec() / 1000.0
 	while not _ripples.is_empty() and now - float(_ripples[0][1]) > RIPPLE_S:
 		_ripples.pop_front()
@@ -626,13 +645,53 @@ func _process(delta: float) -> void:
 		if not (_bodies[k] as Body).asleep:
 			moving = true
 			break
-	var animating := moving or not _ripples.is_empty() or not run.quests_ready().is_empty() or (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
-	if animating:
+	var animating := moving or not _ripples.is_empty() or (_pulse_start >= 0.0 and now - _pulse_start < PULSE_S * 2.0) or (_note_start >= 0.0 and now - _note_start < NOTE_S) or not _drag.is_empty() or not _selected.is_empty()
+	# the sticks wear their quest's progress: redraw when a desk stick's quest fills further
+	var skey := []
+	for k in _order:
+		var q := Devices.quest_of(str(k))
+		skey.append(run.quest_fill(q) if q >= 0 else 0.0)
+	if animating or skey != _sticks_key:
+		_sticks_key = skey
 		queue_redraw()
 
 
 func redraw() -> void:
 	queue_redraw()
+	_static.queue_redraw()
+	_fixtures.queue_redraw()
+
+
+## The static desk (sealed bays, the two mats): redrawn with the layout only, never per frame.
+func _draw_static(ci: CanvasItem) -> void:
+	var run := _lab()
+	var sim := _sim()
+	if run == null or sim == null:
+		return
+	_draw_sealed_bays(ci, sim)
+	for side in ["in", "out"]:
+		_draw_area(ci, side)
+
+
+## The COMPLETED tray and the PSU brick: redrawn when what they show changes (the tray also
+## while a filled quest waits and it breathes; the PSU during its overload pulse).
+func _draw_fixtures(ci: CanvasItem) -> void:
+	var run := _lab()
+	var sim := _sim()
+	if run == null or sim == null:
+		return
+	_draw_tray(ci, run, Time.get_ticks_msec() / 1000.0)
+	if run.has_psu():
+		_draw_psu(ci, run, sim)
+
+
+## A desk layer drawn by one DeskView painter (own canvas item, own redraw).
+class DeskLayer extends Node2D:
+	var painter: Callable
+
+	func _draw() -> void:
+		if painter.is_valid():
+			painter.call(self)
 
 
 # ------------------------------------------------------------------ drawing
@@ -642,13 +701,7 @@ func _draw() -> void:
 	var sim := _sim()
 	if run == null or sim == null:
 		return
-	_draw_sealed_bays(sim)
 	var now := Time.get_ticks_msec() / 1000.0
-	for side in ["in", "out"]:
-		_draw_area(side)
-	_draw_tray(run, now)
-	if run.has_psu():
-		_draw_psu(run, sim)
 	for rp in _ripples:
 		var el := now - float(rp[1])
 		var k := el / RIPPLE_S
@@ -683,17 +736,17 @@ func _draw() -> void:
 
 
 ## A free desk area: a sunken mat with a faint dot grid and its label.
-func _draw_area(side: String) -> void:
+func _draw_area(ci: CanvasItem, side: String) -> void:
 	var r := area_rect(side)
-	SystemsDraw.rrect(self, r, 10.0, Palette.SURFACE_SUNKEN)
-	SystemsDraw.rrect_outline(self, r, 10.0, Palette.SURFACE_BORDER, 1.0)
-	draw_string(_font, r.position + Vector2(14.0, 22.0), "INPUT STICKS" if side == "in" else "OUTPUT STICKS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.TEXT_MUTED)
+	SystemsDraw.rrect(ci, r, 10.0, Palette.SURFACE_SUNKEN)
+	SystemsDraw.rrect_outline(ci, r, 10.0, Palette.SURFACE_BORDER, 1.0)
+	ci.draw_string(_font, r.position + Vector2(14.0, 22.0), "INPUT STICKS" if side == "in" else "OUTPUT STICKS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.TEXT_MUTED)
 	var dot := Color(Palette.BOARD_SILK, 0.35)
 	var y := r.position.y + HEADER + 16.0
 	while y < r.end.y - 8.0:
 		var x := r.position.x + 16.0
 		while x < r.end.x - 8.0:
-			draw_rect(Rect2(Vector2(x, y) - Vector2(0.75, 0.75), Vector2(1.5, 1.5)), dot)
+			ci.draw_rect(Rect2(Vector2(x, y) - Vector2(0.75, 0.75), Vector2(1.5, 1.5)), dot)
 			x += 32.0
 		y += 32.0
 
@@ -744,33 +797,33 @@ static func stick_opts(run: LabRun, kind: String, opts: Dictionary = {}) -> Dict
 
 ## COMPLETED tray (under the output area): a sunken mat with a success rim, the count filed so
 ## far and the last filed Job stick resting in it. It breathes while a filled quest waits.
-func _draw_tray(run: LabRun, now: float) -> void:
+func _draw_tray(ci: CanvasItem, run: LabRun, now: float) -> void:
 	var r := tray_rect()
-	SystemsDraw.rrect(self, r, 10.0, Palette.SURFACE_SUNKEN)
+	SystemsDraw.rrect(ci, r, 10.0, Palette.SURFACE_SUNKEN)
 	var ready := not run.quests_ready().is_empty()
 	var a := 0.35
 	if ready:
 		a = 0.55 + 0.4 * (0.5 + 0.5 * sin(TAU * now / READY_S)) if not HudKit.REDUCED_MOTION else 0.9
-	SystemsDraw.rrect_outline(self, r, 10.0, Color(Palette.STATE_SUCCESS, a), 1.0 if not ready else 1.5)
-	draw_string(_font, r.position + Vector2(14.0, 22.0), "COMPLETED", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.STATE_SUCCESS if ready else Palette.TEXT_MUTED)
-	draw_string(_font, r.position + Vector2(r.size.x - 14.0, 22.0), "%d" % run.files, HORIZONTAL_ALIGNMENT_RIGHT, -1, 9, Palette.TEXT_MUTED)
-	draw_rect(Rect2(r.position + Vector2(14.0, 30.0), Vector2(r.size.x - 28.0, 1.0)), Palette.SURFACE_BORDER)
+	SystemsDraw.rrect_outline(ci, r, 10.0, Color(Palette.STATE_SUCCESS, a), 1.0 if not ready else 1.5)
+	ci.draw_string(_font, r.position + Vector2(14.0, 22.0), "COMPLETED", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.STATE_SUCCESS if ready else Palette.TEXT_MUTED)
+	ci.draw_string(_font, r.position + Vector2(r.size.x - 14.0, 22.0), "%d" % run.files, HORIZONTAL_ALIGNMENT_RIGHT, -1, 9, Palette.TEXT_MUTED)
+	ci.draw_rect(Rect2(r.position + Vector2(14.0, 30.0), Vector2(r.size.x - 28.0, 1.0)), Palette.SURFACE_BORDER)
 	var slot := Rect2(r.position + Vector2(10.0, 38.0), Vector2(r.size.x - 20.0, 66.0))
 	if run.last_filed >= 0:
 		var kind := run.quest_job(run.last_filed)
-		SystemsDraw.data_module(self, slot.get_center() - Vector2(48.0, 28.0), kind, {
+		SystemsDraw.data_module(ci, slot.get_center() - Vector2(48.0, 28.0), kind, {
 			"flip": true, "glyph": "JOB", "acc": Palette.FAMILY_IO, "alpha": 0.45,
 			"tag": "Q%d" % (run.last_filed + 1), "done": true, "fill": 1.0,
 		})
 	else:
-		SystemsDraw.rrect_dashed(self, slot, 6.0, Color(Palette.STATE_SUCCESS, 0.5), 1.0)
-		SystemsDraw.text_center(self, slot, "drop a full Job stick here", 9.0, Color(Palette.TEXT_MUTED, 0.9))
+		SystemsDraw.rrect_dashed(ci, slot, 6.0, Color(Palette.STATE_SUCCESS, 0.5), 1.0)
+		SystemsDraw.text_center(ci, slot, "drop a full Job stick here", 9.0, Color(Palette.TEXT_MUTED, 0.9))
 
 
 ## The laptop's power adapter under the input area (SYSTEMS_EXPANSION §4, STYLE_GUIDE §14.6):
 ## Module M chassis, gold tab, icon_power, a gauge with one cell per power unit (gold → amber at
 ## 75 % → red + overflow chevrons), silk "PSU · cap" and a copper cable into the laptop's west edge.
-func _draw_psu(run: LabRun, sim: Simulation) -> void:
+func _draw_psu(ci: CanvasItem, run: LabRun, sim: Simulation) -> void:
 	var r := psu_rect()
 	var cap := run.power_capacity()
 	var dem := sim.power_demand()
@@ -778,18 +831,18 @@ func _draw_psu(run: LabRun, sim: Simulation) -> void:
 	var y := minf(_board_px().y - 24.0, r.position.y + 40.0)
 	var ex := -8.0
 	var cable := PackedVector2Array([r.position + Vector2(128, 40), Vector2(r.end.x + 16.0, r.position.y + 40.0), Vector2(r.end.x + 16.0, y), Vector2(ex, y)])
-	draw_polyline(cable, Palette.MATERIAL_VENT, 5.0, true)
-	draw_polyline(cable, Palette.MATERIAL_COPPER_DIM, 3.0, true)
-	SystemsDraw.rrect(self, Rect2(Vector2(ex - 2.0, y - 5.0), Vector2(8, 10)), 1.5, Palette.MATERIAL_FRAME)
+	ci.draw_polyline(cable, Palette.MATERIAL_VENT, 5.0, true)
+	ci.draw_polyline(cable, Palette.MATERIAL_COPPER_DIM, 3.0, true)
+	SystemsDraw.rrect(ci, Rect2(Vector2(ex - 2.0, y - 5.0), Vector2(8, 10)), 1.5, Palette.MATERIAL_FRAME)
 	# chassis (the canonical Module M shell) + gold tab + power icon
 	var shell := Art.tex("machine/shell_module_m.svg")
 	if shell != null:
 		var pad := Art.pad("machine/shell_module_m.svg")
-		draw_texture_rect(shell, Rect2(r.position - Vector2(pad, pad), shell.get_size() / Art.SCALE), false)
-	SystemsDraw.rrect(self, Rect2(r.position + Vector2(16, 8), Vector2(24, 3)), 1.0, Palette.MATERIAL_GOLD)
+		ci.draw_texture_rect(shell, Rect2(r.position - Vector2(pad, pad), shell.get_size() / Art.SCALE), false)
+	SystemsDraw.rrect(ci, Rect2(r.position + Vector2(16, 8), Vector2(24, 3)), 1.0, Palette.MATERIAL_GOLD)
 	var icon := Art.icon("icon_power")
 	if icon != null:
-		draw_texture_rect(icon, Rect2(r.position + Vector2(14, 18), Vector2(20, 20)), false, Palette.MATERIAL_GOLD)
+		ci.draw_texture_rect(icon, Rect2(r.position + Vector2(14, 18), Vector2(20, 20)), false, Palette.MATERIAL_GOLD)
 	var rows := 1 if cap <= 8 else (2 if cap <= 16 else 4)
 	var chev := 1.0
 	if _psu_over_start >= 0.0:
@@ -798,18 +851,18 @@ func _draw_psu(run: LabRun, sim: Simulation) -> void:
 			chev = 0.35 + 0.65 * absf(cos(el / 0.2 * PI))  # two 200 ms pulses (MOTION_SYSTEM §8)
 		else:
 			_psu_over_start = -1.0
-	SystemsDraw.gauge(self, r.position + Vector2(40, 18 if rows <= 2 else 12), 72.0, cap, dem, rows, chev)
-	draw_string(_font, r.position + Vector2(16, 55), "PSU · %d" % cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(Palette.MATERIAL_SILK, 0.55))
+	SystemsDraw.gauge(ci, r.position + Vector2(40, 18 if rows <= 2 else 12), 72.0, cap, dem, rows, chev)
+	ci.draw_string(_font, r.position + Vector2(16, 55), "PSU · %d" % cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(Palette.MATERIAL_SILK, 0.55))
 	# LED: idle / blocked (>= 75 %) / error (> 100 %)
 	var led := "error" if dem > cap else ("blocked" if dem * 4 >= cap * 3 else "idle")
 	var lt := Art.tex(Art.led_file(led))
 	if lt != null:
 		var lp := Art.pad(Art.led_file(led))
-		draw_texture_rect(lt, Rect2(r.position + Vector2(110, 6) - Vector2(lp, lp), lt.get_size() / Art.SCALE), false)
+		ci.draw_texture_rect(lt, Rect2(r.position + Vector2(110, 6) - Vector2(lp, lp), lt.get_size() / Art.SCALE), false)
 
 
 ## Sealed bays: dashed 2x1 footprint + label + a capped port face at the laptop edge.
-func _draw_sealed_bays(sim: Simulation) -> void:
+func _draw_sealed_bays(ci: CanvasItem, sim: Simulation) -> void:
 	var seen := {}
 	for c in sim.reserved:
 		var cell: Vector2i = c
@@ -821,20 +874,20 @@ func _draw_sealed_bays(sim: Simulation) -> void:
 		seen[cell] = true
 		seen[cell + Vector2i(1, 0)] = true
 		var r := Rect2(Vector2(cell) * T + Vector2(2.0, 2.0), Vector2(2.0 * T - 4.0, T - 4.0))
-		SystemsDraw.rrect_dashed(self, r, 6.0, Color(Palette.BOARD_SILK, 0.9), 1.0)
+		SystemsDraw.rrect_dashed(ci, r, 6.0, Color(Palette.BOARD_SILK, 0.9), 1.0)
 		var label := sim.reserved_label(cell)
 		var parts := label.split(" · ")
 		var west := cell.x == 0
 		var tx := r.position.x + (20.0 if west else 16.0)
-		draw_string(_font, Vector2(tx, r.position.y + 24.0), parts[0] if parts.size() > 0 else label, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.BOARD_SILK)
+		ci.draw_string(_font, Vector2(tx, r.position.y + 24.0), parts[0] if parts.size() > 0 else label, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Palette.BOARD_SILK)
 		if parts.size() > 1:
-			draw_string(_font, Vector2(tx, r.position.y + 38.0), parts[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Palette.BOARD_SILK)
+			ci.draw_string(_font, Vector2(tx, r.position.y + 38.0), parts[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Palette.BOARD_SILK)
 		var fx := Vector2(cell) * T + (Vector2(-6.0, 14.0) if west else Vector2(118.0, 14.0))
-		SystemsDraw.rrect(self, Rect2(fx, Vector2(16.0, 36.0)), 2.0, Palette.MACHINE_FRAME_HOVER)
-		SystemsDraw.rrect(self, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MATERIAL_PLATE)
-		SystemsDraw.rrect_outline(self, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MACHINE_FRAME, 1.0)
+		SystemsDraw.rrect(ci, Rect2(fx, Vector2(16.0, 36.0)), 2.0, Palette.MACHINE_FRAME_HOVER)
+		SystemsDraw.rrect(ci, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MATERIAL_PLATE)
+		SystemsDraw.rrect_outline(ci, Rect2(fx + Vector2(2.0, 2.0), Vector2(12.0, 32.0)), 1.5, Palette.MACHINE_FRAME, 1.0)
 		for sy in [7.0, 31.0]:
-			draw_circle(fx + Vector2(8.0, sy), 2.0, Palette.MATERIAL_FRAME)
+			ci.draw_circle(fx + Vector2(8.0, sy), 2.0, Palette.MATERIAL_FRAME)
 
 
 func _draw_note(a: float) -> void:

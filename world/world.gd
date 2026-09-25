@@ -34,6 +34,9 @@ var _prev_size := Vector2i.ZERO
 var _reveal_ids: Array = []
 var _reveal_start := -1.0
 var _initialized := false
+var _views := {}  # machine id -> MachineView
+var _view_keys := {}  # machine id -> the MachineView.view_key it was built for
+var _wire_views := {}  # connection id -> ConnectionView
 
 
 func _ready() -> void:
@@ -49,23 +52,34 @@ func _ready() -> void:
 	overlay_layer.add_child(systems_overlay)
 	overlay_layer.move_child(systems_overlay, 0)  # under the tool previews
 	SimulationManager.mission_loaded.connect(_rebuild)
-	SimulationManager.layout_changed.connect(_rebuild)
+	SimulationManager.layout_changed.connect(_on_layout_changed)
 	_rebuild()
 
 
-## Rebuilds the machine views from the current Simulation; called on mission load and on
-## every layout change. Views are read-only mirrors, so a full rebuild is safe.
+## Rebuilds every machine / wire view from the current Simulation: a new board (mission load).
 func _rebuild(_def: Variant = null) -> void:
 	for c in machine_layer.get_children():
 		c.queue_free()
 	for c in wire_layer.get_children():
 		c.queue_free()
+	_views.clear()
+	_wire_views.clear()
+	_sync_layout()
+
+
+## A layout change: views are read-only mirrors, so only the views whose model changed are
+## rebuilt (MachineView.view_key / the wire route); the rest stay, keeping their motion state.
+func _sync_layout() -> void:
 	var sim := SimulationManager.sim
 	if sim == null:
+		for c in machine_layer.get_children():
+			c.queue_free()
+		for c in wire_layer.get_children():
+			c.queue_free()
+		_views.clear()
+		_wire_views.clear()
 		return
-	var ids: Array = []
-	for id in sim.sorted_machine_ids():
-		ids.append(id)
+	var ids: Array = sim.sorted_machine_ids()
 	var grew := _initialized and (sim.size.x > _prev_size.x or sim.size.y > _prev_size.y)
 	if grew:
 		var new_usb: Array = []
@@ -81,15 +95,58 @@ func _rebuild(_def: Variant = null) -> void:
 	_known_ids = ids
 	_prev_size = sim.size
 	_initialized = true
-	for id in sim.sorted_machine_ids():
-		var mv := MachineView.new()
-		mv.setup(sim.machines[id])
-		machine_layer.add_child(mv)
-	for id in sim.sorted_connection_ids():
-		var cv := ConnectionView.new()
-		cv.setup(sim.connections[id])
-		cv.packet_positions = packet_layer.comet_arcs.bind(id)
-		wire_layer.add_child(cv)
+	# machines
+	var created := false
+	for id in _views.keys():
+		if not sim.machines.has(id) or (_views[id] as MachineView).machine != sim.machines[id]:
+			(_views[id] as MachineView).queue_free()
+			_views.erase(id)
+	var i := 0
+	for id in ids:
+		var m: Machine = sim.machines[id]
+		var key := MachineView.view_key(m)
+		var mv: MachineView = _views.get(id)
+		if mv != null and _view_keys.get(id, "") != key:
+			mv.queue_free()
+			mv = null
+		if mv == null:
+			mv = MachineView.new()
+			mv.setup(m)
+			machine_layer.add_child(mv)
+			_views[id] = mv
+			_view_keys[id] = key
+			created = true
+		else:
+			mv.on_layout()
+		if mv.get_index() != i:
+			machine_layer.move_child(mv, i)
+		i += 1
+	# wires: kept while the connection object and its route are the same
+	for cid in _wire_views.keys():
+		var cv: ConnectionView = _wire_views[cid]
+		if not sim.connections.has(cid) or cv.connection != sim.connections[cid] or cv.route_key != ConnectionView.key_of(sim.connections[cid]):
+			cv.queue_free()
+			_wire_views.erase(cid)
+	var j := 0
+	for cid in sim.sorted_connection_ids():
+		var cv2: ConnectionView = _wire_views.get(cid)
+		if cv2 == null:
+			cv2 = ConnectionView.new()
+			cv2.setup(sim.connections[cid])
+			cv2.packet_positions = packet_layer.comet_arcs.bind(cid)
+			wire_layer.add_child(cv2)
+			_wire_views[cid] = cv2
+			created = true
+		else:
+			cv2.on_layout()
+		if cv2.get_index() != j:
+			wire_layer.move_child(cv2, j)
+		j += 1
+	for id in _view_keys.keys():
+		if not _views.has(id):
+			_view_keys.erase(id)
+	if created and tools != null:
+		tools.sync_view_flags()  # selection / hover / failure highlight onto the new views
 	board_view.redraw()
 	if desk != null:
 		desk.redraw()
@@ -103,6 +160,10 @@ func _rebuild(_def: Variant = null) -> void:
 		var board := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
 		var side := LAB_OVERHANG if SimulationManager.in_lab else IO_OVERHANG
 		camera_rig.fit_board(board.grow_individual(side, 0.0, side, 0.0))
+
+
+func _on_layout_changed() -> void:
+	_sync_layout()
 
 
 func _process(delta: float) -> void:
