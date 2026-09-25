@@ -57,6 +57,22 @@ func _port1() -> Machine:
 	return null
 
 
+func _mb(down: bool) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = down
+	return e
+
+
+## Input hub 2 (rack row 4), wherever it stands.
+func _hub2() -> Machine:
+	for id in _sm.sim.sorted_machine_ids():
+		var m: Machine = _sm.sim.machines[id]
+		if m.type == "usb_input" and m.port_row == 4:
+			return m
+	return null
+
+
 func _slot_of(kind: String) -> int:
 	for s in _sm.run.desk_inputs:
 		if _sm.run.desk_inputs[s] == kind:
@@ -119,6 +135,21 @@ func _process(_d: float) -> bool:
 			_press(tray, false)
 		24:
 			_check(_slot_of("text@5") >= 0 and _sm.run.files == 5 and _sm.sim.last_error.begins_with("Not finished yet"), "the tray refuses an unfinished quest (%s)" % _sm.sim.last_error)
+			# a USB hub moves like a component: drag its chassis (its empty bay too)
+			# (the tools read the global mouse, which headless runs never move: drive their real
+			# handlers with world positions, as tools_smoke does)
+			var tools = root.get_node("Main/World/Tools")
+			var hub := _hub2()
+			var grab := Vector2(hub.cell) * Palette.TILE + Vector2(64, 32)
+			tools._on_mouse_button(_mb(true), grab)
+			tools._on_mouse_motion(grab + Vector2(20, 0))
+		26:
+			var tools = root.get_node("Main/World/Tools")
+			var to := Vector2(8, 10) * Palette.TILE + Vector2(64, 32)
+			tools._on_mouse_motion(to)
+			tools._on_mouse_button(_mb(false), to)
+		29:
+			_check(_hub2().cell.x >= 8 and _hub2().cell.y >= 9 and _hub2().locked, "dragging a hub's chassis moves it, still a locked hub (at %s)" % str(_hub2().cell))
 			SaveStore.clear()
 			if _fails == 0:
 				print("DESK PASS")
