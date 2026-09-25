@@ -645,6 +645,15 @@ func _update_texts(sim: Simulation, _running: bool) -> void:
 			continue  # static text
 		var txt: String = vals.get(t["key"], "")
 		t["text"] = txt
+		if t["key"] == "display":
+			# bits in a 36 px chip: no group spaces, and the type shrinks to fit (never below 7 px)
+			txt = txt.replace(" ", "")
+			t["text"] = txt
+			var f := TclTheme.font("ExtraBold")
+			var fs := 11.0
+			while fs > 7.0 and f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs)).x > float(t["width"]):
+				fs -= 1.0
+			t["size"] = fs
 		if t["key"] == "bin":
 			t["color"] = _bin_color
 		elif t["key"] == "ro_value" and m.type == "terminal_output":
