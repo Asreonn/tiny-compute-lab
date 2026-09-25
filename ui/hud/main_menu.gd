@@ -138,7 +138,10 @@ func _card(pos: Vector2, d: MissionDef, idx: int) -> void:
 		HudKit.dot(card, Vector2(CARD_W - 18, 12), 6, Palette.STATE_VALID)
 	var cb := Callable(func():
 		close()
-		_mgr().load_mission(d.id))
+		_mgr().load_mission(d.id)
+		var main := get_tree().current_scene
+		if main != null and main.has_method("play_mission_intro"):
+			main.play_mission_intro())
 	card.set_meta("on_click", cb)
 	HudKit.hit(card, Vector2.ZERO, Vector2(CARD_W, CARD_H), cb, d.title)
 	HudKit.card_entrance(card, idx)

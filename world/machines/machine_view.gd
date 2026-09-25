@@ -179,6 +179,7 @@ func _build() -> void:
 	if machine.type == "usb_output" and machine.locked and SimulationManager.run != null and SimulationManager.run.has_method("request_bits"):
 		_contract = ContractDriveView.new()
 		_contract.machine = machine
+		_contract._rng.seed = machine.id * 7919 + 1  # repeatable digits
 		_contract.name = "ContractDrive"
 		body.add_child(_contract)
 	# 12 upright text layer
@@ -1059,18 +1060,28 @@ class UsbSocketView extends Node2D:
 		var plugged := machine.device != "" or (_anim_start >= 0.0 and not _anim_plug)
 		if _anim_device != "":
 			var lr = SimulationManager.run
-			SystemsDraw.data_module(self, at + Vector2(_offset, 0), _anim_device, DeskView.stick_opts(
-				lr as LabRun if lr is LabRun else null, _anim_device, {"inserted": true, "cursor": _cursor, "alpha": _alpha}))
+			var o := DeskView.stick_opts(lr as LabRun if lr is LabRun else null, _anim_device, {"inserted": true, "cursor": _cursor, "alpha": _alpha})
+			SystemsDraw.data_module(self, at + Vector2(_offset, 0), _anim_device, o)
+			if bool(o.get("done", false)) and not HudKit.REDUCED_MOTION:
+				_draw_shimmer(at + Vector2(_offset, 0))
 		elif hovered and machine.device == "":
 			SystemsDraw.data_module(self, at, "bit", {"ghost": true})
 			SystemsDraw.rrect_outline(self, Rect2(face - Vector2(2, 2), Vector2(20, 40)), 3.0, Color(Palette.STATE_HOVER, 0.8), 1.0)
 		SystemsDraw.port_face(self, face, plugged, _lit, false)
 
+	## A finished quest's stick: a thin highlight sweeps across it every 2.4 s (0.6 s pass).
+	func _draw_shimmer(at: Vector2) -> void:
+		var ph := fposmod(Time.get_ticks_msec() / 1000.0, 2.4) / 0.6
+		if ph >= 1.0:
+			return
+		var x := at.x + 8.0 + ph * 80.0
+		draw_line(Vector2(x, at.y + 4.0), Vector2(x - 10.0, at.y + 52.0), Color(Palette.STATE_SUCCESS, 0.45 * sin(PI * ph)), 2.0, true)
+
 	func _mission_glyph() -> String:
 		if machine.stream.is_empty():
 			return ""
 		var v = machine.stream[0]
-		var g := str(v) if v is BitVector else (str(v.glyph()) if v is Object and v.has_method("glyph") else "")
+		var g := ViewMode.format(v, ViewMode.Mode.BIN).replace(" ", "") if v is BitVector else (str(v.glyph()) if v is Object and v.has_method("glyph") else "")
 		return g.substr(0, 5)
 
 
@@ -1079,6 +1090,7 @@ class UsbSocketView extends Node2D:
 class ContractDriveView extends Node2D:
 	const SEAM_S := 0.15
 	const PULSE_S := 0.2
+	const DIGIT_S := 0.9
 	var machine: Machine
 	var _flash_start := -1.0
 	var _flash_ok := true
@@ -1099,6 +1111,16 @@ class ContractDriveView extends Node2D:
 					_flash_start = Time.get_ticks_msec() / 1000.0
 					_flash_ok = bool((run.last_ok[0] as Dictionary).get("ok", true)) if run.last_ok.size() > 0 else true
 					_underline = not _flash_ok
+		if _flash_start >= 0.0 and _flash_start != _spawned_for and _flash_ok:
+			_spawned_for = _flash_start
+			_spawn_digits(2, Palette.DATA_NUMBER)
+		if run is LabRun:
+			var q: int = run.quest_for_drive(machine.id)
+			var filled: bool = run.quest_progress(q).filled
+			if filled and not _was_filled:
+				_spawn_digits(12, Palette.STATE_SUCCESS)
+			_was_filled = filled
+		_age_digits()
 		var lct := int(run.level_completed_tick)
 		if lct != _last_lct:
 			_last_lct = lct
@@ -1130,6 +1152,35 @@ class ContractDriveView extends Node2D:
 
 	var _glyph_q := -1
 	var _glyph_cache := ""
+	## Rising digits (accepted values; a burst when the quest fills): [pos, vel, born, char, color].
+	var _digits: Array = []
+	var _rng := RandomNumberGenerator.new()
+	var _spawned_for := -1.0
+	var _was_filled := false
+
+	func _spawn_digits(n: int, col: Color) -> void:
+		if HudKit.REDUCED_MOTION:
+			return
+		var now := Time.get_ticks_msec() / 1000.0
+		var at := SystemsDraw.HUB_STICK_OUT + Vector2(48, 4)
+		for i in n:
+			var v := Vector2(_rng.randf_range(-14.0, 14.0), _rng.randf_range(-34.0, -18.0))
+			_digits.append([at + Vector2(_rng.randf_range(-30.0, 30.0), 0.0), v, now + i * 0.06, "1" if _rng.randf() < 0.5 else "0", col])
+
+	func _age_digits() -> void:
+		var now := Time.get_ticks_msec() / 1000.0
+		_digits = _digits.filter(func(d): return now - float(d[2]) <= DIGIT_S)
+
+	func _draw_digits() -> void:
+		var now := Time.get_ticks_msec() / 1000.0
+		var f := TclTheme.font("ExtraBold")
+		for d in _digits:
+			var el := now - float(d[2])
+			if el < 0.0:
+				continue  # staggered: not born yet
+			var k := el / DIGIT_S
+			var pos: Vector2 = d[0] + (d[1] as Vector2) * el
+			draw_string(f, pos, str(d[3]), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(d[4], 0.9 * (1.0 - k * k)))
 
 	func _glyph(run) -> String:
 		if run.has_method("request_label"):
@@ -1175,6 +1226,7 @@ class ContractDriveView extends Node2D:
 		SystemsDraw.data_module(self, at, "job", {
 			"flip": true, "inserted": true, "glyph": glyph, "fill": fill, "acc": accent, "tag": tag, "done": done,
 		})
+		_draw_digits()
 		if _flash_start >= 0.0:
 			if now - _flash_start < SEAM_S:
 				draw_line(at + Vector2(0, 10), at + Vector2(0, 42), Color(Palette.STATE_VALID if _flash_ok else Palette.STATE_BLOCKED, 0.9), 1.5, true)

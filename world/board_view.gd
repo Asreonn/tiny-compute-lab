@@ -78,6 +78,9 @@ func _ready() -> void:
 	var v := Vignette.new()
 	v.name = "Vignette"
 	_vignette.add_child(v)
+	var motes := Motes.new()
+	motes.name = "Motes"
+	add_child(motes)
 
 ## Draws from SimulationManager.sim; deterministic per mission, decals never sit under a
 ## machine that is on the board at layout time.
@@ -403,3 +406,39 @@ class Vignette extends Control:
 			_tex.width = int(ceil(s.x))
 			_tex.height = int(ceil(s.y))
 		draw_texture_rect(_tex, Rect2(Vector2.ZERO, s), false)
+
+
+## Ambient specks in the dark around the laptop (never over the board): a few faint silk dots
+## drifting slowly up with a small sway and a slow twinkle. Seeded, so screenshots repeat; still
+## under reduced motion.
+class Motes extends Node2D:
+	const N := 30
+	const MARGIN := 420.0
+	var _p: Array = []  # [x0, y0, speed, sway, phase, size, alpha]
+
+	func _ready() -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7071
+		for i in N:
+			_p.append([rng.randf(), rng.randf(), rng.randf_range(5.0, 13.0), rng.randf_range(4.0, 14.0),
+				rng.randf() * TAU, rng.randf_range(1.0, 2.0), rng.randf_range(0.06, 0.16)])
+
+	func _process(_d: float) -> void:
+		if not HudKit.REDUCED_MOTION:
+			queue_redraw()
+
+	func _draw() -> void:
+		var sim := SimulationManager.sim
+		if sim == null:
+			return
+		var board := Rect2(Vector2.ZERO, Vector2(sim.size) * Palette.TILE)
+		var area := board.grow(MARGIN)
+		var t := 0.0 if HudKit.REDUCED_MOTION else Time.get_ticks_msec() / 1000.0
+		for e in _p:
+			var y := fposmod(float(e[1]) * area.size.y - float(e[2]) * t, area.size.y)
+			var x := float(e[0]) * area.size.x + sin(t * 0.4 + float(e[4])) * float(e[3])
+			var pt := area.position + Vector2(x, y)
+			if board.grow(8.0).has_point(pt):
+				continue
+			var a := float(e[6]) * (0.6 + 0.4 * sin(t * 0.8 + float(e[4]) * 2.0))
+			draw_circle(pt, float(e[5]), Color(Palette.BOARD_SILK, a))

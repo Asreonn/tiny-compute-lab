@@ -52,6 +52,13 @@ func play_intro(with_title := false) -> IntroLaptop:
 	return intro
 
 
+## A tutorial mission opens with the laptop intro too, on the mission's own board (the title's
+## Tutorial page and the in-game menu start missions). Honors Settings → Intro and --no-intro.
+func play_mission_intro() -> void:
+	if _intro_allowed() and bool(GameSettings.get_value("intro")):
+		play_intro(false)
+
+
 ## The title screen over the held intro (tools/title_shot.gd calls it directly).
 func show_title(intro: IntroLaptop) -> Control:
 	var layer := CanvasLayer.new()

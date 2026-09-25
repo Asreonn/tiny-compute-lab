@@ -249,7 +249,8 @@ func _activate(i: int) -> void:
 			var id := str(t["arg"])
 			_leave(func():
 				intro.skip()
-				_sm().load_mission(id))
+				_sm().load_mission(id)
+				main.play_mission_intro())  # the mission opens with the laptop intro too
 		"locked":
 			pass
 		"volume":
