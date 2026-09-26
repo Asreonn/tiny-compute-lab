@@ -253,14 +253,16 @@ func _build() -> void:
 	on_layout()
 
 
+## Thermal family (E3 / P10d1): board-level copper, no chassis / ports / LED / silk. Transport
+## tiles (pipes / spreaders / trunks) are drawn by the World's ThermalNetView; this view keeps
+## only the state overlays and the text layer. Sinks / blowers / heatsinks keep their
+## ThermalPartView hardware. A ghost transport tile gets a small Node2D painter that draws the
+## isolated-tile preview via ThermalNetView.draw_ghost.
 func _build_thermal() -> void:
-	_thermal = ThermalPartView.new()
-	_thermal.name = "ThermalPart"
-	_thermal.setup(machine)
-	# a heat pipe draws its conduit in board directions, so it must not rotate with the body
-	if machine.type == "heat_pipe":
-		add_child(_thermal)
-	else:
+	if not machine.type in ThermalNetwork.TRANSPORT:
+		_thermal = ThermalPartView.new()
+		_thermal.name = "ThermalPart"
+		_thermal.setup(machine)
 		body.add_child(_thermal)
 	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
 		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
@@ -270,6 +272,11 @@ func _build_thermal() -> void:
 	text_layer = UprightText.new()
 	text_layer.name = "UprightText"
 	add_child(text_layer)
+	if ghost and machine.type in ThermalNetwork.TRANSPORT:
+		var painter := Node2D.new()
+		painter.name = "ThermalGhost"
+		add_child(painter)
+		painter.draw.connect(ThermalNetView.draw_ghost.bind(painter, machine.type))
 
 
 ## Copper family (P10c): no chassis / ports / LED / silk — only the state overlays and the text
@@ -562,10 +569,7 @@ func port_anchor(port_id: String) -> Vector2:
 ## Everything _build() reads from the model. World keeps a view across a layout change while its
 ## key holds (only on_layout() runs) and rebuilds just this view when it changes.
 static func view_key(m: Machine) -> String:
-	var k := "%s|%d,%d|%d|%d|%s|%s|%s|%s" % [m.type, m.cell.x, m.cell.y, m.rot, m.width, str(m.params), m.locked, m.socket, str(m.port_width_override)]
-	if m.type == "heat_pipe":
-		k += "|" + ThermalPartView.links_key(m, SimulationManager.sim)
-	return k
+	return "%s|%d,%d|%d|%d|%s|%s|%s|%s" % [m.type, m.cell.x, m.cell.y, m.rot, m.width, str(m.params), m.locked, m.socket, str(m.port_width_override)]
 
 
 ## The board layout changed (wires, devices, params) but this view was kept: refresh what only a
@@ -1569,41 +1573,16 @@ class ThermalStrip extends Node2D:
 
 ## Thermal family hardware (STYLE_GUIDE §14.7, MOTION_SYSTEM §8): heatsink / radiator fin warmth
 ## from their tiles' stage; the blower impeller turns at 1 turn/s while the run plays (2 when a
-## tile it cools is HOT or worse) and eases out over 400 ms; a heat pipe draws its conduit
-## towards linked pipes with pads on its open axis ends, warmth smoothed over 500 ms.
+## tile it cools is HOT or worse) and eases out over 400 ms. Transport tiles (pipes / spreaders /
+## trunks) are drawn by the World's ThermalNetView (P10d1), never here.
 class ThermalPartView extends Node2D:
 	var machine: Machine
 	var _spin := 0.0
 	var _speed := 0.0  # turns per second
 	var _level := 0  # blower: 0 idle · 1 running · 2 high load; heatsink/radiator: warmth 0..2
-	var _warmth := 0.0  # heat pipe, smoothed 0..1
-	var _links: Array = []
-	var _pads: Array = []
 
 	func setup(m: Machine) -> void:
 		machine = m
-		if m.type != "heat_pipe":
-			return
-		var sim := SimulationManager.sim
-		for d: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			match _link(m, sim, d):
-				1: _links.append(d)
-				2: _pads.append(d)
-
-	## A heat pipe's side `d`: 1 linked to a neighbouring pipe, 2 an open end pad, 0 insulated.
-	static func _link(m: Machine, sim: Simulation, d: Vector2i) -> int:
-		var along: bool = (d.x != 0) == (m.rot % 2 == 0)
-		var n: Machine = sim.machine_at(m.cell + d) if sim != null else null
-		if n != null and n.type == "heat_pipe" and (along or ((d.x != 0) == (n.rot % 2 == 0))):
-			return 1
-		return 2 if along else 0
-
-	## What the conduit drawing depends on (MachineView.view_key): the four sides' links.
-	static func links_key(m: Machine, sim: Simulation) -> String:
-		var k := ""
-		for d: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			k += str(_link(m, sim, d))
-		return k
 
 	func refresh(delta: float) -> void:
 		var sim := SimulationManager.sim
@@ -1620,14 +1599,6 @@ class ThermalPartView extends Node2D:
 				if _speed > 0.0 or lvl != _level:
 					_level = lvl
 					_spin = fmod(_spin + _speed * TAU * delta, TAU)
-					queue_redraw()
-			"heat_pipe":
-				var goal := 0.0
-				if th != null:
-					goal = clampf(float(th.at(machine.cell) - 250) / 500.0, 0.0, 1.0)
-				var w := move_toward(_warmth, goal, delta / 0.5)
-				if absf(w - _warmth) > 0.001:
-					_warmth = w
 					queue_redraw()
 			_:
 				var lvl2 := 0
@@ -1651,5 +1622,4 @@ class ThermalPartView extends Node2D:
 			"heatsink": SystemsDraw.heatsink(self, Vector2.ZERO, _level)
 			"blower": SystemsDraw.blower(self, Vector2.ZERO, _spin, _level)
 			"radiator": SystemsDraw.radiator(self, Vector2.ZERO, _level)
-			"heat_pipe": SystemsDraw.heat_pipe(self, Vector2.ZERO, _links, _pads, _warmth)
 

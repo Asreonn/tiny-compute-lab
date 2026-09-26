@@ -1189,7 +1189,9 @@ func _emit_changed() -> void:
 func refresh_networks() -> void:
 	_cap = power_capacity()
 	_sync_power_net()
-	if thermal != null and thermal.size == size:
+	if thermal_enabled():
+		if thermal == null or thermal.size != size:
+			thermal = ThermalGrid.new(size)  # cold until the first step
 		thermal.sync_topology(self)
 
 
