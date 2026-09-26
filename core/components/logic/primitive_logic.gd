@@ -136,4 +136,8 @@ func _start_probe(m, sim) -> void:
 	var p: Packet = m.pop("in")
 	m.memory = [p.data]
 	m.counter += 1
+	if p.meta.has("test"):
+		m.last_mem_op = "T%d" % int(p.meta["test"])  # the vector the probe saw last
+	else:
+		m.last_mem_op = ""
 	m.begin_job({"out": p} if sim.output_connected(m, "out") else {}, p)

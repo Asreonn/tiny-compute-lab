@@ -19,6 +19,10 @@ signal changed  # layout changed (place/remove/connect/…)
 const TICKS_PER_SEC := 10
 const RATE_WINDOW := 30
 const STALL_TICKS := 60
+## Test packets get their own record contexts (they never pair with live records).
+const TEST_CTX_BASE := 1 << 40
+## Bumped on every layout edit (_emit_changed): a test result is valid for one circuit only.
+var layout_version := 0
 
 var size := Vector2i(20, 12)
 ## Power capacity / demand cached once per step, before the process phase (deterministic).
@@ -334,6 +338,11 @@ func set_param(id: int, key: String, value: Variant) -> bool:
 			last_error = "Unwire the ports first — the widths would change"
 			return false
 	m.params[key] = value
+	# A new NIC RX binding starts in TEST: the player must switch the channel to live (JOB C7a).
+	if m.type == "nic" and key.begins_with("rx_") and key.length() == 4 and str(value) != "":
+		var ch: String = key.substr(3)
+		if ch in ["a", "b", "c"]:
+			m.params["mode_" + ch] = "test"
 	_emit_changed()
 	return true
 
@@ -555,6 +564,112 @@ func _device_emits_desc(kind: String, width: int) -> String:
 	if str(d["out"]) == "bits":
 		return "%d-bit words" % width
 	return "raw " + RawValue.KIND_NAMES[int(d["raw_kind"])]
+
+
+# ============================================================ source test mode (JOB C7a)
+
+## "test" or "live" for a source: a USB socket (a usb_input with socket) or a NIC RX channel
+## ("a" / "b" / "c" of a nic). Anything else is "live".
+func source_mode(mid: int, channel: String = "") -> String:
+	if not machines.has(mid):
+		return "live"
+	var m: Machine = machines[mid]
+	if m.type == "usb_input" and m.socket:
+		return "test" if m.test_mode else "live"
+	if m.type == "nic":
+		return str(m.params.get("mode_" + channel, "live"))
+	return "live"
+
+
+## Switch a source to "test" or "live". A mode is not a layout edit: it never touches
+## layout_version and never disturbs running packets (the change is recorded in events).
+func set_source_mode(mid: int, channel: String, mode: String) -> bool:
+	if mode != "test" and mode != "live":
+		return false
+	if not machines.has(mid):
+		return false
+	var m: Machine = machines[mid]
+	if m.type == "usb_input" and m.socket:
+		if channel != "":
+			return false
+		m.test_mode = mode == "test"
+	elif m.type == "nic":
+		if not channel in ["a", "b", "c"]:
+			return false
+		m.params["mode_" + channel] = mode
+	else:
+		return false
+	events.append({"kind": "mode", "machine": mid})
+	return true
+
+
+## Put one known test vector on a source's output. The packet carries its own record context
+## (TEST_CTX_BASE + run * 1000 + idx), so it never pairs with a live record. Returns the
+## packet, or null for a bad machine / port.
+func emit_test(mid: int, channel: String, value: BitVector, vec_seq: int, run: int, idx: int) -> Packet:
+	if not machines.has(mid):
+		return null
+	var m: Machine = machines[mid]
+	var port: String
+	if m.type == "usb_input" and m.socket:
+		if channel != "":
+			return null
+		port = "out"
+	elif m.type == "nic":
+		if not channel in ["a", "b", "c"]:
+			return null
+		port = "rx_" + channel
+	else:
+		return null
+	var p := Packet.new(new_packet_id(), value, tick)
+	p.origins[mid] = {"seq": vec_seq, "value": value, "test": idx, "run": run}
+	if m.type == "nic":
+		p.origins[mid]["source"] = str(m.params.get("rx_" + channel, ""))
+		p.origins[mid]["channel"] = channel
+	p.meta["test"] = idx
+	p.ctx = TEST_CTX_BASE + run * 1000 + idx
+	p.path.append(m.label)
+	if m.outq[port] == null:
+		m.outq[port] = p
+	else:
+		m.out_backlog[port].append(p)
+	events.append({"kind": "test", "machine": mid, "run": run, "idx": idx})
+	return p
+
+
+## Where every packet of a test run currently is: vector index -> Array of holders, each a
+## Dictionary {"machine": id or -1, "label": String} (machines by ascending id, then wires).
+## An empty Dictionary means nothing of that run is left anywhere.
+func test_packets(run: int) -> Dictionary:
+	var out := {}
+	for id in sorted_machine_ids():
+		var m: Machine = machines[id]
+		for h in m.packets_inside():
+			var p: Packet = h["packet"]
+			var idx := _test_index(p, run)
+			if idx >= 0:
+				if not out.has(idx):
+					out[idx] = []
+				(out[idx] as Array).append({"machine": id, "label": m.label})
+	for cid in sorted_connection_ids():
+		for slot in connections[cid].all_packets():
+			var p: Packet = slot["packet"]
+			var idx := _test_index(p, run)
+			if idx >= 0:
+				if not out.has(idx):
+					out[idx] = []
+				(out[idx] as Array).append({"machine": -1, "label": "wire"})
+	return out
+
+
+## The vector index of `p` in run `run`, or -1: any origins entry with "run" == run and a
+## "test" key (the value is the vector index).
+static func _test_index(p: Packet, run: int) -> int:
+	for k in p.origins:
+		var e: Dictionary = p.origins[k]
+		if int(e.get("run", -1)) == run and e.has("test"):
+			return int(e["test"])
+	return -1
 
 
 # ============================================================ wiring
@@ -1286,6 +1401,7 @@ func load_player_layout(d: Dictionary) -> void:
 
 
 func _emit_changed() -> void:
+	layout_version += 1
 	_power_dirty = true
 	if _quiet == 0:
 		refresh_networks()

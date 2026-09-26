@@ -48,6 +48,30 @@ label = "TX B buyer"
 kind = "text"
 default_text = ""
 
+[sub_resource type="Resource" id="Resource_nicp7"]
+script = ExtResource("2_nic")
+key = "mode_a"
+label = "RX A mode"
+kind = "enum"
+options = PackedStringArray("live", "test")
+default_text = "live"
+
+[sub_resource type="Resource" id="Resource_nicp8"]
+script = ExtResource("2_nic")
+key = "mode_b"
+label = "RX B mode"
+kind = "enum"
+options = PackedStringArray("live", "test")
+default_text = "live"
+
+[sub_resource type="Resource" id="Resource_nicp9"]
+script = ExtResource("2_nic")
+key = "mode_c"
+label = "RX C mode"
+kind = "enum"
+options = PackedStringArray("live", "test")
+default_text = "live"
+
 [sub_resource type="Resource" id="Resource_nicr1"]
 script = ExtResource("3_nic")
 id = "rx_a"
@@ -107,6 +131,6 @@ max_lanes = 1
 glyph_text = "NIC"
 description = "The laptop's network card: moves records between remote sources and the factory under one frame budget (16 bits = 1 frame). It never reads the data."
 ports = Array[ExtResource("3_nic")]([SubResource("Resource_nicr1"), SubResource("Resource_nicr2"), SubResource("Resource_nicr3"), SubResource("Resource_nicr4"), SubResource("Resource_nicr5")])
-params = Array[ExtResource("2_nic")]([SubResource("Resource_nicp1"), SubResource("Resource_nicp2"), SubResource("Resource_nicp3"), SubResource("Resource_nicp4"), SubResource("Resource_nicp5"), SubResource("Resource_nicp6")])
+params = Array[ExtResource("2_nic")]([SubResource("Resource_nicp1"), SubResource("Resource_nicp2"), SubResource("Resource_nicp3"), SubResource("Resource_nicp4"), SubResource("Resource_nicp5"), SubResource("Resource_nicp6"), SubResource("Resource_nicp7"), SubResource("Resource_nicp8"), SubResource("Resource_nicp9")])
 logic = ExtResource("1_nic")
 menu_order = 1150

@@ -72,6 +72,8 @@ func start(m, sim) -> void:
 	for ch in RX:
 		if not "rx_" + ch in open:
 			continue
+		if str(m.params.get("mode_" + ch, "live")) == "test":
+			continue  # test mode: the channel pauses remotely (JOB C7a)
 		var src_id := str(m.params.get("rx_" + ch, ""))
 		if src_id == "":
 			continue
@@ -120,7 +122,7 @@ func start(m, sim) -> void:
 	# its port (outq) until the wire takes it.
 	var rx_open: Array = []
 	for ch in RX:
-		if "rx_" + ch in open and str(m.params.get("rx_" + ch, "")) != "" and SourceStream.source(str(m.params.get("rx_" + ch, ""))) != null:
+		if "rx_" + ch in open and str(m.params.get("rx_" + ch, "")) != "" and SourceStream.source(str(m.params.get("rx_" + ch, ""))) != null and str(m.params.get("mode_" + ch, "live")) != "test":
 			rx_open.append(ch)
 	if not rx_open.is_empty():
 		var moved := true

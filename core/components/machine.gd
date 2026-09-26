@@ -98,6 +98,9 @@ var net: Dictionary = {}
 var device: String = ""  # plugged module kind, "" = none (docs/SYSTEMS_EXPANSION.md §2)
 var last_device: String = ""  # kind of the last plugged module; keeps the wire valid after removal
 var socket := false  # true = lab socket semantics (module stream + 2-slot FIFO overrun)
+## Test mode (JOB C7a): the socket generates nothing; test vectors arrive via emit_test.
+## A setting, like `device` — reset() must not clear it.
+var test_mode := false
 ## Lab USB port: the rack row it opened at (its identity for saves), -1 otherwise.
 var port_row := -1
 var fifo: Array = []  # pending [value, seq] pairs, max 2; the oldest is dropped on overrun

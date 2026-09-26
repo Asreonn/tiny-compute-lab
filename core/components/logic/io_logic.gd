@@ -60,7 +60,8 @@ func _make_packet(sim, m, value: Variant, seq: int = -1) -> Packet:
 ## generated (the wire stays in place and simply sees no data). Burst 1 on a 1-lane wire is
 ## exactly the original behaviour.
 func _start_socket(m, sim) -> void:
-	if m.device != "" and not m.stream.is_empty() and sim.tick >= m.next_emit:
+	# Test mode (JOB C7a): the socket generates nothing; test vectors arrive via emit_test.
+	if not m.test_mode and m.device != "" and not m.stream.is_empty() and sim.tick >= m.next_emit:
 		for g in m.burst:
 			var seq: int = m.gen_seq
 			m.fifo.append([m.stream[seq % m.stream.size()], seq])
