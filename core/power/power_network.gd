@@ -433,6 +433,57 @@ func feeder_of(mid: int) -> String:
 	return str(feed["chain"]) if feed["kind"] == "chain" else "onboard"
 
 
+# ---------------------------------------------------------------- view queries
+
+## One copper tile against its class cap: "normal" < 75 %, "near" 75–100 %, "over" > 100 %.
+## A tile that is not on a live chain is "normal".
+func tile_state(tile: Vector2i) -> String:
+	var cid: String = _chain_of_tile.get(tile, "")
+	if cid == "" or not nodes.has(cid) or not nodes[cid]["live"]:
+		return "normal"
+	var ch: Dictionary = _chains[cid]
+	var cap := int(ch.get("caps", {}).get(tile, 0))
+	var load := int(ch.get("loads", {}).get(tile, 0))
+	if cap <= 0:
+		return "normal"
+	if load > cap:
+		return "over"
+	return "near" if load * 4 >= cap * 3 else "normal"
+
+
+## The contact tiles (directly south of the machine) that feed it from its live chain.
+func tapped_contacts(mid: int) -> Array:
+	var feed = _feeds.get(mid)
+	if feed == null or feed["kind"] != "chain":
+		return []
+	var out := []
+	for c in _contacts(sim.machines[mid]):
+		if _chain_of_tile.get(c, "") == feed["chain"]:
+			out.append(c)
+	return out
+
+
+## Copper tiles that sit on a power part's terminal: {"tile", "dir"}, `dir` pointing from the
+## copper tile toward the part (controller E / S outputs, board W input and N / E / S outputs).
+func terminal_tiles() -> Array:
+	var out := []
+	var terms := []
+	if _controller >= 0:
+		var cell: Vector2i = sim.machines[_controller].cell
+		terms.append([cell + Vector2i(2, 0), Vector2i.LEFT])
+		terms.append([cell + Vector2i(1, 2), Vector2i.UP])
+	for bid in _boards:
+		var b: Dictionary = _boards[bid]
+		terms.append([b["input"], Vector2i.RIGHT])
+		terms.append([b["terminals"]["N"], Vector2i.DOWN])
+		terms.append([b["terminals"]["E"], Vector2i.LEFT])
+		terms.append([b["terminals"]["S"], Vector2i.UP])
+	for e in terms:
+		if _copper.has(e[0]):
+			out.append({"tile": e[0], "dir": e[1]})
+	return out
+
+
 # ---------------------------------------------------------------- placement
 
 ## Why a copper tile may not be placed at `cell`, or "" when it is fine: copper never branches

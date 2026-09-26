@@ -712,7 +712,7 @@
    ]
   },
   "power_input": {
-   "form": "Module-M",
+   "form": "EdgeIn-M",
    "family": "power",
    "area": null,
    "glyph": null,
@@ -721,10 +721,10 @@
    "operator": null,
    "param": null,
    "silk": {
-    "text": "PWR",
+    "text": "DC IN",
     "pos": [
-     24,
-     47
+     84,
+     26
     ]
    },
    "led": [
@@ -738,28 +738,34 @@
    "ports": []
   },
   "power_controller": {
-   "form": "Chip-L",
+   "form": "Module-L",
    "family": "power",
    "area": null,
    "glyph": null,
-   "display": null,
+   "display": {
+    "width": "W36",
+    "pos": [
+     16,
+     74
+    ]
+   },
    "digits": null,
    "operator": null,
    "param": null,
    "silk": {
-    "text": "CTRL",
+    "text": "VRM",
     "pos": [
-     44,
-     93
+     58,
+     80
     ]
    },
    "led": [
-    92,
-    24
+    108,
+    8
    ],
    "tab": [
-    34,
-    26
+    16,
+    10
    ],
    "ports": []
   },
@@ -864,20 +870,151 @@
    "digits": null,
    "operator": null,
    "param": null,
-   "silk": {
-    "text": "BRD",
-    "pos": [
-     24,
-     47
-    ]
-   },
+   "silk": null,
    "led": [
     110,
     6
    ],
    "tab": [
+    70,
+    12
+   ],
+   "ports": []
+  },
+  "thermal_manifold": {
+   "form": "Module-M",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    70,
+    12
+   ],
+   "ports": []
+  },
+  "fin_stack": {
+   "form": "Module-M",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    70,
+    12
+   ],
+   "ports": []
+  },
+  "blower_hp": {
+   "form": "Module-M",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    70,
+    12
+   ],
+   "ports": []
+  },
+  "radiator": {
+   "form": "Module-L",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
     16,
-    9
+    10
+   ],
+   "ports": []
+  },
+  "radiator_large": {
+   "form": "Module-L",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": []
+  },
+  "fan_bank": {
+   "form": "Module-L",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": []
+  },
+  "blower": {
+   "form": "Module-S",
+   "family": "thermal",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    14,
+    6
    ],
    "ports": []
   }
@@ -2855,253 +2992,253 @@
    ]
   },
   "NumberEncoder": {
-  "status": "kit",
-  "form": "Module-M",
-  "family": "conversion",
-  "areas": [
-   {
-    "kind": "Bits",
-    "idle": "Idle",
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      58,
+      25
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "NUM",
     "pos": [
-     58,
-     25
-    ]
-   }
-  ],
-  "operator": null,
-  "dial_text": null,
-  "display": null,
-  "readout": null,
-  "digits": null,
-  "silk": {
-   "text": "NUM",
-   "pos": [
-    16,
-    47
-   ]
-  },
-  "width_tags": [
-   {
-    "width": "3",
-    "pos": [
-     98,
-     46
-    ]
-   }
-  ],
-  "led": [
-   110,
-   6
-  ],
-  "tab": [
-   16,
-   10
-  ],
-  "ports": [
-   {
-    "dir": "Input",
-    "type": "Raw",
-    "anchor": [
-     0,
-     32
+     16,
+     47
     ]
    },
-   {
-    "dir": "Output",
-    "type": "Bus",
-    "anchor": [
-     128,
-     32
-    ]
-   }
-  ]
- },
+   "width_tags": [
+    {
+     "width": "3",
+     "pos": [
+      98,
+      46
+     ]
+    }
+   ],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Raw",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
   "CharEncoder": {
-  "status": "kit",
-  "form": "Module-M",
-  "family": "conversion",
-  "areas": [
-   {
-    "kind": "Bits",
-    "idle": "Idle",
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      58,
+      25
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "CHR",
     "pos": [
-     58,
-     25
-    ]
-   }
-  ],
-  "operator": null,
-  "dial_text": null,
-  "display": null,
-  "readout": null,
-  "digits": null,
-  "silk": {
-   "text": "CHR",
-   "pos": [
-    16,
-    47
-   ]
-  },
-  "width_tags": [
-   {
-    "width": "5",
-    "pos": [
-     98,
-     46
-    ]
-   }
-  ],
-  "led": [
-   110,
-   6
-  ],
-  "tab": [
-   16,
-   10
-  ],
-  "ports": [
-   {
-    "dir": "Input",
-    "type": "Raw",
-    "anchor": [
-     0,
-     32
+     16,
+     47
     ]
    },
-   {
-    "dir": "Output",
-    "type": "Bus",
-    "anchor": [
-     128,
-     32
-    ]
-   }
-  ]
- },
+   "width_tags": [
+    {
+     "width": "5",
+     "pos": [
+      98,
+      46
+     ]
+    }
+   ],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Raw",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
   "NumberDecoder": {
-  "status": "kit",
-  "form": "Module-M",
-  "family": "conversion",
-  "areas": [
-   {
-    "kind": "Bits",
-    "idle": "Idle",
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      16,
+      25
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "NUM",
     "pos": [
      16,
-     25
-    ]
-   }
-  ],
-  "operator": null,
-  "dial_text": null,
-  "display": null,
-  "readout": null,
-  "digits": null,
-  "silk": {
-   "text": "NUM",
-   "pos": [
-    16,
-    47
-   ]
-  },
-  "width_tags": [
-   {
-    "width": "3",
-    "pos": [
-     98,
-     46
-    ]
-   }
-  ],
-  "led": [
-   110,
-   6
-  ],
-  "tab": [
-   16,
-   10
-  ],
-  "ports": [
-   {
-    "dir": "Input",
-    "type": "Bus",
-    "anchor": [
-     0,
-     32
+     47
     ]
    },
-   {
-    "dir": "Output",
-    "type": "Raw",
-    "anchor": [
-     128,
-     32
-    ]
-   }
-  ]
- },
+   "width_tags": [
+    {
+     "width": "3",
+     "pos": [
+      98,
+      46
+     ]
+    }
+   ],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Raw",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
   "CharDecoder": {
-  "status": "kit",
-  "form": "Module-M",
-  "family": "conversion",
-  "areas": [
-   {
-    "kind": "Bits",
-    "idle": "Idle",
+   "status": "kit",
+   "form": "Module-M",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Bits",
+     "idle": "Idle",
+     "pos": [
+      16,
+      25
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": {
+    "text": "CHR",
     "pos": [
      16,
-     25
-    ]
-   }
-  ],
-  "operator": null,
-  "dial_text": null,
-  "display": null,
-  "readout": null,
-  "digits": null,
-  "silk": {
-   "text": "CHR",
-   "pos": [
-    16,
-    47
-   ]
-  },
-  "width_tags": [
-   {
-    "width": "5",
-    "pos": [
-     98,
-     46
-    ]
-   }
-  ],
-  "led": [
-   110,
-   6
-  ],
-  "tab": [
-   16,
-   10
-  ],
-  "ports": [
-   {
-    "dir": "Input",
-    "type": "Bus",
-    "anchor": [
-     0,
-     32
+     47
     ]
    },
-   {
-    "dir": "Output",
-    "type": "Raw",
-    "anchor": [
-     128,
-     32
-    ]
-   }
-  ]
- },
+   "width_tags": [
+    {
+     "width": "5",
+     "pos": [
+      98,
+      46
+     ]
+    }
+   ],
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Raw",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
+  },
   "USBInput": {
    "status": "kit",
    "form": "EdgeIn-M",

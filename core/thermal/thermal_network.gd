@@ -3,8 +3,8 @@ extends RefCounted
 ## The thermal path (P7a): heat-producing machines push through transport tiles (pipes /
 ## spreaders / trunks / manifolds) into sinks (fins / radiators) that dump it out of the
 ## computer, fed by blowers. Pure and deterministic — machines iterate by ascending id, tiles
-## in index order y*size.x+x, and nothing here touches the SceneTree. No Simulation /
-## ThermalGrid integration yet: this is the standalone core the Lab will call later.
+## in index order y*size.x+x, and nothing here touches the SceneTree. ThermalGrid rebuilds it
+## with the layout and calls allocate() every tick (P7b).
 
 const TRANSPORT := ["thermal_spreader", "heat_pipe", "heat_pipe_heavy", "thermal_trunk"]
 const MANIFOLD := "thermal_manifold"
@@ -173,7 +173,7 @@ func _compute_machines() -> void:
 			continue
 		if int(m.def().get("heat", 0)) <= 0 and m.heat() <= 0:
 			continue
-		var s: Vector2i = Catalog.size_of(m.type, 0)
+		var s: Vector2i = Catalog.size_of(m.type, m.rot)  # the contact row follows the rotated footprint
 		var contact_tile := Vector2i(-1, -1)
 		var nid := ""
 		for x in s.x:
@@ -257,6 +257,28 @@ func _path_to_sink(feed: Vector2i) -> Array:
 	return path
 
 
+## The capacity of a network tile (its part's def capacity), 0 for any other tile.
+func tile_cap(t: Vector2i) -> int:
+	return _tile_cap(t)
+
+
+## The blowers that feed a sink (directly south of it), ascending id.
+func blowers_of(sid: int) -> Array:
+	var out := []
+	if not _sink_info.has(sid):
+		return out
+	var footprint := {}
+	for c in _sink_info[sid]["footprint"]:
+		footprint[c] = true
+	for bid in _blower_eff:
+		var b: Machine = _machines[bid]
+		for x in Catalog.size_of(b.type, 0).x:
+			if footprint.has(Vector2i(b.cell.x + x, b.cell.y - 1)):
+				out.append(bid)
+				break
+	return out
+
+
 func _tile_class(t: Vector2i) -> String:
 	var mid: int = _tile_machine.get(t, -1)
 	if mid < 0:
@@ -278,7 +300,8 @@ func _machine_at(c: Vector2i) -> int:
 # ---------------------------------------------------------------- allocation
 
 ## offers: machine id -> heat offered this tick (already capped by the caller at its contact
-## cap). Returns {"removal": {mid: int}, "dump": {sink mid: int}, "stages": {mid: [...]}}.
+## cap). Returns {"removal": {mid: int}, "dump": {sink mid: int}, "stages": {mid: [...]},
+## "flow": {tile: heat offered through it}} (the flow feeds the view's heat wash).
 func allocate(offers: Dictionary) -> Dictionary:
 	var tile_flow := {}
 	var paths := {}
@@ -343,7 +366,7 @@ func allocate(offers: Dictionary) -> Dictionary:
 	var stages := {}
 	for mid in offers:
 		stages[mid] = _stages_for(mid, offers, paths, tile_flow, net_scaled)
-	return {"removal": scaled, "dump": dump, "stages": stages}
+	return {"removal": scaled, "dump": dump, "stages": stages, "flow": tile_flow}
 
 
 func _stages_for(mid, offers: Dictionary, paths: Dictionary, tile_flow: Dictionary, net_scaled: Dictionary) -> Array:

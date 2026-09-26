@@ -31,6 +31,11 @@ _const("ZOOM", t["zoom"])
 L.append("")
 L.append("const FAMILY := {")
 for k in t["color"]["family"]: L.append(f'\t"{k}": FAMILY_{k.upper()},')
+SUB_NOTE = {"memory": "the Penpot memory tab is the storage orange", "control": "the Penpot control tab is the compute grey"}
+for k, v in t.get("family-sub", {}).items():
+    if k.startswith("$"): continue
+    note = f"  # {SUB_NOTE[k]}" if k in SUB_NOTE else ""
+    L.append(f'\t"{k}": FAMILY_{v.upper()},{note}')
 L.append("}")
 L.append("")
 L.append("static func datatype(width: int) -> Color:")

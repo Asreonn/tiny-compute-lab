@@ -14,6 +14,7 @@ static func run(t) -> void:
 	_determinism(t)
 	_shared_pipe_order(t)
 	_no_air_no_dump(t)
+	_view_queries(t)
 
 
 static func _sim() -> Simulation:
@@ -185,3 +186,27 @@ static func _no_air_no_dump(t) -> void:
 	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
 	var tn := ThermalNetwork.build(sim)
 	t.check(tn.allocate({add.id: 1200})["removal"][add.id] == 0, "a radiator without airflow removes nothing")
+
+
+## View queries: blowers_of() per sink, tile_cap(), the allocation's tile flow, and a rotated
+## machine's contact row (its rotated footprint, not the unrotated one).
+static func _view_queries(t) -> void:
+	var sim := _sim()
+	var rad := sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	var b1 := sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	var b2 := sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(12, 2), 0, {}, 3)
+	for x in range(5, 9):
+		sim.place("heat_pipe", Vector2i(x, 3), 0, {}, 3)
+	for y in [2, 1]:
+		sim.place("heat_pipe", Vector2i(8, y), 0, {}, 3)
+	var turned := sim.place("add", Vector2i(4, 4), 1, {"k": 1}, 3)  # 1×2 footprint at x 4
+	var tn := ThermalNetwork.build(sim)
+	t.check(tn.blowers_of(rad.id) == [b1.id, b2.id], "the two blowers under the radiator feed it (got %s)" % str(tn.blowers_of(rad.id)))
+	t.check(tn.tile_cap(Vector2i(6, 3)) == 800 and tn.tile_cap(Vector2i(0, 0)) == 0, "tile_cap reads the pipe's capacity")
+	t.check(tn.network_of(turned.id) == "", "a rotated Add only touches the tile above its 1-wide footprint (no pipe there)")
+	sim.place("heat_pipe", Vector2i(4, 3), 0, {}, 3)
+	var tn2 := ThermalNetwork.build(sim)
+	t.check(tn2.network_of(turned.id) != "", "a pipe above the rotated Add connects it")
+	var r := tn2.allocate({turned.id: 300})
+	t.check(int(r["flow"].get(Vector2i(6, 3), 0)) == 300, "the offer flows through the pipe tiles on its path (got %s)" % str(r["flow"].get(Vector2i(6, 3))))

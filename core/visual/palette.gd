@@ -127,6 +127,22 @@ const SIG_BUS_LANE_WIDTH := 1.4
 const SIG_BUS_LANE_GAP := 2.6
 const SIG_BUS_CHAMFER := 18
 const SIG_BUS_TAG_MIN_LENGTH := 80
+const SIG_CLASS_TRENCH_TRACE := 8
+const SIG_CLASS_TRENCH_BYTE := 12
+const SIG_CLASS_TRENCH_WIDE := 16
+const SIG_CLASS_TRENCH_BACKBONE := 22
+const SIG_LANE_TRENCH_1 := 8
+const SIG_LANE_TRENCH_2 := 12
+const SIG_LANE_TRENCH_4 := 16
+const SIG_LANE_TRENCH_8 := 22
+const SIG_LANE_CORE_1 := 2.5
+const SIG_LANE_CORE_2 := 2
+const SIG_LANE_CORE_4 := 1.4
+const SIG_LANE_CORE_8 := 1
+const SIG_RAIL := 1.25
+const SIG_BAND_SPACING := 16
+const SIG_BEAD_TAIL := 26
+const SIG_BEAD_TAIL_DENSE := 18
 const PKT_NUMBER_NORMAL := Vector2(24, 16)
 const PKT_BOOLEAN_NORMAL := Vector2(20, 20)
 const PKT_FAR := 7
@@ -144,6 +160,8 @@ const FAMILY := {
 	"routing": FAMILY_ROUTING,
 	"storage": FAMILY_STORAGE,
 	"compute": FAMILY_COMPUTE,
+	"view": FAMILY_IO,
+	"conversion": FAMILY_ROUTING,
 	"memory": FAMILY_STORAGE,  # the Penpot memory tab is the storage orange
 	"control": FAMILY_COMPUTE,  # the Penpot control tab is the compute grey
 }

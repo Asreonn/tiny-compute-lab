@@ -15,6 +15,7 @@ static func run(t) -> void:
 	_copper_t(t)
 	_pads(t)
 	_determinism(t)
+	_view_queries(t)
 
 
 static func _sim() -> Simulation:
@@ -163,3 +164,37 @@ static func _determinism(t) -> void:
 	t.check(a.nodes == b.nodes, "building twice gives identical nodes")
 	for mid in sim.sorted_machine_ids():
 		t.check(a.work_rate(mid, 12) == b.work_rate(mid, 12) and a.feeder_of(mid) == b.feeder_of(mid), "queries are deterministic")
+
+## View queries: per-tile states along a loaded rail, the tapped contacts of a machine, and the
+## copper tiles on the power parts' terminals.
+static func _view_queries(t) -> void:
+	var sim := _sim()
+	sim.place("power_controller", Vector2i(1, 10), 0, {"tier": "basic"}, 3)
+	for x in range(3, 13):
+		sim.place("power_rail", Vector2i(x, 10), 0, {}, 3)
+	var adds: Array[Machine] = []
+	for x in [4, 6, 8, 10, 12]:
+		adds.append(sim.place("add", Vector2i(x, 9), 0, {"k": 1, "lanes": "4"}, 3))
+	var pn := PowerNetwork.build(sim, 32, 8)
+	# downstream loads 20, 20, 16, 16, 12, 12, 8, 8, 4, 4 on a 16 rail
+	t.check(pn.tile_state(Vector2i(3, 10)) == "over", "the feed tile carries 20 on 16: over")
+	t.check(pn.tile_state(Vector2i(5, 10)) == "near", "16 on 16 reads near")
+	t.check(pn.tile_state(Vector2i(9, 10)) == "normal", "8 on 16 reads normal")
+	t.check(pn.tile_state(Vector2i(20, 20)) == "normal", "a tile with no copper reads normal")
+	t.check(pn.tapped_contacts(adds[0].id) == [Vector2i(4, 10), Vector2i(5, 10)], "both contacts of the first Add are tapped (got %s)" % str(pn.tapped_contacts(adds[0].id)))
+	t.check(pn.terminal_tiles() == [{"tile": Vector2i(3, 10), "dir": Vector2i.LEFT}], "only the controller E terminal holds copper (got %s)" % str(pn.terminal_tiles()))
+	var sim2 := _sim()
+	sim2.place("power_controller", Vector2i(1, 10), 0, {"tier": "hc"}, 3)
+	sim2.place("power_plane", Vector2i(3, 10), 0, {}, 3)
+	sim2.place("power_board", Vector2i(4, 10), 0, {}, 3)
+	sim2.place("power_rail", Vector2i(4, 9), 0, {}, 3)
+	sim2.place("power_rail", Vector2i(4, 11), 0, {}, 3)
+	var a := sim2.place("add", Vector2i(10, 2), 0, {"k": 1}, 3)
+	var pn2 := PowerNetwork.build(sim2, 128, 8)
+	t.check(pn2.terminal_tiles() == [
+		{"tile": Vector2i(3, 10), "dir": Vector2i.LEFT},
+		{"tile": Vector2i(3, 10), "dir": Vector2i.RIGHT},
+		{"tile": Vector2i(4, 9), "dir": Vector2i.DOWN},
+		{"tile": Vector2i(4, 11), "dir": Vector2i.UP},
+	], "controller E, board W, N and S terminals (got %s)" % str(pn2.terminal_tiles()))
+	t.check(pn2.tapped_contacts(a.id).is_empty(), "an onboard-fed machine has no tapped contacts")
