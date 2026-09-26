@@ -9,7 +9,7 @@ var passes := 0
 func _init() -> void:
 	# Never touch the player's real save (user://tcl_save.json), whatever a test forgets.
 	SaveStore.use_file("user://test_save.json")
-	for suite in [BitVectorTests, SignalGeomTests, RawTests, PortTests, DeskTests, UsbTests, ContractTests, SaveStoreTests, PowerTests, ThermalTests, UndoTests, MoveTests, ComponentTests, GroupTests, ContentTests, BusLanesTests, ComputeLaneTests, SourceSinkTests, UpgradeTests, PowerNetworkTests, BottleneckTests, PowerIntegrationTests, ThermalNetworkTests, RecordIdentityTests, PrimitiveTests, TieTests, FieldTests, SourceTests, NetworkTests, NetworkLabTests, TestModeTests, TestRunTests]:
+	for suite in [BitVectorTests, SignalGeomTests, RawTests, PortTests, DeskTests, UsbTests, ContractTests, SaveStoreTests, PowerTests, ThermalTests, UndoTests, MoveTests, ComponentTests, GroupTests, ContentTests, BusLanesTests, ComputeLaneTests, SourceSinkTests, UpgradeTests, PowerNetworkTests, BottleneckTests, PowerIntegrationTests, ThermalNetworkTests, RecordIdentityTests, PrimitiveTests, TieTests, FieldTests, SourceTests, NetworkTests, NetworkLabTests, TestModeTests, TestRunTests, AccessTests]:
 		# every suite starts from the shipped campaign rules (a suite may tweak LabDef.CONFIG)
 		LabDef.use_config(ResourceLoader.load(ContentDB.LAB_CONFIG, "", ResourceLoader.CACHE_MODE_IGNORE))
 		suite.run(self)

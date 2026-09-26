@@ -44,6 +44,7 @@ var _scene := "data"
 var _overlay := ""  # optional 3rd arg: a VIEWS overlay id to show
 var _busy: Array = []  # machines kept at full duty (a job always running)
 var _picks: Array = []  # [add id, its input wire id] per data line (the ui scene selects them)
+var _select := -1  # a machine the scene selects before the first shot (net: the NIC)
 
 
 func _initialize() -> void:
@@ -115,6 +116,10 @@ func _process(_d: float) -> bool:
 			sm.set_overlay(_overlay)
 	if _scene == "ui":
 		return _ui_frames(sm)
+	if _frame == 12 and _select >= 0:
+		var tl: Node = root.get_tree().get_first_node_in_group("tools")
+		if tl != null:
+			tl._set_selection(_select, -1)
 	if _frame == 20:
 		_shot("board")
 		_focus(FOCUS[_scene][0], 3.2)
@@ -308,6 +313,11 @@ func _net_scene(sim: Simulation, run: LabRun) -> void:
 	if nic == null:
 		push_warning("factory_shot: no NIC")
 		return
+	run.sources = {"forumcache": "compromised", "shopmirror": "compromised", "archivenode": "accessible"}
+	var lr: LabRun = root.get_node("/root/SimulationManager").lab_run
+	if lr != null:
+		lr.sources = run.sources.duplicate()  # the HUD reads the manager's run
+	_select = nic.id
 	sim.set_param(nic.id, "rx_a", "forumcache")
 	sim.set_source_mode(nic.id, "a", "live")
 	sim.set_param(nic.id, "rx_b", "shopmirror")

@@ -44,6 +44,9 @@ extends Resource
 @export var efficiency_level := 21
 ## quest_window applies from this level; before it the window is 1 (FACTORY_SYSTEMS §4).
 @export var quest_window_level := 15
+## Remote sources compromised from the start (JOB C8b): the Network Inspector can bind them
+## without an acquire sequence. Empty in the shipped campaign.
+@export var start_sources: PackedStringArray = PackedStringArray()
 
 
 ## The quest dictionaries in order (variants resolved).

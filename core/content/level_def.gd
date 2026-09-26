@@ -28,6 +28,9 @@ extends Resource
 @export var tests: Array[Dictionary] = []
 ## True: the quest files only after one all-pass test run on its current circuit.
 @export var require_test := false
+## Remote source ids this quest makes ACCESSIBLE (JOB C8b): the Network Inspector can
+## acquire them (a fictional sequence flips them to compromised).
+@export var access: PackedStringArray = PackedStringArray()
 
 
 func to_dict() -> Dictionary:
@@ -47,4 +50,6 @@ func to_dict() -> Dictionary:
 		d["tests"] = tests.duplicate(true)
 	if require_test:
 		d["require_test"] = true
+	if not access.is_empty():
+		d["access"] = Array(access)
 	return d

@@ -43,9 +43,16 @@ func _mgr() -> Node:
 
 
 func _on_selection(machine_id: int, _conn_id: int) -> void:
-	if _mid >= 0 and machine_id < 0:
+	# The Network Inspector owns the selection while a NIC is selected (JOB C8b): behave as if
+	# nothing is selected (hide) so the two panels never stack.
+	var nic := false
+	if machine_id >= 0:
+		var sim: Simulation = _mgr().sim
+		var m = sim.machines.get(machine_id) if sim != null else null
+		nic = m != null and m.type == "nic"
+	if _mid >= 0 and (machine_id < 0 or nic):
 		HudKit.panel_hide(self, Vector2(12, 0), 0.14)
-	_mid = machine_id
+	_mid = machine_id if not nic else -1
 	if _mid >= 0:
 		_rebuild()
 		HudKit.panel_show(self, Vector2(12, 0), 0.18)

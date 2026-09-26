@@ -25,6 +25,7 @@ func _ready() -> void:
 	var rail := _panel("res://ui/hud/tool_rail.gd")
 	var palette := _panel("res://ui/hud/build_palette.gd")
 	var inspector := _panel("res://ui/hud/inspector.gd")
+	var network := _panel("res://ui/hud/network_inspector.gd")
 	_panel("res://ui/hud/mission_summary.gd")
 	var tooltip := _panel("res://ui/hud/tooltip.gd")
 	var card := _panel("res://ui/hud/hover_card.gd")
@@ -39,6 +40,7 @@ func _ready() -> void:
 	palette.tools = tools
 	if tools:
 		inspector.bind_tools(tools)
+		network.bind_tools(tools)
 		tooltip.bind_tools(tools)
 		card.bind_tools(tools)
 		bar.tools = tools

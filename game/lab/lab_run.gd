@@ -54,6 +54,11 @@ var test_runs: Dictionary = {}
 var _next_test_run := 1
 var test_ok: Dictionary = {}
 
+## Source access (JOB C8b): source id -> "accessible" | "compromised" (absent = locked).
+## "compromised" sources are bindable in the Network Inspector; "accessible" ones can be
+## acquired (a fictional sequence flips them to compromised).
+var sources: Dictionary = {}
+
 ## The current quest's progress (the HUD and the older single-quest code read these).
 var delivered: int:
 	get: return _q(level).delivered
@@ -174,6 +179,34 @@ func quest_bound(sim: Simulation, q: int) -> Dictionary:
 ## The Job stick a quest comes with ("job@11").
 func quest_job(q: int) -> String:
 	return Devices.stick("job", q)
+
+
+# ------------------------------------------------------------------ source access (JOB C8b)
+
+## "accessible" | "compromised" | "locked" (absent).
+func source_state(id: String) -> String:
+	return str(sources.get(id, "locked"))
+
+
+## Re-apply the campaign's access rules: every LabConfig.start_sources id is compromised from
+## the start; every id in an active quest's LevelDef "access" list becomes accessible unless it
+## is already compromised. Never removes an entry: acquired access persists across levels.
+func refresh_access() -> void:
+	for id in LabDef.CONFIG.start_sources:
+		sources[str(id)] = "compromised"
+	for q in active_quests():
+		for id in LabDef.level(q).get("access", []):
+			if source_state(str(id)) != "compromised":
+				sources[str(id)] = "accessible"
+
+
+## The UI plays a 3 s fictional sequence first; this flips the sim state when it ends. Only an
+## "accessible" source becomes "compromised" (true); anything else returns false.
+func acquire_access(id: String) -> bool:
+	if source_state(id) != "accessible":
+		return false
+	sources[id] = "compromised"
+	return true
 
 
 ## True when the quest's Job stick sits in an output port.
@@ -307,6 +340,7 @@ func build_board(sim: Simulation) -> void:
 		sync_desk(sim)
 	new_devices = PackedStringArray()  # a fresh board is not a level-up: nothing pulses as "New"
 	reset(sim)
+	refresh_access()
 	sim.changed.emit()
 
 
@@ -570,6 +604,7 @@ func _progress_changed(sim: Simulation) -> void:
 	_ensure_io(sim)
 	if grew:
 		_move_output_ports(sim, old_size)
+	refresh_access()
 	_sync()
 	sim.changed.emit()
 
@@ -945,7 +980,7 @@ func quests_to_dict() -> Dictionary:
 	for q in completed:
 		done.append(q)
 	done.sort()
-	return {"completed": done, "progress": prog, "files": files}
+	return {"completed": done, "progress": prog, "files": files, "sources": sources.duplicate()}
 
 
 ## Restore the quests BEFORE build_board (the active window decides the board). Old saves without
@@ -967,6 +1002,17 @@ func quests_from_dict(d: Dictionary) -> void:
 			qp.rejected = int(e.get("rejected", 0))
 			qp.filled = bool(e.get("filled", false))
 	files = int(d.get("files", level + completed.size()))
+	# source access (JOB C8b): a Dictionary of String -> "accessible" | "compromised"; bad entries
+	# are ignored. Restored BEFORE build_board, whose refresh_access() then re-applies the rules.
+	sources = {}
+	var src = d.get("sources", {})
+	if src is Dictionary:
+		for k in src:
+			if typeof(k) != TYPE_STRING:
+				continue
+			var v = src[k]
+			if typeof(v) == TYPE_STRING and (v == "accessible" or v == "compromised"):
+				sources[k] = v
 
 
 ## Old saves plugged plain modules ("text"): each becomes the matching stick of an active quest
