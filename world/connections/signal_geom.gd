@@ -209,3 +209,59 @@ static func dash_poly(pts: PackedVector2Array, dash: float, gap: float, phase :=
 			out.append(sub_poly(pts, a / total, d1 / total))
 		d0 += period
 	return out
+
+
+# ---------------------------------------------------------------- bus geometry
+
+## Trench stroke width for a wire of this width class and lane count: the wider of the
+## class trench (SIG_CLASS_TRENCH_*) and the lane trench (SIG_LANE_TRENCH_*).
+static func trench_for(width: int, lanes: int) -> float:
+	return maxf(_class_trench(Connection.class_of(width)), _lane_trench(lanes))
+
+
+## Corner chamfer for a wire of this width class and lane count: the tight trace chamfer
+## only for a plain 1-lane trace; every bus class and every multi-lane wire uses the wide
+## bus chamfer so the offset lanes stay inside the cut.
+static func chamfer_for(width: int, lanes: int) -> float:
+	return float(Palette.SIG_CHAMFER) if Connection.class_of(width) == "trace" and lanes <= 1 else float(Palette.SIG_BUS_CHAMFER)
+
+
+## Perpendicular offsets (px) of the lane centres from the centreline, k ascending. One
+## lane sits on the centreline; n lanes spread across span = trench − 5, and a 2-lane pair
+## is pulled in by 0.55 so its two cores read as one ribbon.
+static func lane_offsets(width: int, lanes: int) -> Array[float]:
+	if lanes <= 1:
+		return [0.0]
+	var span := trench_for(width, lanes) - 5.0
+	var gap := span / float(lanes - 1)
+	if lanes == 2:
+		gap *= 0.55
+	var out: Array[float] = []
+	for k in lanes:
+		out.append((float(k) - float(lanes - 1) * 0.5) * gap)
+	return out
+
+
+## Core stroke width for a lane count (SIG_LANE_CORE_*).
+static func lane_core_width(lanes: int) -> float:
+	match lanes:
+		2: return float(Palette.SIG_LANE_CORE_2)
+		4: return float(Palette.SIG_LANE_CORE_4)
+		8: return float(Palette.SIG_LANE_CORE_8)
+		_: return float(Palette.SIG_LANE_CORE_1)
+
+
+static func _class_trench(cls: String) -> float:
+	match cls:
+		"byte": return float(Palette.SIG_CLASS_TRENCH_BYTE)
+		"wide": return float(Palette.SIG_CLASS_TRENCH_WIDE)
+		"backbone": return float(Palette.SIG_CLASS_TRENCH_BACKBONE)
+		_: return float(Palette.SIG_CLASS_TRENCH_TRACE)
+
+
+static func _lane_trench(lanes: int) -> float:
+	match lanes:
+		2: return float(Palette.SIG_LANE_TRENCH_2)
+		4: return float(Palette.SIG_LANE_TRENCH_4)
+		8: return float(Palette.SIG_LANE_TRENCH_8)
+		_: return float(Palette.SIG_LANE_TRENCH_1)

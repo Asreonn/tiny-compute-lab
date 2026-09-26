@@ -31,6 +31,7 @@ var _last_tick := -1  # simulation tick whose transitions are cached
 var _loc := {}  # packet id -> logical location {k, pos, conn, arc} (current tick)
 var _moves := {}  # packet id -> {packet, poly: PackedVector2Array, state, conn, arc0, arc1, fade}
 var _paths := {}  # connection id -> PackedVector2Array (simplified + chamfered draw path)
+var _lane_paths := {}  # "cid:lane" -> PackedVector2Array (offset lane path)
 var _tag_style: StyleBoxFlat = null
 var _path_lens := {}  # connection id -> length of its draw path (px)
 var _consumed := {}  # this tick: packet id -> the machine that took it (deliver/output/discard)
@@ -63,6 +64,7 @@ func _on_tier(tier: String) -> void:
 ## Layout edits replace wires/queues wholesale: drop every cached location and path.
 func _on_board_reset(_v: Variant = null) -> void:
 	_paths.clear()
+	_lane_paths.clear()
 	_path_lens.clear()
 	_loc.clear()
 	_moves.clear()
@@ -205,22 +207,34 @@ func _spawn(sim: Simulation, cur: Dictionary) -> Dictionary:
 
 
 ## Transition polyline from one logical location to the next, along the real geometry.
+## Multi-lane wires ride their lane offset path (arc lengths stay those of the centre
+## path — the difference is negligible).
 func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 	var poly := PackedVector2Array()
 	var state := "normal"
 	var ka: String = a["k"]
 	var kb: String = b["k"]
 	if ka == "wire" and kb == "wire" and a["conn"] == b["conn"]:
-		poly = SignalGeom.sub_poly_arc(_path(int(a["conn"])), float(a["arc"]), float(b["arc"]))
+		var cid := int(a["conn"])
+		var path := _path(cid)
+		if _lanes_of(cid) > 1:
+			path = _lane_path(cid, int(a.get("lane", 0)))
+		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), float(b["arc"]))
 	elif ka == "wire":
 		# leaving the wire into a port: rest of the wire to its end anchor, then inside
-		var path := _path(int(a["conn"]))
-		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), _path_len(int(a["conn"])))
+		var cid := int(a["conn"])
+		var path := _path(cid)
+		if _lanes_of(cid) > 1:
+			path = _lane_path(cid, int(a.get("lane", 0)))
+		poly = SignalGeom.sub_poly_arc(path, float(a["arc"]), _path_len(cid))
 		poly.append(b["pos"])
 		state = "entering"
 	elif kb == "wire":
 		# undocking onto a wire: from inside the port to the anchor, then along the wire
-		var path := _path(int(b["conn"]))
+		var cid := int(b["conn"])
+		var path := _path(cid)
+		if _lanes_of(cid) > 1:
+			path = _lane_path(cid, int(b.get("lane", 0)))
 		poly.append(a["pos"])
 		poly.append_array(SignalGeom.sub_poly_arc(path, 0.0, float(b["arc"])))
 		state = "leaving"
@@ -240,8 +254,11 @@ func _transition(a: Dictionary, b: Dictionary) -> Dictionary:
 
 func _point(loc: Dictionary) -> Vector2:
 	if loc["k"] == "wire":
-		var path := _path(int(loc["conn"]))
-		var plen := maxf(_path_len(int(loc["conn"])), 1e-9)
+		var cid := int(loc["conn"])
+		var path := _path(cid)
+		if _lanes_of(cid) > 1:
+			path = _lane_path(cid, int(loc.get("lane", 0)))
+		var plen := maxf(_path_len(cid), 1e-9)
 		return SignalGeom.sample(path, clampf(float(loc["arc"]) / plen, 0.0, 1.0))[0]
 	return loc["pos"]
 
@@ -268,6 +285,28 @@ func _path(cid: int) -> PackedVector2Array:
 func _path_len(cid: int) -> float:
 	_path(cid)
 	return float(_path_lens.get(cid, 0.0))
+
+
+## Lane count of a connection (1 when unknown).
+func _lanes_of(cid: int) -> int:
+	var sim := SimulationManager.sim
+	if sim != null and sim.connections.has(cid):
+		return sim.connections[cid].lanes
+	return 1
+
+
+## Offset lane path for a connection lane: the centre draw path shifted perpendicular by
+## SignalGeom.lane_offsets(width, lanes)[lane], cached like `_paths`. Arc lengths along a
+## lane are (nearly) those of the centre path, so the same arcs are reused.
+func _lane_path(cid: int, lane: int) -> PackedVector2Array:
+	var key := "%d:%d" % [cid, lane]
+	if not _lane_paths.has(key):
+		var sim := SimulationManager.sim
+		if sim == null or not sim.connections.has(cid):
+			return PackedVector2Array()
+		var c: Connection = sim.connections[cid]
+		_lane_paths[key] = SignalGeom.offset_poly(_path(cid), SignalGeom.lane_offsets(c.width, c.lanes)[lane])
+	return _lane_paths[key]
 
 
 ## The input port a job's packet arrived through (the last machine on its path), or "".
@@ -301,7 +340,7 @@ func _core(mid: int) -> Vector2:
 
 
 ## Same draw path as ConnectionView: [port anchor] + tile centres + [anchor], simplified and
-## chamfered (bus 18, trace 14) with the Signal System V1 geometry.
+## chamfered (SignalGeom.chamfer_for) with the Signal System V1 geometry.
 func _build_path(c: Connection) -> PackedVector2Array:
 	var sim := SimulationManager.sim
 	if sim == null or not sim.machines.has(c.from_id) or not sim.machines.has(c.to_id):
@@ -314,8 +353,7 @@ func _build_path(c: Connection) -> PackedVector2Array:
 		pts.append(Vector2(cell) * T + Vector2.ONE * (T * 0.5))
 	pts.append(MachineView.port_world(tm, c.to_port))
 	var raw := SignalGeom.simplify(pts)
-	var bus := bool(fm.port_geom(c.from_port).get("bus", false)) and bool(tm.port_geom(c.to_port).get("bus", false))
-	return SignalGeom.chamfer(raw, Palette.SIG_BUS_CHAMFER if bus else Palette.SIG_CHAMFER)
+	return SignalGeom.chamfer(raw, SignalGeom.chamfer_for(c.width, c.lanes))
 
 
 # ------------------------------------------------------------------ queries
@@ -344,6 +382,8 @@ func _build_comets(t: float) -> void:
 			continue
 		var cid := int(to["conn"])
 		var path := _path(cid)
+		if _lanes_of(cid) > 1:
+			path = _lane_path(cid, int(to.get("lane", 0)))
 		var plen := _path_len(cid)
 		if plen <= 0.0:
 			continue
@@ -394,7 +434,11 @@ func _draw() -> void:
 			# a machine's result: appears at the output port as it leaves
 			mod = Color(1, 1, 1, t)
 			scale_k = lerpf(0.6, 1.0, t)
-		_draw_packet(mv["packet"], pos, state, scale_k, mod, label)
+		var to: Dictionary = mv["to"]
+		if to["k"] == "wire" and _lanes_of(int(to["conn"])) > 1 and not mv.get("fade", false):
+			_draw_bead(mv, pos, t, mod)
+		else:
+			_draw_packet(mv["packet"], pos, state, scale_k, mod, label)
 
 
 ## Raw packets are the IO-green RawToken pill (no sprite, no halo, design/reference/systems_v1.js
@@ -417,6 +461,41 @@ func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: C
 	draw_texture_rect(tex, rect, false, mod)
 	if _tier == "close" and label:
 		_draw_label(p, pos, design * scale_k)
+
+
+## Multi-lane bead: a packet riding a lane of a bus wire draws a short tail + capsule head
+## instead of the chip sprite (the lane cores are too thin for a chip). The tail is the last
+## SIG_BEAD_TAIL px of the lane path behind the head; the head is a capsule along the path
+## with a data-colour centre line. The transform is reset before returning.
+func _draw_bead(mv: Dictionary, pos: Vector2, t: float, mod: Color) -> void:
+	var to: Dictionary = mv["to"]
+	var cid := int(to["conn"])
+	var lane := int(to.get("lane", 0))
+	var sim := SimulationManager.sim
+	if sim == null or not sim.connections.has(cid):
+		return
+	var c: Connection = sim.connections[cid]
+	var p: Packet = mv["packet"]
+	var lane_path := _lane_path(cid, lane)
+	var plen := maxf(SignalGeom.poly_len(lane_path), 1e-9)
+	var head_arc: float
+	if mv.has("arc0"):
+		head_arc = lerpf(float(mv["arc0"]), float(to["arc"]), clampf(t, 0.0, 1.0))
+	else:
+		head_arc = SignalGeom.project(lane_path, pos) * plen
+	var data_col := Palette.FAMILY_IO if p.is_raw() else Palette.datatype(c.width)
+	var tail_len := float(Palette.SIG_BEAD_TAIL_DENSE) if c.lanes > 2 else float(Palette.SIG_BEAD_TAIL)
+	var tail := SignalGeom.sub_poly_arc(lane_path, maxf(head_arc - tail_len, 0.0), head_arc)
+	if tail.size() >= 2:
+		draw_polyline(tail, Color(data_col, 0.35 * mod.a), SignalGeom.lane_core_width(c.lanes) + 1.0, true)
+	var s := SignalGeom.sample(lane_path, clampf(head_arc / plen, 0.0, 1.0))
+	var dir: Vector2 = s[1]
+	var hl := 6.0 if c.lanes > 2 else 9.0
+	var hh := 2.4 if c.lanes > 2 else 3.6
+	draw_set_transform(pos, dir.angle(), Vector2.ONE)
+	SystemsDraw.rrect(self, Rect2(Vector2(-hl * 0.5, -hh * 0.5), Vector2(hl, hh)), hh * 0.5, Color(Palette.TEXT_PRIMARY, mod.a))
+	draw_line(Vector2(-(hl - 3.0) * 0.5, 0.0), Vector2((hl - 3.0) * 0.5, 0.0), Color(data_col, mod.a), hh - 1.2, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Close tier: the packet's bits as 0 / 1, DATA_NUMBER (DATA_BOOLEAN for width 1), centred on

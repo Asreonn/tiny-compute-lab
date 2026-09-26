@@ -7,10 +7,11 @@ extends Node2D
 ##
 ## Node tree (draw order = tree order):
 ##   SelectHalo (Line2D) · Teardrops (polygons) · TrenchEdge (Line2D) · Trench (Line2D)
-##   · Core (Line2D) · Lane0..3 (Line2D, buses) · Overlays (dash/comets/chevrons/tag).
+##   · Rails (Line2D, byte/wide/backbone) · Core (Line2D) / Lanes (Line2D, multi-lane)
+##   · Overlays (dash/comets/chevrons/bands/tag).
 
 const T := Palette.TILE
-const TAG_FONT := 7  # WidthTag digits (Penpot 7.5; Godot font sizes are integers)
+const TAG_FONT := 9  # bus tag digits (ExtraBold)
 const COMET_TAIL_PX := 30.0  # packet comet segment length, clamped at the wire start
 const DASH_LEN := 6.0        # boolean core dash length (px of arc)
 const DASH_GAP := 4.0        # boolean core dash gap
@@ -30,14 +31,19 @@ var pending_removal := false:
 
 var connection: Connection
 
-var _bus := false
+var _cls := "trace"  # Connection.class_of(width): trace | byte | wide | backbone
+var _n := 1           # Connection.lanes: 1 | 2 | 4 | 8
+var _trench_w := 8.0  # trench stroke width (SignalGeom.trench_for)
+var _edge_w := 10.0   # trench edge stroke width (trench + 2)
+var _halo_w := 14.0   # select halo width (edge + 4)
 var _path := PackedVector2Array()  # simplified + chamfered draw path
 var _teardrops: Array = []         # PackedVector2Array teardrop polygons (from, to)
 var _halo: Line2D
 var _edge: Line2D
 var _trench: Line2D
 var _core: Line2D
-var _lanes: Array = []             # Line2D bus lanes
+var _rails: Array = []             # Line2D class rails (byte/wide/backbone)
+var _lanes: Array = []             # Line2D lane cores (multi-lane wires)
 var _under: TeardropLayer
 var _over: OverlayLayer
 
@@ -68,7 +74,7 @@ static func key_of(c: Connection) -> String:
 	if sim != null and sim.machines.has(c.from_id) and sim.machines.has(c.to_id):
 		a = MachineView.port_world(sim.machines[c.from_id], c.from_port)
 		b = MachineView.port_world(sim.machines[c.to_id], c.to_port)
-	return "%d:%s>%d:%s|%d|%s|%s|%s" % [c.from_id, c.from_port, c.to_id, c.to_port, c.width, str(c.cells), a, b]
+	return "%d:%s>%d:%s|%d|%d|%s|%s|%s" % [c.from_id, c.from_port, c.to_id, c.to_port, c.width, c.lanes, str(c.cells), a, b]
 
 
 ## The layout changed but this wire was kept: re-read what a layout change can alter (a raw
@@ -84,34 +90,43 @@ func setup(c: Connection) -> ConnectionView:
 	connection = c
 	route_key = key_of(c)
 	name = "Connection_%d" % c.id
-	var sim := SimulationManager.sim
-	var fm: Machine = sim.machines[c.from_id]
-	var tm: Machine = sim.machines[c.to_id]
-	_bus = bool(fm.port_geom(c.from_port).get("bus", false)) and bool(tm.port_geom(c.to_port).get("bus", false))
+	_cls = Connection.class_of(c.width)
+	_n = c.lanes
+	_trench_w = SignalGeom.trench_for(c.width, c.lanes)
+	_edge_w = _trench_w + 2.0
+	_halo_w = _edge_w + 4.0
 	_build_path()
-	# draw order: select-halo (bottom) → teardrop-edge → trench-edge → trench → core
-	_halo = _make_line(Palette.SIG_SELECT_HALO)
+	# draw order: select-halo (bottom) → teardrop-edge → trench-edge → trench → rails → cores
+	_halo = _make_line(_halo_w)
 	_halo.name = "SelectHalo"
 	add_child(_halo)
 	_under = TeardropLayer.new()
 	_under.name = "Teardrops"
 	_under.host = self
 	add_child(_under)
-	_edge = _make_line(Palette.SIG_BUS_EDGE if _bus else Palette.SIG_EDGE)
+	_edge = _make_line(_edge_w)
 	_edge.name = "TrenchEdge"
 	add_child(_edge)
-	_trench = _make_line(Palette.SIG_BUS_TRENCH if _bus else Palette.SIG_TRENCH)
+	_trench = _make_line(_trench_w)
 	_trench.name = "Trench"
 	add_child(_trench)
-	_core = _make_line(Palette.SIG_CORE)
-	_core.name = "Core"
-	add_child(_core)
-	if _bus:
-		for i in Palette.SIG_BUS_LANES:
-			var ln := _make_line(Palette.SIG_BUS_LANE_WIDTH)
-			var off := (i - (float(Palette.SIG_BUS_LANES) - 1.0) * 0.5) * Palette.SIG_BUS_LANE_GAP
-			ln.points = SignalGeom.offset_poly(_path, off)
-			ln.name = "Lane%d" % i
+	if _cls != "trace":
+		for k in 2:
+			var rl := _make_line(float(Palette.SIG_RAIL))
+			rl.points = SignalGeom.offset_poly(_path, (_trench_w * 0.5 - 1.25) * (1.0 if k == 0 else -1.0))
+			rl.name = "Rail%d" % k
+			add_child(rl)
+			_rails.append(rl)
+	if _n == 1:
+		_core = _make_line(float(Palette.SIG_CORE))
+		_core.name = "Core"
+		add_child(_core)
+	else:
+		var offs := SignalGeom.lane_offsets(c.width, c.lanes)
+		for k in _n:
+			var ln := _make_line(SignalGeom.lane_core_width(_n))
+			ln.points = SignalGeom.offset_poly(_path, offs[k])
+			ln.name = "Lane%d" % k
 			add_child(ln)
 			_lanes.append(ln)
 	_over = OverlayLayer.new()
@@ -123,7 +138,7 @@ func setup(c: Connection) -> ConnectionView:
 
 
 ## Pts = [port_world(from)] + [tile centres of Connection.cells] + [port_world(to)],
-## then simplify (collinear port stubs collapse) and chamfer (bus: 18, trace: 14).
+## then simplify (collinear port stubs collapse) and chamfer (SignalGeom.chamfer_for).
 func _build_path() -> void:
 	var sim := SimulationManager.sim
 	var fm: Machine = sim.machines[connection.from_id]
@@ -134,7 +149,7 @@ func _build_path() -> void:
 		pts.append(Vector2(cell) * T + Vector2.ONE * (T * 0.5))
 	pts.append(MachineView.port_world(tm, connection.to_port))
 	var raw := SignalGeom.simplify(pts)
-	_path = SignalGeom.chamfer(raw, Palette.SIG_BUS_CHAMFER if _bus else Palette.SIG_CHAMFER)
+	_path = SignalGeom.chamfer(raw, SignalGeom.chamfer_for(connection.width, connection.lanes))
 	# PCB teardrop into BOTH terminals, pointing at the port anchors (L.drawWire ends[]).
 	_teardrops = []
 	if _path.size() >= 2:
@@ -153,6 +168,11 @@ func _make_line(w: float) -> Line2D:
 	ln.end_cap_mode = Line2D.LINE_CAP_NONE
 	ln.points = _path if _path.size() >= 2 else PackedVector2Array([Vector2.ZERO, Vector2.ONE])
 	return ln
+
+
+## True for any wire that is not a plain 1-lane trace: bus classes and multi-lane wires.
+func _is_wide() -> bool:
+	return _cls != "trace" or _n > 1
 
 
 # ------------------------------------------------------------------ per frame
@@ -205,7 +225,7 @@ func _wire_state() -> String:
 ## Comet arc lengths (px along _path) for every packet on this wire. Uses the optional
 ## packet_positions provider when set, otherwise the occupied slot cell centres.
 func _comet_arcs() -> Array:
-	if connection == null or _state != "ActiveTransfer":
+	if connection == null or _state != "ActiveTransfer" or _n > 1:
 		return []
 	if packet_positions.is_valid():
 		return packet_positions.call()
@@ -227,7 +247,7 @@ func _apply_layers() -> void:
 	var raw := _raw
 	var col := Palette.FAMILY_IO if raw else Palette.datatype(connection.width)
 	var dim := Palette.FAMILY_IO if raw else Palette.datatype_dim(connection.width)
-	_dash_on = connection.width == 1 and not _bus and not raw
+	_dash_on = connection.width == 1 and not _is_wide() and not raw
 	_comet_color = col
 	_halo_on = false
 	_chevrons_on = false
@@ -270,19 +290,30 @@ func _apply_layers() -> void:
 			_core_color = dim
 			_core_op = 0.35 if raw else 1.0
 			_core_w = Palette.SIG_CORE
-	_halo.width = 20.0 if _bus else float(Palette.SIG_SELECT_HALO)
+	_halo.width = _halo_w
 	_halo.visible = _halo_on
 	_halo.default_color = Color(Palette.STATE_SELECT, 0.9)
 	_edge.default_color = Color(_edge_color, _edge_op)
-	_trench.default_color = Palette.MATERIAL_VENT
-	_core.visible = not _dash_on and not _bus  # boolean cores are dashed by the overlay
-	if not _bus:
+	_trench.default_color = Palette.BG_TRACE if _cls == "wide" or _cls == "backbone" else Palette.MATERIAL_VENT
+	var rail_c := Palette.MACHINE_FRAME_HOVER
+	var rail_a := 0.9
+	if _state == "Blocked":
+		rail_c = Palette.STATE_BLOCKED
+		rail_a = 0.7
+	elif _state == "Error":
+		rail_c = Palette.STATE_ERROR
+		rail_a = 0.8
+	for rl in _rails:
+		rl.default_color = Color(rail_c, rail_a)
+	if _n == 1:
+		_core.visible = not _dash_on  # boolean cores are dashed by the overlay
 		_core.default_color = Color(_core_color, _core_op)
 		_core.width = _core_w
-	var lit := _state == "ActiveTransfer" or _state == "Selected"
-	for ln in _lanes:
-		var lane_c := Palette.STATE_BLOCKED if _state == "Blocked" else (col if lit else dim)
-		ln.default_color = Color(lane_c, 0.9 if lit else 1.0)
+	else:
+		for ln in _lanes:
+			var lane_c := Palette.STATE_BLOCKED if _state == "Blocked" else (Palette.STATE_ERROR if _state == "Error" else col)
+			var lane_a := 0.9 if _state == "Blocked" or _state == "Error" else (0.80 if _state == "Selected" else (0.55 if _state == "Hover" or _state == "ActiveTransfer" else 0.30))
+			ln.default_color = Color(lane_c, lane_a)
 
 
 ## Raw links carry RawValues: the same trench with an IO-green core (idle α .35, the active
@@ -296,8 +327,9 @@ func _is_raw() -> bool:
 
 ## One brighter core segment: a single 2.5 px stroke from (s − 30 px) to s along the
 ## chamfered path, clamped at the wire start, colour at α 0.9 (VFX ladder L1; the old glow
-## layer is retired — no glow blob, no halo). For buses the same segment rides the
-## centreline (_path), so there is no wide chord.
+## layer is retired — no glow blob, no halo). For 1-lane bus wires the same segment rides
+## the centreline (_path), so there is no wide chord. Multi-lane wires draw no comets here
+## (the packet layer draws lane beads instead).
 func _draw_comet(canvas: CanvasItem, s: float) -> void:
 	var plen := SignalGeom.poly_len(_path)
 	if plen <= 0.0:
@@ -310,22 +342,19 @@ func _draw_comet(canvas: CanvasItem, s: float) -> void:
 
 func _draw_width_tag(canvas: CanvasItem) -> void:
 	var mid: Vector2 = SignalGeom.sample(_path, 0.5)[0]
-	var label := str(connection.width)
-	var tw := 14.0 if label.length() <= 1 else 18.0
-	# widths without a chip asset (5, 6, 7, 12…) wear the 16 chip narrowed to 14 / 18 px, like the
-	# machine width tags (MachineView.TAG_FALLBACK)
-	var has_asset := label in MachineView.TAG_ASSETS
-	var tex := Art.tex(Art.widthtag_file(connection.width if has_asset else MachineView.TAG_FALLBACK))
-	if tex != null:
-		var scaled := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
-		if not has_asset:
-			scaled.x *= tw / 18.0
-		canvas.draw_texture_rect(tex, Rect2(mid - scaled * 0.5, scaled), false)
+	var label := "%db" % connection.width
+	if _n > 1:
+		label += " ×%d" % _n
 	var f := TclTheme.font("ExtraBold")
+	var tw := f.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, TAG_FONT).x
+	var chip := Rect2(mid - Vector2(tw + 8.0, 14.0) * 0.5, Vector2(tw + 8.0, 14.0))
+	SystemsDraw.rrect(canvas, chip, 3.0, Palette.SURFACE_SUNKEN)
+	var border := Palette.STATE_BLOCKED if _state == "Blocked" else Palette.SURFACE_BORDER_STRONG
+	SystemsDraw.rrect_outline(canvas, chip, 3.0, border, 1.0)
 	var ascent := f.get_ascent(TAG_FONT)
 	var descent := f.get_descent(TAG_FONT)
 	canvas.draw_string(f, Vector2(mid.x - tw * 0.5, mid.y + (ascent - descent) * 0.5), label,
-		HORIZONTAL_ALIGNMENT_CENTER, tw, TAG_FONT, Palette.DATA_NUMBER)
+		HORIZONTAL_ALIGNMENT_CENTER, tw, TAG_FONT, Palette.FAMILY_IO if _raw else Palette.DATA_NUMBER)
 
 
 # ------------------------------------------------------------------ previews
@@ -368,6 +397,24 @@ static func _draw_dashed(canvas: CanvasItem, pts: PackedVector2Array, color: Col
 			canvas.draw_polyline(seg, color, width, true)
 
 
+## Backbone class: 1 px cross-bands every SIG_BAND_SPACING px of arc, starting 8 px in and
+## stopping 8 px before the end, perpendicular to the path, length trench − 3
+## (MATERIAL_FRAME α .45).
+static func _draw_bands(canvas: CanvasItem, h: ConnectionView) -> void:
+	var plen := SignalGeom.poly_len(h._path)
+	if plen <= 16.0:
+		return
+	var bw := h._trench_w - 3.0
+	var arc := 8.0
+	while arc <= plen - 8.0:
+		var s := SignalGeom.sample(h._path, arc / plen)
+		var p: Vector2 = s[0]
+		var u: Vector2 = s[1]
+		var n := Vector2(-u.y, u.x)
+		canvas.draw_line(p - n * bw * 0.5, p + n * bw * 0.5, Color(Palette.MATERIAL_FRAME, 0.45), 1.0, true)
+		arc += float(Palette.SIG_BAND_SPACING)
+
+
 # ------------------------------------------------------------------ child layers
 
 ## Bottom teardrop polygons: PCB landings that widen the trace into both port pads.
@@ -375,7 +422,7 @@ class TeardropLayer extends Node2D:
 	var host: ConnectionView
 	func _draw() -> void:
 		var h := host
-		if h == null or h._bus:
+		if h == null or h._is_wide():
 			return
 		if h._teardrops.is_empty():
 			return
@@ -402,5 +449,7 @@ class OverlayLayer extends Node2D:
 		if h._chevrons_on:
 			for ch in SignalGeom.chevrons(h._path, float(Palette.SIG_CHEVRON_SPACING)):
 				draw_polyline(ch, Color(Palette.STATE_SELECT, 0.9), 1.5, true)
-		if h._bus and SignalGeom.poly_len(h._path) >= float(Palette.SIG_BUS_TAG_MIN_LENGTH):
+		if h._cls == "backbone":
+			ConnectionView._draw_bands(self, h)
+		if h._is_wide() and SignalGeom.poly_len(h._path) >= float(Palette.SIG_BUS_TAG_MIN_LENGTH):
 			h._draw_width_tag(self)

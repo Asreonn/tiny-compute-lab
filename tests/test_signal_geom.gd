@@ -11,6 +11,7 @@ static func run(t) -> void:
 	_offset(t)
 	_teardrop(t)
 	_chevrons_dash(t)
+	_bus_geometry(t)
 
 
 # --- chamfer ------------------------------------------------------------------
@@ -101,3 +102,24 @@ static func _chevrons_dash(t) -> void:
 	var d1: PackedVector2Array = dash[1]
 	t.check(d0[0] == Vector2(0, 0) and d0[1] == Vector2(6, 0), "first dash starts at the polyline origin")
 	t.check(d1[0] == Vector2(10, 0) and d1[1] == Vector2(16, 0), "second dash is offset by 6+4 px of arc")
+
+
+# --- bus geometry (P10a) -----------------------------------------------------
+
+static func _bus_geometry(t) -> void:
+	t.check(SignalGeom.trench_for(3, 1) == 8.0, "trench_for(3,1) is the trace trench 8, got %s" % SignalGeom.trench_for(3, 1))
+	t.check(SignalGeom.trench_for(8, 1) == 12.0, "trench_for(8,1) is the byte trench 12, got %s" % SignalGeom.trench_for(8, 1))
+	t.check(SignalGeom.trench_for(16, 1) == 16.0, "trench_for(16,1) is the wide trench 16, got %s" % SignalGeom.trench_for(16, 1))
+	t.check(SignalGeom.trench_for(40, 1) == 22.0, "trench_for(40,1) is the backbone trench 22, got %s" % SignalGeom.trench_for(40, 1))
+	t.check(SignalGeom.trench_for(3, 4) == 16.0, "trench_for(3,4) widens to the 4-lane trench 16, got %s" % SignalGeom.trench_for(3, 4))
+	t.check(SignalGeom.trench_for(8, 8) == 22.0, "trench_for(8,8) widens to the 8-lane trench 22, got %s" % SignalGeom.trench_for(8, 8))
+	t.check(SignalGeom.chamfer_for(3, 1) == 14.0, "chamfer_for(3,1) is the trace chamfer 14, got %s" % SignalGeom.chamfer_for(3, 1))
+	t.check(SignalGeom.chamfer_for(3, 2) == 18.0, "chamfer_for(3,2) is the bus chamfer 18, got %s" % SignalGeom.chamfer_for(3, 2))
+	t.check(SignalGeom.chamfer_for(8, 1) == 18.0, "chamfer_for(8,1) is the bus chamfer 18, got %s" % SignalGeom.chamfer_for(8, 1))
+	var one := SignalGeom.lane_offsets(3, 1)
+	t.check(one.size() == 1 and one[0] == 0.0, "lane_offsets(3,1) is [0], got %s" % [one])
+	var two := SignalGeom.lane_offsets(3, 2)
+	t.check(two.size() == 2 and is_equal_approx(two[0], -1.925) and is_equal_approx(two[1], 1.925), "lane_offsets(3,2) ≈ [−1.925, 1.925], got %s" % [two])
+	var four := SignalGeom.lane_offsets(3, 4)
+	t.check(four.size() == 4 and is_equal_approx(four[0], -5.5) and is_equal_approx(four[1], -11.0 / 6.0) and is_equal_approx(four[2], 11.0 / 6.0) and is_equal_approx(four[3], 5.5), "lane_offsets(3,4) ≈ [−5.5, −1.8333, 1.8333, 5.5], got %s" % [four])
+	t.check(SignalGeom.lane_core_width(1) == 2.5 and SignalGeom.lane_core_width(2) == 2.0 and SignalGeom.lane_core_width(4) == 1.4 and SignalGeom.lane_core_width(8) == 1.0, "lane_core_width maps 1/2/4/8 to 2.5/2/1.4/1")
