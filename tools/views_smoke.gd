@@ -46,8 +46,10 @@ func _build() -> void:
 	sim.default_width = 5
 	var bs := sim.place("bit_splitter", Vector2i(1, 1), 0, {"lo": 3})
 	var dm := sim.place("demux", Vector2i(5, 1), 0)
+	var nic := sim.place("nic", Vector2i(0, 6), 0, {"tier": "2", "rx_a": "forumcache"}, 16)
 	_expect(bs != null and bs.type == "bit_splitter", "bit_splitter placed")
 	_expect(dm != null and dm.type == "demux", "demux placed")
+	_expect(nic != null and nic.type == "nic", "nic placed")
 	# JOB C4: the primitive kit's views — every type must place (width 3) and its layout
 	# must carry a silhouette form.
 	var kit := ["bit_switch", "fork", "distributor", "join", "latch", "constant", "clock", "probe", "field_splitter", "field_joiner", "adder", "compare", "mux"]

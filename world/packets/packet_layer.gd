@@ -454,11 +454,16 @@ func _draw_packet(p: Packet, pos: Vector2, state: String, scale_k: float, mod: C
 		return
 	var w: int = p.data.width
 	var tex := Art.tex(Art.packet_file(w, _tier, state))
-	if tex == null:
+	var test := p.meta.has("test")
+	if tex == null and not test:
 		return
-	var design := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE
+	var design := Vector2(tex.get_width(), tex.get_height()) / Art.SCALE if tex != null else Vector2(24, 16)
 	var rect := Rect2(pos - design * 0.5 * scale_k, design * scale_k)
-	draw_texture_rect(tex, rect, false, mod)
+	if test:
+		# hollow test bead: capsule outline, no fill (JOB C8a)
+		SystemsDraw.rrect_outline(self, rect, rect.size.y * 0.5, Color(Palette.DATA_NUMBER, mod.a), 1.6)
+	else:
+		draw_texture_rect(tex, rect, false, mod)
 	if _tier == "close" and label:
 		_draw_label(p, pos, design * scale_k)
 
@@ -492,6 +497,12 @@ func _draw_bead(mv: Dictionary, pos: Vector2, t: float, mod: Color) -> void:
 	var dir: Vector2 = s[1]
 	var hl := 6.0 if c.lanes > 2 else 9.0
 	var hh := 2.4 if c.lanes > 2 else 3.6
+	if p.meta.has("test"):
+		# hollow test bead: the capsule head as an outline, no tail, no centre line (JOB C8a)
+		draw_set_transform(pos, dir.angle(), Vector2.ONE)
+		SystemsDraw.rrect_outline(self, Rect2(Vector2(-hl * 0.5, -hh * 0.5), Vector2(hl, hh)), hh * 0.5, Color(Palette.TEXT_PRIMARY, mod.a), 1.6)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_set_transform(pos, dir.angle(), Vector2.ONE)
 	SystemsDraw.rrect(self, Rect2(Vector2(-hl * 0.5, -hh * 0.5), Vector2(hl, hh)), hh * 0.5, Color(Palette.TEXT_PRIMARY, mod.a))
 	draw_line(Vector2(-(hl - 3.0) * 0.5, 0.0), Vector2((hl - 3.0) * 0.5, 0.0), Color(data_col, mod.a), hh - 1.2, true)

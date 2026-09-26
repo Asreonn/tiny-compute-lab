@@ -15,6 +15,7 @@ const SILK_ALPHA := 0.55  # material silk text opacity
 
 const TAG_ASSETS := ["1", "2", "3", "4", "8", "16"]  # widthtag assets that exist
 const TAG_FALLBACK := "16"  # chip used for widths without an asset (single-digit widths use 14 px, others 18 px)
+const CIRCLED_DIGITS := ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"]  # probe test-tag digits (JOB C8a)
 const GHOST_ALPHA := 0.6  # opacity of drag/build ghost views
 ## Codec machines (D4): the raw <-> bits boundary, drawn with a procedural raw port and a
 ## token-slot pill + silk chevron (design/reference/systems_v1.js codec()).
@@ -53,6 +54,8 @@ var _opwin: Sprite2D = null  # roadmap OpWindow area (idle / active)
 var _led: Sprite2D
 var _led_rel := ""
 var _overlays := {}  # name -> Sprite2D
+var _nic_face: NicFace = null  # NIC fixture face (size "x"): lamps, load, silk, caps, outline
+var _sealed_ports_key := ""  # last NIC open-port set (sealed ports hide their sprite + ring)
 var _port_nodes := {}  # port id -> Sprite2D
 var _port_bus := {}  # port id -> bool
 var _port_dir := {}  # port id -> "in"/"out"/"ctrl"
@@ -131,8 +134,9 @@ func _build() -> void:
 		_build_copper()
 		return
 
-	# 1 InstallPad · 2 Shell (ghosts skip the pad; the tools draw the placement pad under them)
-	if not ghost:
+	# 1 InstallPad · 2 Shell (ghosts skip the pad; the tools draw the placement pad under them).
+	# The NIC (size "x") has no pad art: NicFace draws the footprint outline instead.
+	if not ghost and _size_key != "x":
 		body.add_child(Art.sprite(Art.pad_file("default", _size_key), Vector2.ZERO))
 	body.add_child(Art.sprite(str(fm.get("asset", "machine/shell_%s.svg" % _size_key)), Vector2.ZERO))
 	# 3 FamilyTab
@@ -214,12 +218,20 @@ func _build() -> void:
 		_thermal2.name = "ThermalPart2"
 		_thermal2.machine = machine
 		body.add_child(_thermal2)
-	# 11 state overlays (over the shell)
-	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
-		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
-		s.modulate.a = 0.0
-		_overlays[overlay] = s
-		body.add_child(s)
+	# 11 state overlays (over the shell). The NIC (size "x") has no state art: NicFace draws
+	# the hover / selected / blocked / error footprint outline instead.
+	if _size_key != "x":
+		for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
+			var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
+			s.modulate.a = 0.0
+			_overlays[overlay] = s
+			body.add_child(s)
+	# 11c NIC face: lamp captions, load bar, silk, sealed caps and the footprint outline.
+	if machine.type == "nic":
+		_nic_face = NicFace.new()
+		_nic_face.name = "NicFace"
+		_nic_face.machine = machine
+		body.add_child(_nic_face)
 	# 11b D4 procedural systems layered over the chassis: codec token slot, USB socket
 	# face + data module, and the locked USB Output contract drive.
 	if machine.type in CODEC_TYPES:
@@ -511,6 +523,14 @@ func _build_texts(ly: Dictionary, area: Dictionary, disp: Dictionary, ro: Dictio
 			"width": 120.0, "size": 8.0, "align": HORIZONTAL_ALIGNMENT_LEFT,
 			"color": Color(Palette.MATERIAL_SILK, SILK_ALPHA), "text": "",
 		})
+	# Probe test tag (JOB C8a): the last test vector the probe saw, a circled digit above
+	# the lens, centred at machine-local x 32.
+	if machine.type == "probe":
+		_text_specs.append({
+			"key": "probe_tag", "pos": _upright(Vector2(20, 2), off, rot),
+			"width": 24.0, "size": 8.0, "align": HORIZONTAL_ALIGNMENT_CENTER,
+			"color": Palette.DATA_NUMBER, "text": "",
+		})
 	# Output Bin read-back (drawn inside the Bin area, which fills the chassis)
 	if machine.type == "output" and not area.is_empty():
 		var ap: Array = area.get("pos", [16, 18])
@@ -717,10 +737,25 @@ func refresh(delta: float) -> void:
 		var elapsed := (Time.get_ticks_msec() / 1000.0) - reveal_start
 		if elapsed < REVEAL_DURATION:
 			var ph := elapsed / REVEAL_DURATION * REVEAL_PULSES
-			_overlays["hover"].modulate.a = absf(sin(PI * ph))
+			if _overlays.has("hover"):
+				_overlays["hover"].modulate.a = absf(sin(PI * ph))
 		else:
 			reveal_active = false
-			_overlays["hover"].modulate.a = 0.0
+			if _overlays.has("hover"):
+				_overlays["hover"].modulate.a = 0.0
+	# NIC face (JOB C8a): lamps / load / silk / caps / footprint outline, redrawn only on a
+	# change. Sealed ports also hide their sprite + contact ring until the tier opens them.
+	if _nic_face != null:
+		_nic_face.sync(m, sim, hovered, selected)
+		var open_key := ",".join(NicLogic.open_ports(NicLogic.tier(m)))
+		if open_key != _sealed_ports_key:
+			_sealed_ports_key = open_key
+			var open := NicLogic.open_ports(NicLogic.tier(m))
+			for pid in _port_nodes:
+				var sealed: bool = not (pid in open)
+				_port_nodes[pid].visible = not sealed
+				if _port_contact.has(pid):
+					_port_contact[pid].visible = not sealed
 	# Port contact rings (L1): edge-detected on a new tick, drawn while their window is open.
 	# Sprites (connected / idle) and raw receptacles only change with the layout: on_layout().
 	if sim != null and (new_tick or _contacts_live):
@@ -761,6 +796,8 @@ func refresh(delta: float) -> void:
 
 
 func _fade_overlay(key: String, want: float, step: float) -> void:
+	if not _overlays.has(key):
+		return  # the NIC (size "x") has no state-overlay sprites
 	var o: Sprite2D = _overlays[key]
 	if o.modulate.a != want:
 		o.modulate.a = move_toward(o.modulate.a, want, step)
@@ -778,6 +815,7 @@ func _update_texts(sim: Simulation, _running: bool) -> bool:
 		vals["ro_value"] = _readout_value(vm)
 	vals["silk"] = _silk_text(sim)
 	vals["bin"] = _bin_value(sim)
+	vals["probe_tag"] = _probe_tag_text()
 	for i in _tag_values.size():
 		_tag_values[i] = _tag_width(i)  # refresh live widths (e.g. bit_splitter lo param)
 		vals["tag%d" % i] = "" if (i < _tag_raw.size() and _tag_raw[i]) else str(_tag_values[i])
@@ -910,6 +948,18 @@ func _bin_value(_sim: Simulation) -> String:
 	return last.label(resolve_view_mode())
 
 
+## The probe's last test vector as a circled digit (①…⑩ for 0-based idx 0..9, else "(n)");
+## "" when the probe has not seen a test packet.
+func _probe_tag_text() -> String:
+	var op := machine.last_mem_op
+	if not op.begins_with("T"):
+		return ""
+	var idx := int(op.substr(1))
+	if idx >= 0 and idx <= 9:
+		return CIRCLED_DIGITS[idx]
+	return "(%d)" % idx
+
+
 ## Push the current value into the bit face (it redraws only when the value changed).
 func _update_bitface() -> void:
 	var m := machine
@@ -950,6 +1000,9 @@ func _area_state(running: bool) -> String:
 	var st: int = m.state
 	var busy := running and st in [Machine.State.PROCESSING, Machine.State.RECEIVING]
 	match _area_kind:
+		"NicStatus":
+			# NIC lamps: live when any bound open RX channel is live, else test, else off
+			return nic_area_state(m)
 		"Feed":
 			var left := m.stream.size() - m.emitted
 			if left <= 0:
@@ -1019,6 +1072,26 @@ func _area_state(running: bool) -> String:
 				"Merge": return "lanea"
 				_:
 					return "active"
+
+
+## Area state of a NIC fixture (JOB C8a): "live" when any open RX channel with a bound
+## source is in live mode, else "test" when any bound channel is in test mode, else "off".
+static func nic_area_state(m: Machine) -> String:
+	var sim := SimulationManager.sim
+	var open := NicLogic.open_ports(NicLogic.tier(m))
+	var live := false
+	var test := false
+	for ch in ["a", "b", "c"]:
+		if not ("rx_" + ch) in open:
+			continue
+		if str(m.params.get("rx_" + ch, "")) == "":
+			continue
+		var mode: String = sim.source_mode(m.id, ch) if sim != null else "live"
+		if mode == "live":
+			live = true
+		else:
+			test = true
+	return "live" if live else ("test" if test else "off")
 
 
 ## Clock pulses and probe passes flash their area for 3 ticks (VFX ladder L1).

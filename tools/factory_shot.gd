@@ -93,6 +93,8 @@ func _process(_d: float) -> bool:
 	if _frame == 3:
 		var run := OpenLab.new()
 		run.level = 10
+		if _scene == "net":
+			run.nic_tier = 2
 		run.build_board(Simulation.new())
 		sim.mission = run
 		sim.campaign_timing = true
@@ -100,6 +102,7 @@ func _process(_d: float) -> bool:
 			"power": _power_scene(sim)
 			"thermal": _thermal_scene(sim)
 			"kit": _kit_scene(sim)
+			"net": _net_scene(sim, run)
 			_: _data_scene(sim)  # "data" and "ui"
 		sm.layout_changed.emit()
 		for i in (400 if _scene == "thermal" else 40):
@@ -162,6 +165,7 @@ const FOCUS := {
 	"power": [Vector2(4.5, 13), Vector2(15, 13)],
 	"thermal": [Vector2(10, 3), Vector2(14, 8)],
 	"kit": [Vector2(9, 3), Vector2(9, 8)],
+	"net": [Vector2(10.5, 1.8), Vector2(10.5, 4)],
 }
 
 
@@ -291,3 +295,28 @@ func _kit_scene(sim: Simulation) -> void:
 	for m in [ad, fs, fj]:
 		if m != null:
 			_busy.append(m)
+
+
+## The Network Module (C6/C8): Mk2 on the top edge, RX A live into a probe that feeds TX A,
+## RX B running its test set (hollow beads) into a second probe.
+func _net_scene(sim: Simulation, run: LabRun) -> void:
+	run._ensure_io(sim)
+	var nic: Machine = null
+	for id in sim.sorted_machine_ids():
+		if sim.machines[id].type == "nic":
+			nic = sim.machines[id]
+	if nic == null:
+		push_warning("factory_shot: no NIC")
+		return
+	sim.set_param(nic.id, "rx_a", "forumcache")
+	sim.set_source_mode(nic.id, "a", "live")
+	sim.set_param(nic.id, "rx_b", "shopmirror")
+	var pa := _place(sim, "probe", Vector2i(8, 4), 16)
+	var pb := _place(sim, "probe", Vector2i(10, 6), 16)
+	if pa != null:
+		sim.connect_ports(nic.id, "rx_a", pa.id, "in")
+		sim.connect_ports(pa.id, "out", nic.id, "tx_a")
+	if pb != null:
+		sim.connect_ports(nic.id, "rx_b", pb.id, "in")
+	var tr := run.start_test(sim, nic.id, "b")
+	tr.run_all(sim)
