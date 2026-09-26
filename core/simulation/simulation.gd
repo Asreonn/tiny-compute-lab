@@ -329,7 +329,7 @@ func set_param(id: int, key: String, value: Variant) -> bool:
 		if typeof(w) != TYPE_STRING:
 			continue
 		var s: String = str(w)
-		var used := (s.begins_with("P:") or s.begins_with("R:")) and s.substr(2) == key
+		var used := ((s.begins_with("P:") or s.begins_with("R:")) and s.substr(2) == key) or (s.begins_with("F:") and key == "fields")
 		if used and connection_at_port(id, p["id"]) != null:
 			last_error = "Unwire the ports first — the widths would change"
 			return false
@@ -663,6 +663,10 @@ func connect_error(a: int, pa: String, b: int, pb: String, ignore: Array = []) -
 		return "Wires start at an output port"
 	if gb["dir"] == Catalog.DIR_OUT:
 		return "Target must be an input or control port"
+	if str(ma.port_width_spec(pa)).begins_with("F:") and int(ga["width"]) <= 0:
+		return "That field is not configured (set Fields first)"
+	if str(mb.port_width_spec(pb)).begins_with("F:") and int(gb["width"]) <= 0:
+		return "That field is not configured (set Fields first)"
 	# Raw links only join raw ports (docs/ARCHITECTURE.md §0 rule 7); a raw value can never
 	# enter a compute machine. "*" sinks (the lab USB Output) take raw or bits.
 	var raw_a: bool = ga["role"] == Catalog.ROLE_RAW

@@ -3657,6 +3657,194 @@
      ]
     }
    ]
+  },
+  "FieldSplitter": {
+   "status": "kit",
+   "form": "SplitWedge-L",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Split",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [
+    {
+     "width": "6",
+     "pos": [
+      12,
+      45
+     ]
+    },
+    {
+     "width": "3",
+     "pos": [
+      100,
+      45
+     ]
+    },
+    {
+     "width": "4",
+     "pos": [
+      100,
+      108
+     ]
+    }
+   ],
+   "led": [
+    108,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      64,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      64,
+      128
+     ]
+    }
+   ]
+  },
+  "FieldJoiner": {
+   "status": "kit",
+   "form": "MergeWedge-L",
+   "family": "conversion",
+   "areas": [
+    {
+     "kind": "Merge",
+     "idle": "Idle",
+     "pos": [
+      0,
+      0
+     ]
+    }
+   ],
+   "operator": null,
+   "dial_text": null,
+   "display": null,
+   "readout": null,
+   "digits": null,
+   "silk": null,
+   "width_tags": [
+    {
+     "width": "2",
+     "pos": [
+      12,
+      45
+     ]
+    },
+    {
+     "width": "3",
+     "pos": [
+      12,
+      108
+     ]
+    },
+    {
+     "width": "5",
+     "pos": [
+      100,
+      45
+     ]
+    }
+   ],
+   "led": [
+    106,
+    8
+   ],
+   "tab": [
+    16,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      0
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Bus",
+     "anchor": [
+      0,
+      128
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Bus",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
   }
  }
 }

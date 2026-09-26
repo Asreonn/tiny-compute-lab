@@ -258,7 +258,7 @@ func footprint() -> Array[Vector2i]:
 	return out
 
 
-## Raw width spec of a port: an int, "W", "P:<param>", "R:<param>" or "*".
+## Raw width spec of a port: an int, "W", "P:<param>", "R:<param>", "F:<i>", "F:+" or "*".
 ## "*" marks an any-width sink (usb_output) — the ONLY exception to the width-match rule.
 func port_width_spec(port_id: String) -> Variant:
 	var pd := Catalog.port_def(type, port_id)
@@ -290,8 +290,21 @@ func port_role(port_id: String) -> String:
 	return pd.get("role", Catalog.ROLE_DATA)
 
 
+## Field widths of a field part (param "fields", MSB first): "6 3 4 3" / "6,3,4,3" -> [6, 3, 4, 3].
+## At most 4 entries; entries that are not positive integers are skipped; each is clamped to 1..64.
+func field_widths() -> Array:
+	var out: Array = []
+	for part in str(params.get("fields", "")).replace(",", " ").split(" ", false):
+		if out.size() >= 4:
+			break
+		if part.is_valid_int() and int(part) > 0:
+			out.append(clampi(int(part), 1, 64))
+	return out
+
+
 ## Effective width of a port: an explicit int, the instance width for "W",
-## "P:<param>" (= the instance param value), "R:<param>" (= instance width minus that param)
+## "P:<param>" (= the instance param value), "R:<param>" (= instance width minus that param),
+## "F:<i>" (= field i's width, 0 when unconfigured), "F:+" (= the sum of the field widths)
 ## or "*" (= the connected source width, 0 while unconnected).
 ## A raw port has width 0: raw links carry a semantic value, not a word.
 func port_width(port_id: String) -> int:
@@ -303,7 +316,7 @@ func port_width(port_id: String) -> int:
 	var w: Variant = pd["width"]
 	if typeof(w) == TYPE_INT:
 		return int(w)
-	# string form: "W", "P:<param>", "R:<param>", "*"
+	# string form: "W", "P:<param>", "R:<param>", "F:<i>", "F:+", "*"
 	var s: String = str(w)
 	if s == "*":
 		return int(port_width_override.get(port_id, 0))
@@ -313,6 +326,16 @@ func port_width(port_id: String) -> int:
 		return int(params.get(s.substr(2), 0))
 	if s.begins_with("R:"):
 		return maxi(1, width - int(params.get(s.substr(2), 0)))
+	if s == "F:+":
+		var fw := field_widths()
+		var t := 0
+		for f in fw:
+			t += int(f)
+		return t
+	if s.begins_with("F:"):
+		var fw2 := field_widths()
+		var i := int(s.substr(2))
+		return int(fw2[i]) if i < fw2.size() else 0
 	return width
 
 
