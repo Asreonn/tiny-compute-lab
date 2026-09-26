@@ -19,6 +19,9 @@ const GHOST_ALPHA := 0.6  # opacity of drag/build ghost views
 ## Codec machines (D4): the raw <-> bits boundary, drawn with a procedural raw port and a
 ## token-slot pill + silk chevron (design/reference/systems_v1.js codec()).
 const CODEC_TYPES := ["number_encoder", "char_encoder", "number_decoder", "char_decoder"]
+## P10d2 thermal chassis parts: canonical chassis + a ThermalPartView2 painter. They get no
+## lane slices and no chassis contacts — the painter draws the power teeth itself.
+const THERMAL_CHASSIS := ["thermal_manifold", "fin_stack", "blower_hp", "radiator", "radiator_large", "fan_bank", "blower"]
 
 const MACHINE_STATE_LED := ["idle", "receiving", "processing", "outputready", "blocked", "error", "off"]
 
@@ -55,6 +58,7 @@ var _codec_slot: CodecSlot = null  # codec token slot (D4)
 var _usb_socket: UsbSocketView = null  # USB socket face + module (D4)
 var _contract: ContractDriveView = null  # locked USB Output contract drive (D4)
 var _thermal: ThermalPartView = null  # thermal family hardware (E3)
+var _thermal2: ThermalPartView2 = null  # thermal chassis parts painter (P10d2)
 var _power_part: PowerPartView = null  # power family chassis (P10c)
 var _strip: ThermalStrip = null  # heat stage strip / critical frame (E3)
 var _tag_nodes: Array = []  # width tag sprites (hidden when the mapped port is raw)
@@ -108,8 +112,10 @@ func _build() -> void:
 	body.rotation = rot * PI / 2.0
 	add_child(body)
 
-	# Thermal family (STYLE_GUIDE §14.7): board-level copper, no chassis / ports / LED / silk.
-	if str(m.def()["family"]) == "thermal":
+	# Thermal family (STYLE_GUIDE §14.7): heatsinks and transport tiles stay board-level
+	# (no chassis / ports / LED / silk). The seven P10d2 chassis parts take the normal path
+	# and get a ThermalPartView2 painter below.
+	if str(m.def()["family"]) == "thermal" and (machine.type == "heatsink" or machine.type in ThermalNetwork.TRANSPORT):
 		_build_thermal()
 		return
 
@@ -185,6 +191,14 @@ func _build() -> void:
 		_power_part.name = "PowerPart"
 		_power_part.machine = machine
 		body.add_child(_power_part)
+	# 10c Thermal chassis parts (P10d2): the manifold / fin stack / radiators / blowers / fan
+	# bank draw their procedural chassis over the shell and under the state overlays. Parts
+	# are placed unrotated; their own painter draws the power teeth (no chassis contacts).
+	if machine.type in THERMAL_CHASSIS:
+		_thermal2 = ThermalPartView2.new()
+		_thermal2.name = "ThermalPart2"
+		_thermal2.machine = machine
+		body.add_child(_thermal2)
 	# 11 state overlays (over the shell)
 	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
 		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
@@ -225,7 +239,7 @@ func _build() -> void:
 	# contacts are board-aligned (a child of the MachineView itself) so they never rotate.
 	# Lane slices are player machines only (locked IO and ghosts show none); contacts are a
 	# placement aid for ghosts too, but never for locked machines or power/thermal parts.
-	if not machine.locked and not ghost and str(machine.def()["family"]) != "power":
+	if not machine.locked and not ghost and str(machine.def()["family"]) not in ["power", "thermal"]:
 		_lane_slices = ChassisMarks.LaneSlices.new()
 		_lane_slices.name = "LaneSlices"
 		_lane_slices.machine = machine
@@ -633,6 +647,11 @@ func refresh(delta: float) -> void:
 		var pl := _power_part.led_name()
 		if pl != "":
 			led_name = pl
+	# Thermal chassis parts LED (P10d2): a radiator reports "blocked" while its sink is starved.
+	if _thermal2 != null:
+		var tl := _thermal2.led_name()
+		if tl != "":
+			led_name = tl
 	if _led != null and led_name != _led_rel:
 		_led.texture = Art.tex(Art.led_file(led_name))
 		_led_rel = led_name
@@ -683,6 +702,8 @@ func refresh(delta: float) -> void:
 		_contract.refresh()
 	if _thermal != null:
 		_thermal.refresh(delta)
+	if _thermal2 != null:
+		_thermal2.refresh(delta)
 	if _power_part != null:
 		_power_part.refresh()
 	if _strip != null:
@@ -1571,15 +1592,13 @@ class ThermalStrip extends Node2D:
 			draw_rect(Rect2(badge.position + Vector2(10, 4), Vector2(2, 8)), inv)
 
 
-## Thermal family hardware (STYLE_GUIDE §14.7, MOTION_SYSTEM §8): heatsink / radiator fin warmth
-## from their tiles' stage; the blower impeller turns at 1 turn/s while the run plays (2 when a
-## tile it cools is HOT or worse) and eases out over 400 ms. Transport tiles (pipes / spreaders /
-## trunks) are drawn by the World's ThermalNetView (P10d1), never here.
+## Thermal family hardware (STYLE_GUIDE §14.7): the heatsink's fin warmth from its tiles'
+## stage. Transport tiles (pipes / spreaders / trunks) are drawn by the World's ThermalNetView
+## (P10d1); the chassis parts (manifold / fin stack / radiators / blowers / fan bank) are drawn
+## by ThermalPartView2 (P10d2), never here.
 class ThermalPartView extends Node2D:
 	var machine: Machine
-	var _spin := 0.0
-	var _speed := 0.0  # turns per second
-	var _level := 0  # blower: 0 idle · 1 running · 2 high load; heatsink/radiator: warmth 0..2
+	var _level := 0  # heatsink warmth 0..2
 
 	func setup(m: Machine) -> void:
 		machine = m
@@ -1587,39 +1606,15 @@ class ThermalPartView extends Node2D:
 	func refresh(delta: float) -> void:
 		var sim := SimulationManager.sim
 		var th: ThermalGrid = sim.thermal if sim != null else null
-		match machine.type:
-			"blower":
-				var lvl := 0
-				if SimulationManager.running and sim != null and sim.work_rate(machine) > 0:
-					lvl = 1
-					if th != null and _covered_max(th, 2) >= int(ThermalGrid.ENTER[ThermalGrid.Stage.HOT]):
-						lvl = 2
-				var target := float(lvl)
-				_speed = target if target > _speed else move_toward(_speed, target, delta / 0.4)
-				if _speed > 0.0 or lvl != _level:
-					_level = lvl
-					_spin = fmod(_spin + _speed * TAU * delta, TAU)
-					queue_redraw()
-			_:
-				var lvl2 := 0
-				if th != null:
-					var st := ThermalGrid.stage_for(th.machine_temp(machine), 0)
-					lvl2 = 0 if st == ThermalGrid.Stage.NORMAL else (1 if st == ThermalGrid.Stage.WARM else 2)
-				if lvl2 != _level:
-					_level = lvl2
-					queue_redraw()
-
-	func _covered_max(th: ThermalGrid, r: int) -> int:
-		var hi := 0
-		var s := Catalog.size_of(machine.type, machine.rot)
-		for y in range(machine.cell.y - r, machine.cell.y + s.y + r):
-			for x in range(machine.cell.x - r, machine.cell.x + s.x + r):
-				hi = maxi(hi, th.at(Vector2i(x, y)))
-		return hi
+		var lvl := 0
+		if th != null:
+			var st := ThermalGrid.stage_for(th.machine_temp(machine), 0)
+			lvl = 0 if st == ThermalGrid.Stage.NORMAL else (1 if st == ThermalGrid.Stage.WARM else 2)
+		if lvl != _level:
+			_level = lvl
+			queue_redraw()
 
 	func _draw() -> void:
 		match machine.type:
 			"heatsink": SystemsDraw.heatsink(self, Vector2.ZERO, _level)
-			"blower": SystemsDraw.blower(self, Vector2.ZERO, _spin, _level)
-			"radiator": SystemsDraw.radiator(self, Vector2.ZERO, _level)
 
