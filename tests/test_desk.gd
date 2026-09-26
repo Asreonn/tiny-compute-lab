@@ -20,6 +20,9 @@ static func run(t) -> void:
 
 
 static func _board(level_idx: int, auto := true) -> Array:
+	# These desk tests assume two quests from the start; the real campaign keeps the window at 1
+	# until LabConfig.quest_window_level (FACTORY_SYSTEMS §4).
+	LabDef.CONFIG.quest_window_level = 0
 	var sim := Simulation.new()
 	var run := LabRun.new()
 	run.level = level_idx

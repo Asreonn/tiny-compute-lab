@@ -357,6 +357,86 @@ func set_width(id: int, w: int) -> Array:
 	return removed
 
 
+# ============================================================ upgrades
+
+## The largest of {1, 2, 4, 8} that is <= n and <= cap; 1 when none fits.
+static func _snap_lanes(n: int, cap: int) -> int:
+	for k in [8, 4, 2, 1]:
+		if n >= k and cap >= k:
+			return k
+	return 1
+
+
+## Upgrade a machine's lanes (FACTORY_SYSTEMS §3.1): snap n to {1, 2, 4, 8} ≤ the def's
+## max_lanes, store params["lanes"] = str(n), and clear the machine's running jobs/backlog like
+## a param change. Refused (false + last_error) when the machine is locked, its def has one lane,
+## or the run's max_lanes() gate is lower. One layout change: `changed` fires once.
+func set_machine_lanes(id: int, n: int) -> bool:
+	if not machines.has(id):
+		return false
+	var m: Machine = machines[id]
+	if m.locked:
+		last_error = "This machine is locked"
+		return false
+	var cap := maxi(1, int(m.def().get("max_lanes", 1)))
+	if cap <= 1:
+		last_error = "This machine has one lane"
+		return false
+	var v := _snap_lanes(n, cap)
+	if mission != null and mission.has_method("max_lanes") and v > int(mission.max_lanes()):
+		last_error = "Unlocks later"
+		return false
+	m.params["lanes"] = str(v)
+	m.reset()  # a lane change clears running jobs / backlog like a param change
+	_emit_changed()
+	return true
+
+
+## Upgrade a machine's efficiency (FACTORY_SYSTEMS §3.1): "efficient" trades one processing tick
+## for ¾ power and ½ heat. Refused (false + last_error) when the run has not unlocked it yet.
+func set_machine_efficiency(id: int, efficient: bool) -> bool:
+	if not machines.has(id):
+		return false
+	if mission != null and mission.has_method("efficiency_unlocked") and not mission.efficiency_unlocked():
+		last_error = "Unlocks later"
+		return false
+	var m: Machine = machines[id]
+	m.params["efficiency"] = "efficient" if efficient else "standard"
+	_emit_changed()
+	return true
+
+
+## Pure preview of an upgrade (FACTORY_SYSTEMS §7.3): for a machine and a proposed change
+## {lanes?, width?, clock?, efficiency?} return {"rate_before", "rate_after", "power_before",
+## "power_after", "heat_before", "heat_after"} where rate = lanes × clock work rate /
+## (processing ticks × 12) × TICKS_PER_SEC (values per Lab second), power = power_demand() and
+## heat = heat() × heat_mult() × lanes. Changes nothing: the "after" machine is a temporary
+## Machine.new with the same type / params / width.
+func upgrade_preview(id: int, change: Dictionary) -> Dictionary:
+	if not machines.has(id):
+		return {}
+	var m: Machine = machines[id]
+	var after := Machine.new(id, m.def_id(), m.cell, m.width, m.rot, m.params.duplicate(true))
+	after.campaign_timing = m.campaign_timing
+	if change.has("lanes"):
+		after.params["lanes"] = str(int(change["lanes"]))
+	if change.has("width"):
+		after.width = int(change["width"])
+	if change.has("clock"):
+		after.params["clock"] = str(change["clock"])
+	if change.has("efficiency"):
+		var e: Variant = change["efficiency"]
+		after.params["efficiency"] = "efficient" if (e is bool and bool(e)) or str(e) == "efficient" else "standard"
+	return {
+		"rate_before": m.rate_per_sec(),
+		"rate_after": after.rate_per_sec(),
+		"power_before": m.power_demand(),
+		"power_after": after.power_demand(),
+		"heat_before": m.heat() * m.heat_mult() * m.lanes(),
+		"heat_after": after.heat() * after.heat_mult() * after.lanes(),
+	}
+
+
 # ============================================================ devices
 
 ## Plug a data module into a lab socket (docs/SYSTEMS_EXPANSION.md §2). Refused when the
@@ -563,9 +643,13 @@ func connect_ports(a: int, pa: String, b: int, pb: String, route: Variant = null
 
 
 ## Set the number of parallel conveyors (lanes) on a wire; false when the wire does not
-## exist. Counts snap to the valid set {1, 2, 4, 8} (Connection.set_lanes).
+## exist. Counts snap to the valid set {1, 2, 4, 8} (Connection.set_lanes). Refused when the
+## run's max_bus_lanes() gate is lower (FACTORY_SYSTEMS §2.1).
 func set_wire_lanes(cid: int, n: int) -> bool:
 	if not connections.has(cid):
+		return false
+	if mission != null and mission.has_method("max_bus_lanes") and n > int(mission.max_bus_lanes()):
+		last_error = "Unlocks later"
 		return false
 	connections[cid].set_lanes(n)
 	_emit_changed()

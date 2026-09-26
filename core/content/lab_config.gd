@@ -23,6 +23,14 @@ extends Resource
 ## The PSU tiers: capacity in power units and name (LevelDef.reward psu_tier picks one).
 @export var psu_capacity: PackedInt32Array = PackedInt32Array([8, 16, 32, 64])
 @export var psu_names: PackedStringArray = PackedStringArray(["Starter Adapter", "Improved Adapter", "Desktop PSU", "High-Capacity PSU"])
+## The level index at which max machine lanes become 2, 4, 8 (FACTORY_SYSTEMS §3.1).
+@export var lane_levels: PackedInt32Array = PackedInt32Array([3, 5, 21])
+## The level index at which max wire lanes become 2, 4, 8 (FACTORY_SYSTEMS §2.1).
+@export var bus_lane_levels: PackedInt32Array = PackedInt32Array([5, 17, 21])
+## The first level with the Efficiency upgrade (FACTORY_SYSTEMS §3.1).
+@export var efficiency_level := 21
+## quest_window applies from this level; before it the window is 1 (FACTORY_SYSTEMS §4).
+@export var quest_window_level := 15
 
 
 ## The quest dictionaries in order (variants resolved).

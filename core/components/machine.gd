@@ -190,6 +190,13 @@ func heat_mult() -> int:
 	return int(CLOCK_HEAT[clock_mode()])
 
 
+## Values per Lab second at the current lanes / clock / processing ticks (FACTORY_SYSTEMS §3.3):
+## lanes × clock work rate / (processing ticks × WORK_PER_TICK) × TICKS_PER_SEC. Used by the
+## upgrade preview and the hover card.
+func rate_per_sec() -> float:
+	return float(lanes() * clock_rate()) / float(processing_ticks() * WORK_PER_TICK) * 10.0
+
+
 func in_capacity(port_id: String) -> int:
 	if type == "buffer" and port_id == "in":
 		return int(params.get("capacity", 4))

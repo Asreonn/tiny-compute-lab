@@ -17,6 +17,9 @@ var _fails := 0
 func _initialize() -> void:
 	SaveStore.use_file("user://desk_smoke_save.json")
 	SaveStore.clear()
+	# The smoke drives two active quests (Q6/Q7) at L6; the real campaign keeps the window at 1
+	# until LabConfig.quest_window_level (FACTORY_SYSTEMS §4).
+	LabDef.CONFIG.quest_window_level = 0
 	SaveStore.save_lab({"level": 5})
 	root.add_child(load("res://main.tscn").instantiate())
 

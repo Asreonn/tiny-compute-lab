@@ -170,7 +170,7 @@ static func _lab_streams(t) -> void:
 	t.check(src != null and src.socket and src.device == "bit@0", "the L1 source is quest 1's bit stick")
 	t.check(src != null and src.stream.size() == 1 and (src.stream[0] as BitVector).equals(BitVector.from_bin("010")), "the L1 socket carries the 010 stream")
 	t.check(run.stream_for_device("bit").get("values", []) == ["010"], "LabRun exposes the current contract stream")
-	t.check(run.devices_owned() == PackedStringArray(["bit@0", "bit@1"]), "the two active quests each bring their bit stick (got %s)" % str(run.devices_owned()))
+	t.check(run.devices_owned() == PackedStringArray(["bit@0"]), "one quest at a time before quest_window_level: only quest 1's bit stick (got %s)" % str(run.devices_owned()))
 
 
 # --- helpers --------------------------------------------------------------------

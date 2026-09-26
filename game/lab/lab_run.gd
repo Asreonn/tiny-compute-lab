@@ -18,6 +18,12 @@ extends RunBase
 static var QUEST_WINDOW: int:
 	get: return LabDef.CONFIG.quest_window
 
+## The effective active-quest window of THIS run: 1 before LabConfig.quest_window_level, else
+## quest_window (FACTORY_SYSTEMS §4). The static QUEST_WINDOW getter stays for callers that do
+## not have a run.
+func quest_window() -> int:
+	return 1 if level < LabDef.CONFIG.quest_window_level else LabDef.CONFIG.quest_window
+
 ## One quest's progress (per quest; `delivered` & co. below read the current quest's).
 class QuestProgress:
 	extends RefCounted
@@ -85,11 +91,11 @@ func _q(i: int) -> QuestProgress:
 	return _qp[i]
 
 
-## The active quests, lowest first: up to QUEST_WINDOW unfinished quests from `level` on.
+## The active quests, lowest first: up to quest_window() unfinished quests from `level` on.
 func active_quests() -> Array[int]:
 	var out: Array[int] = []
 	var i := level
-	while i < LabDef.count() and out.size() < QUEST_WINDOW:
+	while i < LabDef.count() and out.size() < quest_window():
 		if not completed.has(i):
 			out.append(i)
 		i += 1
@@ -955,14 +961,32 @@ func clock_unlocked() -> bool:
 	return level > POWER_LEVEL  # the reward of L16 Power Cap
 
 
-## The highest lane count (1/2/4/8) this run allows. Placeholder: the progression job sets the
-## real gates (FACTORY_SYSTEMS §3.1); the Inspector hides the Lanes param while it returns 1.
+## The highest lane count (1/2/4/8) this run allows (FACTORY_SYSTEMS §3.1): 1, then 2 / 4 / 8
+## once `level` reaches LabConfig.lane_levels[0/1/2]. The Inspector hides the Lanes param while
+## it returns 1.
 func max_lanes() -> int:
+	return _unlock_gate(LabDef.CONFIG.lane_levels)
+
+
+## The highest wire lane count (1/2/4/8) this run allows (FACTORY_SYSTEMS §2.1): 1, then
+## 2 / 4 / 8 once `level` reaches LabConfig.bus_lane_levels[0/1/2].
+func max_bus_lanes() -> int:
+	return _unlock_gate(LabDef.CONFIG.bus_lane_levels)
+
+
+## The lane count unlocked at `level` for a gate array: 1 until the first entry, then 2 / 4 / 8.
+func _unlock_gate(gates: PackedInt32Array) -> int:
+	if level >= int(gates[2]):
+		return 8
+	if level >= int(gates[1]):
+		return 4
+	if level >= int(gates[0]):
+		return 2
 	return 1
 
 
-## Whether the Efficiency upgrade is unlocked. Placeholder: the progression job sets the real
-## gate (FACTORY_SYSTEMS §3.1); the Inspector hides the Efficiency param while it is false.
+## Whether the Efficiency upgrade is unlocked (FACTORY_SYSTEMS §3.1): level >= efficiency_level.
+## The Inspector hides the Efficiency param while it is false.
 func efficiency_unlocked() -> bool:
-	return false
+	return level >= LabDef.CONFIG.efficiency_level
 

@@ -143,7 +143,7 @@ static func _catalog_params(t) -> void:
 	t.check(add["params"].has("lanes") and add["params"]["lanes"]["options"] == ["1", "2", "4", "8"], "add has a Lanes param with all four options (%s)" % str(add["params"].get("lanes", {})))
 	t.check(add["params"].has("efficiency") and add["params"]["efficiency"]["default"] == "standard", "powered machines get an Efficiency param")
 	var sp: Dictionary = Catalog.def("splitter")
-	t.check(sp["params"]["lanes"]["options"] == ["1", "2", "4"], "splitter's Lanes options stop at 4 (%s)" % sp["params"]["lanes"]["options"])
+	t.check(sp["params"]["lanes"]["options"] == ["1", "2", "4"], "splitter's Lanes options stop at 4 (%s)" % str(sp["params"]["lanes"]["options"]))
 	t.check(not Catalog.def("adder")["params"].has("lanes"), "the Adder (max_lanes 1) has no Lanes param")
 	t.check(not Catalog.def("heatsink")["params"].has("efficiency"), "a powerless machine has no Efficiency param")
 	t.check(int(add["max_lanes"]) == 8 and int(sp["max_lanes"]) == 4, "the defs carry max_lanes (add %s, splitter %s)" % [add["max_lanes"], sp["max_lanes"]])
