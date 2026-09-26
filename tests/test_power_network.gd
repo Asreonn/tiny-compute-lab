@@ -198,3 +198,10 @@ static func _view_queries(t) -> void:
 		{"tile": Vector2i(4, 11), "dir": Vector2i.UP},
 	], "controller E, board W, N and S terminals (got %s)" % str(pn2.terminal_tiles()))
 	t.check(pn2.tapped_contacts(a.id).is_empty(), "an onboard-fed machine has no tapped contacts")
+	t.check(pn2.tile_live(Vector2i(4, 9)) and not pn2.tile_live(Vector2i(20, 20)), "a board-fed rail is live; empty ground is not")
+	t.check(pn2.node_tile("ctrl") == Vector2i(1, 10) and pn2.node_tile("source") == Vector2i(-1, -1), "node_tile: the controller's cell, none for the source")
+	t.check(pn2.node_tile("c%d" % (9 * 40 + 4)) == Vector2i(4, 9), "a chain sits at its feed tile (got %s)" % str(pn2.node_tile("c%d" % (9 * 40 + 4))))
+	var sim3 := _sim()
+	sim3.place("power_rail", Vector2i(10, 5), 0, {}, 3)
+	var pn3 := PowerNetwork.build(sim3, 32, 8)
+	t.check(not pn3.tile_live(Vector2i(10, 5)), "copper with no controller path is dead")

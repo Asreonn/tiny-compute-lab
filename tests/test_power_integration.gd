@@ -38,6 +38,7 @@ static func run(t) -> void:
 	_placement_t(t)
 	_lab_fixtures(t)
 	_save_round_trip(t)
+	_fresh_after_edit(t)
 
 
 static func _sim() -> Simulation:
@@ -170,3 +171,19 @@ static func _save_round_trip(t) -> void:
 				n += 1
 		return n
 	t.check(count.call(sim) == 2 and count.call(sim2) == 2, "fixtures survive the round trip without duplication (got %d -> %d)" % [count.call(sim), count.call(sim2)])
+
+## The network is rebuilt right after an edit (views read it while the run is paused): a rail
+## placed under an Add taps it before any step.
+static func _fresh_after_edit(t) -> void:
+	var sim := _sim()
+	var mission := StubMission.new()
+	mission.cap = 32
+	mission.use_net = true
+	sim.mission = mission
+	sim.place("power_controller", Vector2i(1, 10), 0, {"tier": "basic"}, 3)
+	var a := sim.place("add", Vector2i(4, 9), 0, {"k": 1}, 3)
+	t.check(sim.power_net != null and sim.power_net.tapped_contacts(a.id).is_empty(), "no copper yet: nothing tapped")
+	for x in range(3, 6):
+		sim.place("power_rail", Vector2i(x, 10), 0, {}, 3)
+	t.check(sim.tick == 0, "no step ran")
+	t.check(sim.power_net.tapped_contacts(a.id) == [Vector2i(4, 10), Vector2i(5, 10)], "the new rail taps the Add before any step (got %s)" % str(sim.power_net.tapped_contacts(a.id)))

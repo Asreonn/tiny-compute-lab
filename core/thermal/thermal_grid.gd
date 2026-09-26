@@ -287,6 +287,11 @@ func _cells_sorted(m: Machine) -> PackedInt32Array:
 	return out
 
 
+## The layout changed outside a step (an edit): rebuild the topology and the ThermalNetwork now.
+func sync_topology(sim) -> void:
+	_ensure_topology(sim, sim.sorted_machine_ids())
+
+
 ## Rebuild edge conductances and isothermal bodies when the layout changed.
 func _ensure_topology(sim, mids: Array) -> void:
 	var key := []

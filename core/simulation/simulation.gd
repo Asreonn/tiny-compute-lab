@@ -832,12 +832,7 @@ func step() -> void:
 	# 4. process (brownout inputs cached once per step)
 	_cap = power_capacity()
 	_demand = power_demand()
-	if mission != null and mission.has_method("uses_power_network") and mission.uses_power_network():
-		if power_net == null or _power_dirty or power_net.supply != _cap:
-			power_net = PowerNetwork.build(self, _cap, mission.onboard_capacity() if mission.has_method("onboard_capacity") else 0)
-		_power_dirty = false
-	else:
-		power_net = null
+	_sync_power_net()
 	for id in mids:
 		var m: Machine = machines[id]
 		var had := not m.jobs.is_empty()
@@ -1184,7 +1179,27 @@ func load_player_layout(d: Dictionary) -> void:
 func _emit_changed() -> void:
 	_power_dirty = true
 	if _quiet == 0:
+		refresh_networks()
 		changed.emit()
+
+
+## Rebuild the derived network models (power path, thermal topology) right after an edit, so the
+## views read the new layout even while the run is paused. Pure caches: no simulation state
+## changes; step() keeps them in sync while running.
+func refresh_networks() -> void:
+	_cap = power_capacity()
+	_sync_power_net()
+	if thermal != null and thermal.size == size:
+		thermal.sync_topology(self)
+
+
+func _sync_power_net() -> void:
+	if mission != null and mission.has_method("uses_power_network") and mission.uses_power_network():
+		if power_net == null or _power_dirty or power_net.supply != _cap:
+			power_net = PowerNetwork.build(self, _cap, mission.onboard_capacity() if mission.has_method("onboard_capacity") else 0)
+		_power_dirty = false
+	else:
+		power_net = null
 
 
 ## Brings the board to layout `d` in place (undo / redo). Player machines and wires that match

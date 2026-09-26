@@ -210,3 +210,5 @@ static func _view_queries(t) -> void:
 	t.check(tn2.network_of(turned.id) != "", "a pipe above the rotated Add connects it")
 	var r := tn2.allocate({turned.id: 300})
 	t.check(int(r["flow"].get(Vector2i(6, 3), 0)) == 300, "the offer flows through the pipe tiles on its path (got %s)" % str(r["flow"].get(Vector2i(6, 3))))
+	t.check(tn2.parent_of(Vector2i(6, 3)) == Vector2i(7, 3), "heat flows east along the pipe toward the radiator")
+	t.check(tn2.parent_of(Vector2i(8, 1)) == Vector2i(8, 1), "the inlet tile is its own parent")

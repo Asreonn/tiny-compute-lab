@@ -262,6 +262,12 @@ func tile_cap(t: Vector2i) -> int:
 	return _tile_cap(t)
 
 
+## The next tile from `t` toward its network's sink inlet (the flow direction); `t` itself at an
+## inlet or when the tile is not on a sink-bound network.
+func parent_of(t: Vector2i) -> Vector2i:
+	return _parents.get(t, t)
+
+
 ## The blowers that feed a sink (directly south of it), ascending id.
 func blowers_of(sid: int) -> Array:
 	var out := []

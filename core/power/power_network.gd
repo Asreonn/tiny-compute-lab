@@ -3,8 +3,8 @@ extends RefCounted
 ## The power path (docs/FACTORY_SYSTEMS.md §5): source → controller/VRM → linear copper chains →
 ## distribution boards → chassis contacts. The tightest stage on a machine's path slows it. Pure and
 ## deterministic — machines iterate by ascending id, tiles in index order y*size.x+x, and
-## nothing here touches the SceneTree. No Simulation / LabRun integration yet: this is the
-## standalone core the Lab will call later (P5a).
+## nothing here touches the SceneTree. The Simulation rebuilds it after every edit and when the
+## supply changes (Simulation.refresh_networks); the views read it through the query functions.
 
 const COPPER := ["power_rail", "power_rail_heavy", "power_plane", "power_plane_heavy"]
 const BOARDS := ["power_board"]  # a variant counts by its base Machine.type
@@ -461,6 +461,24 @@ func tapped_contacts(mid: int) -> Array:
 		if _chain_of_tile.get(c, "") == feed["chain"]:
 			out.append(c)
 	return out
+
+
+## True when the copper tile belongs to a chain fed from the source (not a dead run).
+func tile_live(tile: Vector2i) -> bool:
+	var cid: String = _chain_of_tile.get(tile, "")
+	return cid != "" and nodes.has(cid) and bool(nodes[cid]["live"])
+
+
+## Where a node sits on the board: a chain's feed tile, the controller's or a board's cell;
+## (−1, −1) for the source, onboard, pads or an unfed chain.
+func node_tile(nid: String) -> Vector2i:
+	if nid == "ctrl" and _controller >= 0:
+		return sim.machines[_controller].cell
+	if nid.begins_with("b") and _boards.has(int(nid.substr(1))):
+		return _boards[int(nid.substr(1))]["cell"]
+	if nid.begins_with("c") and _chains.has(nid) and _chains[nid].has("feed"):
+		return _chains[nid]["feed"]
+	return Vector2i(-1, -1)
 
 
 ## Copper tiles that sit on a power part's terminal: {"tile", "dir"}, `dir` pointing from the
