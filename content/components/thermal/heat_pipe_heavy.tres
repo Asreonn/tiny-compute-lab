@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_9a1b2"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_8c3d4"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_5e6f7"]
+
+[resource]
+script = ExtResource("3_5e6f7")
+id = "heat_pipe_heavy"
+display_name = "Heavy Heat Pipe"
+family = "thermal"
+size = "S"
+capacity = 2000
+heat = 0
+glyph_text = "HH"
+description = "A thicker heat pipe. Carries 2000 units to a sink."
+menu_order = 1031

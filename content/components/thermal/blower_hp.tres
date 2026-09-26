@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_2n3p4"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_5q6r7"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_8s9t1"]
+
+[resource]
+script = ExtResource("3_8s9t1")
+id = "blower_hp"
+display_name = "High-Pressure Blower"
+family = "thermal"
+size = "M"
+airflow = 60
+power = 4
+heat = 0
+glyph_text = "HB"
+description = "A high-pressure blower. Delivers 60 airflow under a radiator."
+menu_order = 1051

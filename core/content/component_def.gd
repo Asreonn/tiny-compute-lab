@@ -20,6 +20,12 @@ const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "m
 @export var heat := -1
 ## Power capacity of a power part (rail / plane / board); 0 for everything else.
 @export var capacity := 0
+## Airflow a blower delivers (units/tick); 0 for everything else.
+@export var airflow := 0
+## Airflow a radiator needs for full capacity; 0 = passive (no airflow required).
+@export var airflow_need := 0
+## Thermal contact capacity; -1 = derived from the size (S 600 / M 1200 / L 2400).
+@export var contact_cap := -1
 ## How many parallel jobs an upgrade may give it (FACTORY_SYSTEMS §3.2); 1 = most machines.
 @export var max_lanes := 1
 ## Operation icon (assets/art/icon/<icon>.svg) or, when empty, the glyph text.
@@ -53,4 +59,10 @@ func to_dict() -> Dictionary:
 		d["heat"] = heat
 	if capacity > 0:
 		d["capacity"] = capacity
+	if airflow > 0:
+		d["airflow"] = airflow
+	if airflow_need > 0:
+		d["airflow_need"] = airflow_need
+	if contact_cap >= 0:
+		d["contact_cap"] = contact_cap
 	return d

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_7g8h9"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_1j2k3"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_4l5m6"]
+
+[resource]
+script = ExtResource("3_4l5m6")
+id = "thermal_trunk"
+display_name = "Vapor-Chamber Trunk"
+family = "thermal"
+size = "S"
+capacity = 4800
+heat = 0
+glyph_text = "VT"
+description = "A vapor-chamber trunk. Carries 4800 units to a sink."
+menu_order = 1032

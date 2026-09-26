@@ -7,9 +7,10 @@
 [resource]
 script = ExtResource("3_622gc")
 id = "heat_pipe"
-display_name = "Heat Pipe"
+display_name = "Copper Heat Pipe"
 family = "thermal"
 size = "S"
+capacity = 800
 heat = 0
 glyph_text = "HP"
 description = "Carries heat along its axis to a sink. Chain pipes; rotate one to turn a corner."

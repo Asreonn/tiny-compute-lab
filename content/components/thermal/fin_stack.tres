@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_1a2b3"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_4c5d6"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_7e8f9"]
+
+[resource]
+script = ExtResource("3_7e8f9")
+id = "fin_stack"
+display_name = "Passive Fin Stack"
+family = "thermal"
+size = "M"
+capacity = 400
+heat = 0
+glyph_text = "FS"
+description = "A passive fin stack. Dumps 400 units with no airflow."
+menu_order = 1040
