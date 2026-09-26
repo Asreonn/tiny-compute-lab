@@ -51,6 +51,7 @@ func _draw() -> void:
 		"power": _power(sim)
 		"data": _data(sim)
 		"flow": _flow(sim)
+		"compute": _compute(sim)
 
 
 func _text(pos: Vector2, s: String, px: int, weight: String, c: Color) -> void:
@@ -75,19 +76,20 @@ func _thermal(sim: Simulation) -> void:
 	_text(Vector2(12, 58), "hot tiles throttle ×½ · critical pauses", 8, "Medium", Palette.TEXT_MUTED)
 
 
-func _swatch(x: float, col: Color, label: String) -> void:
+func _swatch(x: float, col: Color, label: String, px := 8) -> void:
 	SystemsDraw.rrect(self, Rect2(x, 30, 14, 14), 3.0, Color(col, 0.55))
 	SystemsDraw.rrect_outline(self, Rect2(x, 30, 14, 14), 3.0, col, 1.0)
-	_text(Vector2(x + 18, 41), label, 8, "ExtraBold", Palette.TEXT_SECONDARY)
+	_text(Vector2(x + 18, 41), label, px, "ExtraBold", Palette.TEXT_SECONDARY)
 
 
 func _data(sim: Simulation) -> void:
 	_text(Vector2(12, 18), "DATA", 10, "ExtraBold", Palette.TEXT_PRIMARY)
 	_text(Vector2(W - 24, 18), "B", 10, "ExtraBold", Palette.TEXT_MUTED)
 	_text(Vector2(64, 18), "%d wires" % sim.connections.size(), 10, "Medium", Palette.TEXT_SECONDARY)
-	_swatch(12, Palette.DATA_NUMBER, "BITS · width")
-	_swatch(132, Palette.FAMILY_IO, "RAW values")
-	_text(Vector2(12, 58), "an Encoder turns raw into bits, a Decoder back", 8, "Medium", Palette.TEXT_MUTED)
+	_swatch(12, Palette.DATA_NUMBER, "BITS")
+	_swatch(100, Palette.FAMILY_IO, "RAW")
+	_swatch(196, Palette.STATE_BLOCKED, "▲ BANDWIDTH", 7)
+	_text(Vector2(12, 58), "lanes ×n · amber = saturated ≥ 50 % of 1 min", 8, "Medium", Palette.TEXT_MUTED)
 
 
 func _flow(sim: Simulation) -> void:
@@ -121,3 +123,11 @@ func _power(sim: Simulation) -> void:
 	var rows := 1 if cap <= 16 else (2 if cap <= 32 else 3)
 	var gh := rows * 9 + 6.0
 	SystemsDraw.gauge(self, Vector2(12, 26 + (33.0 - gh) * 0.5), W - 40.0, cap, dem, rows)
+
+
+func _compute(sim: Simulation) -> void:
+	_text(Vector2(12, 18), "COMPUTE", 10, "ExtraBold", Palette.TEXT_PRIMARY)
+	_text(Vector2(W - 24, 18), "C", 10, "ExtraBold", Palette.TEXT_MUTED)
+	_swatch(12, Palette.FAMILY_COMPUTE, "LANES busy")
+	_swatch(132, Palette.STATE_BLOCKED, "COMPUTE-BOUND")
+	_text(Vector2(12, 58), "all lanes busy and inputs full ≥ 50 %", 8, "Medium", Palette.TEXT_MUTED)

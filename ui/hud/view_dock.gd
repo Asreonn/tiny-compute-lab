@@ -37,7 +37,7 @@ func _sm() -> Node:
 
 
 static func dock_size() -> Vector2:
-	var n: int = 5
+	var n: int = SimulationManager.VIEWS.size()
 	return Vector2(PAD * 2.0 + n * SEG.x + (n - 1) * GAP, SEG.y + PAD * 2.0)
 
 
@@ -48,6 +48,7 @@ static func view_color(kind: String) -> Color:
 		"flow": return Palette.STATE_VALID
 		"thermal": return Palette.STATE_BLOCKED
 		"power": return Palette.MATERIAL_GOLD
+		"compute": return Palette.FAMILY_COMPUTE
 	return Palette.TEXT_SECONDARY
 
 
@@ -69,14 +70,14 @@ func _seg_rect(i: int) -> Rect2:
 func _on_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var h := -1
-		for i in 5:
+		for i in _sm().VIEWS.size():
 			if _seg_rect(i).has_point(event.position):
 				h = i
 		if h != _hover:
 			_hover = h
 			_dock.queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		for i in 5:
+		for i in _sm().VIEWS.size():
 			if _seg_rect(i).has_point(event.position):
 				_sm().set_overlay(str(_sm().VIEWS[i][0]))
 				AudioBus.event("wire_connect")
@@ -100,7 +101,7 @@ func _draw_dock() -> void:
 	var cur := str(sm.overlay)
 	var f := TclTheme.font(HudKit.W_XBOLD)
 	var fm := TclTheme.font(HudKit.W_MEDIUM)
-	for i in 5:
+	for i in sm.VIEWS.size():
 		var v: Array = sm.VIEWS[i]
 		var kind := str(v[0])
 		var on := kind == cur
@@ -130,6 +131,13 @@ func _icon(ci: CanvasItem, kind: String, pos: Vector2, c: Color) -> void:
 		for k in 4:
 			SystemsDraw.rrect(ci, Rect2(pos + Vector2(1 + k * 4.5, 2), Vector2(2.5, 14)), 1.0, c)
 		ci.draw_rect(Rect2(pos + Vector2(0, 15), Vector2(18, 2)), c)
+		return
+	if kind == "compute":
+		# three vertical bars (2.5 px wide, heights 8/14/11, 1 px radius), bottom-aligned
+		var hs := [8.0, 14.0, 11.0]
+		for k in 3:
+			var h: float = hs[k]
+			SystemsDraw.rrect(ci, Rect2(pos + Vector2(2 + k * 5.5, 16.0 - h), Vector2(2.5, h)), 1.0, c)
 		return
 	var tex := Art.icon(name)
 	if tex != null:

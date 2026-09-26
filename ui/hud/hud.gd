@@ -172,6 +172,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F: sm.toggle_overlay("flow")
 		KEY_T: sm.toggle_overlay("thermal")
 		KEY_P: sm.toggle_overlay("power")
+		KEY_C: sm.toggle_overlay("compute")
 
 
 func _notice(text: String, kind: String) -> void:

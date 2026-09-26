@@ -47,6 +47,7 @@ func _draw() -> void:
 		"power": _draw_power(sim)
 		"data": _draw_data(sim)
 		"flow": _draw_flow(sim)
+		"compute": _draw_compute(sim)
 
 
 func _route_pts(c: Connection) -> PackedVector2Array:
@@ -68,7 +69,9 @@ func _chip(center: Vector2, text: String, col: Color, bold := true) -> void:
 # ------------------------------------------------------------------ data
 
 ## Every wire as a wide band in the colour of what it carries (bits: data.number, raw values:
-## family.io) with its width at the middle: "3b", "5b", "RAW".
+## family.io) with a chip at its middle: "3b ×2 · 45%" (width, lanes, utilisation). A wire at
+## ≥ 50 % of its lane capacity is bandwidth-bound: the band gains a 1 px amber outline and the
+## chip reports "BANDWIDTH n/cap".
 func _draw_data(sim: Simulation) -> void:
 	for cid in sim.sorted_connection_ids():
 		var c: Connection = sim.connections[cid]
@@ -79,8 +82,21 @@ func _draw_data(sim: Simulation) -> void:
 		var col := Palette.FAMILY_IO if raw else Palette.DATA_NUMBER
 		var pts := _route_pts(c)
 		if pts.size() >= 2:
-			draw_polyline(pts, Color(col, 0.3), 12.0, true)
-		_chip(pts[pts.size() / 2], "RAW" if raw else "%db" % c.width, col)
+			var band := SignalGeom.trench_for(c.width, c.lanes) + 4.0
+			draw_polyline(pts, Color(col, 0.3), band, true)
+			if sim.wire_bound(cid):
+				var off := band * 0.5 + 1.0
+				draw_polyline(SignalGeom.offset_poly(pts, off), Color(Palette.STATE_BLOCKED, 0.65), 1.0, false)
+				draw_polyline(SignalGeom.offset_poly(pts, -off), Color(Palette.STATE_BLOCKED, 0.65), 1.0, false)
+		var capacity := maxi(c.slots.size() * c.lanes, 1)
+		if sim.wire_bound(cid):
+			_chip(pts[pts.size() / 2], "BANDWIDTH %d/%d" % [c.packet_count(), capacity], Palette.STATE_BLOCKED)
+		else:
+			var label := "%db" % c.width
+			if c.lanes > 1:
+				label += " ×%d" % c.lanes
+			label += " · %d%%" % roundi(100.0 * float(c.packet_count()) / float(capacity))
+			_chip(pts[pts.size() / 2], label, col)
 	# each USB stick names what it streams
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
@@ -275,3 +291,69 @@ func _draw_power(sim: Simulation) -> void:
 		if dem > 8:
 			draw_rect(Rect2(x, chip.position.y + 6.5, 3, 1), Palette.MATERIAL_GOLD)
 			draw_rect(Rect2(x + 1, chip.position.y + 5.5, 1, 3), Palette.MATERIAL_GOLD)
+
+
+# ------------------------------------------------------------------ compute
+
+## Compute overlay: how many lanes every machine is using, and whether it is compute-bound
+## (all lanes busy with full inputs ≥ 50 % of the last minute). Multi-lane machines get a chip
+## under the footprint; a compute-bound one gets an amber bracket around its lane slices and a
+## "COMPUTE-BOUND" chip. Single-lane machines that are compute-bound get a small muted "1 lane"
+## hint — they are the ones to upgrade.
+func _draw_compute(sim: Simulation) -> void:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.locked:
+			continue
+		var lanes := m.lanes()
+		var fp := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+		if int(m.def().get("max_lanes", 1)) <= 1 and lanes <= 1:
+			if m.compute_bound_ratio() >= 0.5:
+				_chip(Vector2(fp.get_center().x, fp.end.y + 10.0), "1 lane", Palette.TEXT_MUTED, false)
+			continue
+		var bound := sim.compute_bound(id)
+		var pct := roundi(100.0 * float(m.busy_ticks) / float(maxi(sim.tick, 1)))
+		if bound:
+			_chip(Vector2(fp.get_center().x, fp.end.y + 10.0), "COMPUTE-BOUND %d/%d" % [m.jobs.size(), lanes], Palette.STATE_BLOCKED)
+		else:
+			_chip(Vector2(fp.get_center().x, fp.end.y + 10.0), "%d/%d busy · %d%%" % [m.jobs.size(), lanes, pct], Palette.FAMILY_COMPUTE)
+		if bound:
+			_bracket(_compute_rect(m, fp, lanes))
+
+
+## The lane-slice area on the chassis (body-local px, unrotated machines): the M row at (64, 44)
+## of `lanes` slices 4×10 gap 2, the L row at (64, 98) of 5×14 gap 2, the S column at (45, 16)
+## 6×31 (world/machines/chassis_marks.gd LaneSlices).
+func _lane_area(m: Machine, lanes: int) -> Rect2:
+	var size_key := str(m.def().get("size", "m")).to_lower()
+	match size_key:
+		"s":
+			return Rect2(45, 16, 6, 31)
+		"l":
+			return Rect2(64, 98, lanes * 7.0 - 2.0, 14)
+	return Rect2(64, 44, lanes * 6.0 - 2.0, 10)
+
+
+## Bracket rect for a compute-bound machine: the lane-slice area grown 3 px (unrotated), or the
+## footprint grown 3 px when rotated (the slices ride the rotating chassis).
+func _compute_rect(m: Machine, fp: Rect2, lanes: int) -> Rect2:
+	if m.rot % 2 == 1:
+		return fp.grow(3.0)
+	var a := _lane_area(m, lanes)
+	return Rect2(fp.position + a.position, a.size).grow(3.0)
+
+
+## A 1 px STATE_BLOCKED bracket around a rect: four corner L-marks, 5 px long.
+func _bracket(r: Rect2) -> void:
+	var tl := r.position
+	var tr := Vector2(r.end.x, r.position.y)
+	var bl := Vector2(r.position.x, r.end.y)
+	var br := r.end
+	draw_line(tl, tl + Vector2(5, 0), Palette.STATE_BLOCKED, 1.0)
+	draw_line(tl, tl + Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)
+	draw_line(tr, tr - Vector2(5, 0), Palette.STATE_BLOCKED, 1.0)
+	draw_line(tr, tr + Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)
+	draw_line(bl, bl + Vector2(5, 0), Palette.STATE_BLOCKED, 1.0)
+	draw_line(bl, bl - Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)
+	draw_line(br, br - Vector2(5, 0), Palette.STATE_BLOCKED, 1.0)
+	draw_line(br, br - Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)

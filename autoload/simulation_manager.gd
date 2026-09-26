@@ -336,7 +336,7 @@ func set_speed(s: int) -> void:
 
 ## The board VIEWS (a main mechanic, the View dock): [overlay id, name, key]. "" is the normal
 ## view; the others draw their layer over the machines (world/overlays/systems_overlay.gd).
-const VIEWS := [["", "Normal", "N"], ["data", "Data", "B"], ["flow", "Flow", "F"], ["thermal", "Heat", "T"], ["power", "Power", "P"]]
+const VIEWS := [["", "Normal", "N"], ["data", "Data", "B"], ["flow", "Flow", "F"], ["thermal", "Heat", "T"], ["power", "Power", "P"], ["compute", "Compute", "C"]]
 
 
 ## Toggle a view (pressing the shown one again goes back to the normal view).

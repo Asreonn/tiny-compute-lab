@@ -41,6 +41,7 @@ class OpenLab extends LabRun:
 var _frame := 0
 var _prefix := ""
 var _scene := "data"
+var _overlay := ""  # optional 3rd arg: a VIEWS overlay id to show
 var _busy: Array = []  # machines kept at full duty (a job always running)
 var _picks: Array = []  # [add id, its input wire id] per data line (the ui scene selects them)
 
@@ -49,6 +50,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	_prefix = args[0] if args.size() > 0 else "/tmp/factory"
 	_scene = args[1] if args.size() > 1 else "data"
+	_overlay = args[2] if args.size() > 2 else ""
 	SaveStore.use_file("user://factory_shot_save.json")
 	SaveStore.clear()
 	SaveStore.save_lab({"level": 10})
@@ -105,6 +107,8 @@ func _process(_d: float) -> bool:
 					m.begin_job({}, null)
 			sim.step()
 		sm.running = true
+		if _overlay != "":
+			sm.set_overlay(_overlay)
 	if _scene == "ui":
 		return _ui_frames(sm)
 	if _frame == 20:
