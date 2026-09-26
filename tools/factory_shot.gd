@@ -99,6 +99,7 @@ func _process(_d: float) -> bool:
 		match _scene:
 			"power": _power_scene(sim)
 			"thermal": _thermal_scene(sim)
+			"kit": _kit_scene(sim)
 			_: _data_scene(sim)  # "data" and "ui"
 		sm.layout_changed.emit()
 		for i in (400 if _scene == "thermal" else 40):
@@ -160,6 +161,7 @@ const FOCUS := {
 	"data": [Vector2(15, 6), Vector2(15, 12)],
 	"power": [Vector2(4.5, 13), Vector2(15, 13)],
 	"thermal": [Vector2(10, 3), Vector2(14, 8)],
+	"kit": [Vector2(9, 3), Vector2(9, 8)],
 }
 
 
@@ -253,3 +255,39 @@ func _shot(tag: String) -> void:
 	var p := "%s_%s.png" % [_prefix, tag]
 	root.get_texture().get_image().save_png(p)
 	print("factory_shot: wrote %s" % p)
+
+## The primitive kit (Penpot 14 Compute Kit, STYLE_GUIDE §15.7): every new part in its own
+## silhouette, a few wired so their faces show live values.
+func _kit_scene(sim: Simulation) -> void:
+	var s := _place(sim, "usb_input", Vector2i(1, 2), 3)
+	if s != null:
+		s.stream = [BitVector.of(5, 3), BitVector.of(2, 3), BitVector.of(7, 3)]
+		s.loop = true
+		s.interval = 3
+	var fk := _place(sim, "fork", Vector2i(4, 2))
+	var pr := _place(sim, "probe", Vector2i(6, 2))
+	var bs := _place(sim, "bit_switch", Vector2i(4, 5))
+	var ck := _place(sim, "clock", Vector2i(2, 4), 1, {"period": 6})
+	var la := _place(sim, "latch", Vector2i(8, 5))
+	var ds := _place(sim, "distributor", Vector2i(10, 2))
+	var jn := _place(sim, "join", Vector2i(13, 2))
+	_place(sim, "constant", Vector2i(16, 2), 3, {"value": 5})
+	var fs := _place(sim, "field_splitter", Vector2i(2, 8), 8, {"fields": "3 2 3"})
+	var fj := _place(sim, "field_joiner", Vector2i(6, 8), 8, {"fields": "3 2 3"})
+	var ad := _place(sim, "adder", Vector2i(11, 8), 3)
+	_place(sim, "compare", Vector2i(15, 8), 3, {"op": ">", "k": 3})
+	_place(sim, "mux", Vector2i(17, 8), 3)
+	if s != null and fk != null and pr != null:
+		sim.connect_ports(s.id, "out", fk.id, "in")
+		sim.connect_ports(fk.id, "b", pr.id, "in")
+	if fk != null and bs != null and ck != null:
+		sim.connect_ports(fk.id, "c", bs.id, "in")
+		sim.connect_ports(ck.id, "out", bs.id, "ctrl")
+	if bs != null and la != null:
+		sim.connect_ports(bs.id, "out", la.id, "in")
+	if pr != null and ds != null and jn != null:
+		sim.connect_ports(pr.id, "out", ds.id, "in")
+		sim.connect_ports(ds.id, "b", jn.id, "b")
+	for m in [ad, fs, fj]:
+		if m != null:
+			_busy.append(m)

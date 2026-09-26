@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="-12 -12 88 88" fill="none" version="1.1">
+<path d="M5 32 L23 32" fill="none" stroke="#091210" stroke-opacity="1.0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M5 32 L23 32" fill="none" stroke="#C08A52" stroke-opacity="1.0" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M32 5 L32 10 L36 14 L36 22" fill="none" stroke="#091210" stroke-opacity="1.0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M32 5 L32 10 L36 14 L36 22" fill="none" stroke="#C08A52" stroke-opacity="1.0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48 35 L52 35 L55 32 L59 32" fill="none" stroke="#091210" stroke-opacity="1.0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M48 35 L52 35 L55 32 L59 32" fill="none" stroke="#C08A52" stroke-opacity="1.0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 48 L36 54 L32 58 L32 59" fill="none" stroke="#091210" stroke-opacity="1.0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 48 L36 54 L32 58 L32 59" fill="none" stroke="#C08A52" stroke-opacity="1.0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="36" cy="35" r="13" fill="#08110F" fill-opacity="1.0"/>
+<circle cx="36" cy="35" r="13" fill="none" stroke="#4A6961" stroke-width="1.2"/>
+<circle cx="36" cy="25" r="2.3" fill="#3EE0CF" fill-opacity="1.0"/>
+<circle cx="46" cy="35" r="2.3" fill="#4A6961" fill-opacity="1.0"/>
+<circle cx="36" cy="45" r="2.3" fill="#4A6961" fill-opacity="1.0"/>
+<path d="M36 35 L36 26" fill="none" stroke="#3EE0CF" stroke-opacity="1.0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M23 32 L30 34" fill="none" stroke="#C08A52" stroke-opacity="1.0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="36" cy="35" r="3.4" fill="#F5D04A" fill-opacity="1.0"/>
+</svg>

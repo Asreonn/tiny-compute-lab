@@ -101,6 +101,83 @@
     14
    ],
    "asset": "machine/shell_mergewedge_l.svg"
+  },
+  "Switch-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_switch_s.svg"
+  },
+  "Hub-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_hub_s.svg"
+  },
+  "Rotor-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_rotor_s.svg"
+  },
+  "Collector-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_collector_s.svg"
+  },
+  "LatchCart-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_latchcart_s.svg"
+  },
+  "KeyBlock-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_keyblock_s.svg"
+  },
+  "Lens-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_lens_s.svg"
+  },
+  "Crystal-S": {
+   "size": "S",
+   "w": 64,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_crystal_s.svg"
+  },
+  "CombSplit-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": null,
+   "asset": "machine/shell_combsplit_l.svg"
+  },
+  "CombJoin-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": null,
+   "asset": "machine/shell_combjoin_l.svg"
+  },
+  "Ripple-L": {
+   "size": "L",
+   "w": 128,
+   "h": 128,
+   "led": null,
+   "asset": "machine/shell_ripple_l.svg"
   }
  },
  "machines": {
@@ -718,6 +795,614 @@
      ]
     }
    ]
+  },
+  "bit_switch": {
+   "form": "Switch-S",
+   "family": "logic",
+   "area": {
+    "kind": "Blade",
+    "idle": "Open",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    9,
+    48
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "fork": {
+   "form": "Hub-S",
+   "family": "routing",
+   "area": {
+    "kind": "Hub",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    7,
+    16
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    }
+   ]
+  },
+  "distributor": {
+   "form": "Rotor-S",
+   "family": "routing",
+   "area": {
+    "kind": "Rotor",
+    "idle": "A",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    7,
+    15
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    }
+   ]
+  },
+  "join": {
+   "form": "Collector-S",
+   "family": "routing",
+   "area": {
+    "kind": "Collector",
+    "idle": "A",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    7,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "latch": {
+   "form": "LatchCart-S",
+   "family": "memory",
+   "area": {
+    "kind": "Hold",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    9,
+    42
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ],
+   "cells": {
+    "x": 16,
+    "y": 24,
+    "w": 32,
+    "h": 10
+   }
+  },
+  "constant": {
+   "form": "KeyBlock-S",
+   "family": "memory",
+   "area": {
+    "kind": "Dip",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "K",
+    "pos": [
+     16,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    16,
+    12
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ],
+   "cells": {
+    "x": 19,
+    "y": 22,
+    "w": 28,
+    "h": 20
+   }
+  },
+  "probe": {
+   "form": "Lens-S",
+   "family": "view",
+   "area": {
+    "kind": "Lens",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    20,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ],
+   "cells": {
+    "x": 20,
+    "y": 28,
+    "w": 24,
+    "h": 8
+   }
+  },
+  "clock": {
+   "form": "Crystal-S",
+   "family": "control",
+   "area": {
+    "kind": "Crystal",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    16,
+    18
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "field_splitter": {
+   "form": "CombSplit-L",
+   "family": "conversion",
+   "area": {
+    "kind": "RulerSplit",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    110,
+    18
+   ],
+   "tab": [
+    46,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      96,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      96,
+      128
+     ]
+    }
+   ],
+   "ruler": {
+    "x": 22,
+    "y": 14,
+    "w": 16,
+    "h": 104,
+    "labels": "left"
+   }
+  },
+  "field_joiner": {
+   "form": "CombJoin-L",
+   "family": "conversion",
+   "area": {
+    "kind": "RulerJoin",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    18,
+    114
+   ],
+   "tab": [
+    58,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      128
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ],
+   "ruler": {
+    "x": 90,
+    "y": 14,
+    "w": 16,
+    "h": 104,
+    "labels": "left"
+   }
+  },
+  "adder": {
+   "form": "Ripple-L",
+   "family": "math",
+   "area": {
+    "kind": "Ripple",
+    "idle": "Idle",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "a+b",
+    "pos": [
+     80,
+     47
+    ]
+   },
+   "led": [
+    104,
+    36
+   ],
+   "tab": [
+    14,
+    14
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      96
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      128,
+      32
+     ]
+    }
+   ]
   }
  },
  "areas": {
@@ -819,6 +1504,91 @@
     "Idle",
     "Ok",
     "Error"
+   ]
+  },
+  "Blade": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Open",
+    "Closed"
+   ]
+  },
+  "Hub": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Idle"
+   ]
+  },
+  "Rotor": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "A",
+    "B",
+    "C"
+   ]
+  },
+  "Collector": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "A",
+    "B",
+    "C"
+   ]
+  },
+  "Hold": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Idle"
+   ]
+  },
+  "Dip": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Idle"
+   ]
+  },
+  "Lens": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Idle",
+    "Pass"
+   ]
+  },
+  "Crystal": {
+   "w": 64,
+   "h": 64,
+   "states": [
+    "Idle",
+    "Pulse"
+   ]
+  },
+  "RulerSplit": {
+   "w": 128,
+   "h": 128,
+   "states": [
+    "Idle"
+   ]
+  },
+  "RulerJoin": {
+   "w": 128,
+   "h": 128,
+   "states": [
+    "Idle"
+   ]
+  },
+  "Ripple": {
+   "w": 128,
+   "h": 128,
+   "states": [
+    "Idle",
+    "Active"
    ]
   }
  },

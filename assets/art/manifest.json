@@ -309,6 +309,16 @@
   "pad": 12,
   "w": 54
  },
+ "machine/area_blade_closed.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_blade_open.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
  "machine/area_cells_idle.svg": {
   "h": 44,
   "pad": 12,
@@ -333,6 +343,21 @@
   "h": 20,
   "pad": 12,
   "w": 36
+ },
+ "machine/area_collector_a.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_collector_b.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_collector_c.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
  },
  "machine/area_comparator_false.svg": {
   "h": 24,
@@ -359,6 +384,16 @@
   "pad": 12,
   "w": 36
  },
+ "machine/area_crystal_idle.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_crystal_pulse.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
  "machine/area_dial_active.svg": {
   "h": 40,
   "pad": 12,
@@ -384,6 +419,11 @@
   "pad": 12,
   "w": 48
  },
+ "machine/area_dip_idle.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
  "machine/area_feed_empty.svg": {
   "h": 28,
   "pad": 12,
@@ -398,6 +438,26 @@
   "h": 28,
   "pad": 12,
   "w": 84
+ },
+ "machine/area_hold_idle.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_hub_idle.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_lens_idle.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_lens_pass.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
  },
  "machine/area_merge_idle.svg": {
   "h": 128,
@@ -423,6 +483,41 @@
   "h": 24,
   "pad": 12,
   "w": 30
+ },
+ "machine/area_ripple_active.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_ripple_idle.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_rotor_a.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_rotor_b.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_rotor_c.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 64
+ },
+ "machine/area_rulerjoin_idle.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
+ },
+ "machine/area_rulersplit_idle.svg": {
+  "h": 128,
+  "pad": 12,
+  "w": 128
  },
  "machine/area_split_dup.svg": {
   "h": 128,
@@ -624,6 +719,26 @@
   "pad": 4,
   "w": 128
  },
+ "machine/shell_collector_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/shell_combjoin_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/shell_combsplit_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/shell_crystal_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
  "machine/shell_edgein_m.svg": {
   "h": 64,
   "pad": 4,
@@ -633,6 +748,26 @@
   "h": 64,
   "pad": 4,
   "w": 128
+ },
+ "machine/shell_hub_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/shell_keyblock_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/shell_latchcart_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
+ "machine/shell_lens_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
  },
  "machine/shell_mergewedge_l.svg": {
   "h": 128,
@@ -654,10 +789,25 @@
   "pad": 4,
   "w": 64
  },
+ "machine/shell_ripple_l.svg": {
+  "h": 128,
+  "pad": 4,
+  "w": 128
+ },
+ "machine/shell_rotor_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
+ },
  "machine/shell_splitwedge_l.svg": {
   "h": 128,
   "pad": 4,
   "w": 128
+ },
+ "machine/shell_switch_s.svg": {
+  "h": 64,
+  "pad": 4,
+  "w": 64
  },
  "machine/shell_valve_s.svg": {
   "h": 64,
