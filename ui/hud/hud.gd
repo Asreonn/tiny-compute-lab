@@ -29,6 +29,8 @@ func _ready() -> void:
 	var tooltip := _panel("res://ui/hud/tooltip.gd")
 	var card := _panel("res://ui/hud/hover_card.gd")
 	var bar := _panel("res://ui/hud/quick_bar.gd")
+	var upgrade := _panel("res://ui/hud/upgrade_card.gd")
+	var wire := _panel("res://ui/hud/wire_card.gd")
 	_panel("res://ui/hud/result_panel.gd")
 	_panel("res://ui/hud/overlay_legend.gd")
 	_panel("res://ui/hud/view_dock.gd")
@@ -40,6 +42,9 @@ func _ready() -> void:
 		tooltip.bind_tools(tools)
 		card.bind_tools(tools)
 		bar.tools = tools
+		upgrade.tools = tools
+		wire.tools = tools
+		bar.upgrade_card = upgrade
 		tools.notice.connect(_notice)
 	top.menu_pressed.connect(open_menu)
 	_build_toast()

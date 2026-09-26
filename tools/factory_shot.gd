@@ -42,6 +42,7 @@ var _frame := 0
 var _prefix := ""
 var _scene := "data"
 var _busy: Array = []  # machines kept at full duty (a job always running)
+var _picks: Array = []  # [add id, its input wire id] per data line (the ui scene selects them)
 
 
 func _initialize() -> void:
@@ -80,6 +81,7 @@ func _line(sim: Simulation, y: int, width: int, lanes: int, interval: int) -> vo
 	for w in [w1, w2]:
 		if w != null and lanes > 1:
 			sim.set_wire_lanes(w.id, lanes)
+	_picks.append([a.id, w1.id if w1 != null else -1])
 
 
 func _process(_d: float) -> bool:
@@ -95,7 +97,7 @@ func _process(_d: float) -> bool:
 		match _scene:
 			"power": _power_scene(sim)
 			"thermal": _thermal_scene(sim)
-			_: _data_scene(sim)
+			_: _data_scene(sim)  # "data" and "ui"
 		sm.layout_changed.emit()
 		for i in (400 if _scene == "thermal" else 40):
 			for m in _busy:
@@ -103,6 +105,8 @@ func _process(_d: float) -> bool:
 					m.begin_job({}, null)
 			sim.step()
 		sm.running = true
+	if _scene == "ui":
+		return _ui_frames(sm)
 	if _frame == 20:
 		_shot("board")
 		_focus(FOCUS[_scene][0], 3.2)
@@ -111,6 +115,29 @@ func _process(_d: float) -> bool:
 		_focus(FOCUS[_scene][1], 3.2)
 	if _frame == 60:
 		_shot("close2")
+		sm.running = false
+		SaveStore.clear()
+		quit(0)
+		return true
+	return false
+
+
+## The ui scene: the Upgrade card on the 4-lane Add, then the wire card on its input wire.
+func _ui_frames(sm: Node) -> bool:
+	var tools: Node = root.get_tree().get_first_node_in_group("tools")
+	if _frame == 20 and tools != null and _picks.size() > 2:
+		_focus(Vector2(13, 6), 2.2)
+		tools._set_selection(int(_picks[2][0]), -1)
+		for n in root.find_children("*", "Control", true, false):
+			var sc: Script = n.get_script()
+			if sc != null and sc.resource_path.ends_with("upgrade_card.gd"):
+				n.open(int(_picks[2][0]))
+	if _frame == 40:
+		_shot("card")
+		if tools != null and _picks.size() > 1:
+			tools._set_selection(-1, int(_picks[1][1]))
+	if _frame == 60:
+		_shot("wire")
 		sm.running = false
 		SaveStore.clear()
 		quit(0)

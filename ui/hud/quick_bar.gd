@@ -5,16 +5,17 @@ extends Control
 ## red instantly. The hovered button's label and shortcut show below. Fades in over 150 ms with
 ## the selection; hidden while dragging, carrying or placing.
 
-const SIZE := Vector2(176, 36)
+const SIZE := Vector2(208, 36)
 const FADE := 0.15
 const BRACKET := 12.0  # world px the selection brackets reach past the footprint
 ## [action, label, shortcut]
 const ACTIONS := [["move", "Move", "drag"], ["duplicate", "Duplicate", "Ctrl+D"], ["rotate", "Rotate", "R"],
-	["copy", "Copy settings", "Ctrl+Shift+C"], ["delete", "Delete", "X / Del"]]
+	["upgrade", "Upgrade", "U"], ["copy", "Copy settings", "Ctrl+Shift+C"], ["delete", "Delete", "X / Del"]]
 ## A box-selected group: move, duplicate or delete it together.
 const GROUP_ACTIONS := [["move", "Move group", "drag"], ["duplicate", "Duplicate group", "Ctrl+D"], ["delete", "Delete group", "X / Del"]]
 
 var tools: Node
+var upgrade_card: Control
 var _mid := -1
 var _a := 0.0
 var _hover := -1
@@ -103,6 +104,9 @@ func _gui_input(event: InputEvent) -> void:
 			"move": tools.begin_move(m.id)
 			"duplicate": tools.duplicate_selection()
 			"rotate": tools.rotate_machine(m.id)
+			"upgrade":
+				if upgrade_card != null and upgrade_card.has_method("open"):
+					upgrade_card.open(m.id)
 			"copy": tools.copy_settings(m.id)
 			"delete": tools.delete_machine(m.id)
 
@@ -153,6 +157,8 @@ func _icon(action: String, c: Vector2, col: Color) -> void:
 			_tex("icon_duplicate", c, col)
 		"rotate":
 			_tex("tool_rotate", c, col)
+		"upgrade":
+			_tex("icon_upgrade", c, col)
 		"delete":
 			_tex("tool_delete", c, col)
 		"move":
