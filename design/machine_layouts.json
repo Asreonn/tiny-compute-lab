@@ -178,6 +178,13 @@
    "h": 128,
    "led": null,
    "asset": "machine/shell_ripple_l.svg"
+  },
+  "Nic-X": {
+   "size": "X",
+   "w": 320,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_nic_x.svg"
   }
  },
  "machines": {
@@ -1403,6 +1410,80 @@
      ]
     }
    ]
+  },
+  "nic": {
+   "form": "Nic-X",
+   "family": "io",
+   "area": {
+    "kind": "NicStatus",
+    "idle": "Off",
+    "pos": [
+     0,
+     0
+    ]
+   },
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": [
+    300,
+    28
+   ],
+   "tab": [
+    70,
+    10
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      96,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      160,
+      64
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      224,
+      64
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      288,
+      64
+     ]
+    }
+   ],
+   "load": {
+    "x": 116,
+    "y": 31,
+    "w": 86,
+    "h": 8
+   }
   }
  },
  "areas": {
@@ -1589,6 +1670,15 @@
    "states": [
     "Idle",
     "Active"
+   ]
+  },
+  "NicStatus": {
+   "w": 320,
+   "h": 64,
+   "states": [
+    "Off",
+    "Test",
+    "Live"
    ]
   }
  },

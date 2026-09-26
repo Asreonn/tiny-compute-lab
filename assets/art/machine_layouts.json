@@ -178,6 +178,13 @@
    "h": 128,
    "led": null,
    "asset": "machine/shell_ripple_l.svg"
+  },
+  "Nic-X": {
+   "size": "X",
+   "w": 320,
+   "h": 64,
+   "led": null,
+   "asset": "machine/shell_nic_x.svg"
   }
  },
  "machines": {
@@ -1712,25 +1719,29 @@
    ]
   },
   "nic": {
-   "form": "Module-M",
+   "form": "Nic-X",
    "family": "io",
-   "area": null,
+   "area": {
+    "kind": "NicStatus",
+    "idle": "Off",
+    "pos": [
+     0,
+     0
+    ]
+   },
    "glyph": null,
    "display": null,
    "digits": null,
    "operator": null,
    "param": null,
-   "silk": {
-    "text": "NIC",
-    "pos": [
-     16,
-     47
-    ]
-   },
-   "led": null,
+   "silk": null,
+   "led": [
+    300,
+    28
+   ],
    "tab": [
-    12,
-    9
+    70,
+    10
    ],
    "ports": [
     {
@@ -1773,7 +1784,13 @@
       64
      ]
     }
-   ]
+   ],
+   "load": {
+    "x": 116,
+    "y": 31,
+    "w": 86,
+    "h": 8
+   }
   }
  },
  "areas": {
@@ -1960,6 +1977,15 @@
    "states": [
     "Idle",
     "Active"
+   ]
+  },
+  "NicStatus": {
+   "w": 320,
+   "h": 64,
+   "states": [
+    "Off",
+    "Test",
+    "Live"
    ]
   }
  },

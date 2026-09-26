@@ -474,6 +474,21 @@
   "pad": 12,
   "w": 128
  },
+ "machine/area_nicstatus_live.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 320
+ },
+ "machine/area_nicstatus_off.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 320
+ },
+ "machine/area_nicstatus_test.svg": {
+  "h": 64,
+  "pad": 12,
+  "w": 320
+ },
  "machine/area_opwindow_active.svg": {
   "h": 24,
   "pad": 12,
@@ -788,6 +803,11 @@
   "h": 64,
   "pad": 4,
   "w": 64
+ },
+ "machine/shell_nic_x.svg": {
+  "h": 64,
+  "pad": 40,
+  "w": 320
  },
  "machine/shell_ripple_l.svg": {
   "h": 128,

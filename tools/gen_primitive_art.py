@@ -245,6 +245,46 @@ LAYOUT = {
 }
 
 
+# ------------------------------------------------------------------ the Network Module (Penpot 15 · 02c, L.nic)
+NIC_W, NIC_H, NIC_PAD = 320, 64, 40  # antennas rise 34 px above the body
+
+
+def nic_shell_svg():
+    g = Svg()
+    g.rect(0, 3, 320, 64, 6, fill="material.plate-lo")
+    g.rect(0, 0, 320, 64, 6, fill="machine.body", stroke="machine.frame", sw=1.5)
+    g.rect(8, 2, 304, 4, 2, fill="machine.rail")
+    g.line([[44, 8], [44, -18], [58, -34]], "machine.frame-hover", 2)
+    g.line([[276, 8], [276, -18], [262, -34]], "machine.frame-hover", 2)
+    g.dot(44, 11, 3.2, "material.gold"); g.dot(276, 11, 3.2, "material.gold")
+    return g.out(NIC_W, NIC_H, NIC_PAD)
+
+
+def f_nic(g, st):
+    g.win(112, 10, 96, 34)
+    g.rect(116, 15, 40, 10, 5, fill="state.blocked", fo=0.9 if st == "Test" else 0.12)
+    g.rect(162, 15, 40, 10, 5, fill="state.valid", fo=0.9 if st == "Live" else 0.12)
+    g.rect(116, 31, 86, 8, 2, fill="surface.sunken")
+
+
+def write_nic(man, layouts):
+    (ART / "machine/shell_nic_x.svg").write_text(nic_shell_svg())
+    man["machine/shell_nic_x.svg"] = {"h": NIC_H, "pad": NIC_PAD, "w": NIC_W}
+    for st in ("Off", "Test", "Live"):
+        g = Svg(); f_nic(g, st)
+        rel = f"machine/area_nicstatus_{st.lower()}.svg"
+        (ART / rel).write_text(g.out(NIC_W, NIC_H, 12)); man[rel] = {"h": NIC_H, "pad": 12, "w": NIC_W}
+    for d in layouts:
+        d["forms"]["Nic-X"] = {"size": "X", "w": NIC_W, "h": NIC_H, "led": None, "asset": "machine/shell_nic_x.svg"}
+        d["areas"]["NicStatus"] = {"w": NIC_W, "h": NIC_H, "states": ["Off", "Test", "Live"]}
+        ports = [P("Output", "Number", 32, 64), P("Output", "Number", 96, 64), P("Output", "Number", 160, 64),
+                 P("Input", "Number", 224, 64), P("Input", "Number", 288, 64)]
+        d["machines"]["nic"] = {"form": "Nic-X", "family": "io", "area": {"kind": "NicStatus", "idle": "Off", "pos": [0, 0]},
+                                "glyph": None, "display": None, "digits": None, "operator": None, "param": None,
+                                "silk": None, "led": [300, 28], "tab": [70, 10], "ports": ports,
+                                "load": {"x": 116, "y": 31, "w": 86, "h": 8}}
+
+
 def main():
     man_p, ly_paths = ART / "manifest.json", [ART / "machine_layouts.json", ROOT / "design/machine_layouts.json"]
     man = json.loads(man_p.read_text())
@@ -258,10 +298,12 @@ def main():
             g = Svg(); fn(g, st)
             rel = f"machine/area_{kind.lower()}_{st.lower()}.svg"
             (ART / rel).write_text(g.out(s["W"], s["H"], 12)); man[rel] = {"h": s["H"], "pad": 12, "w": s["W"]}; written.append(rel)
+    docs = {p: json.loads(p.read_text()) for p in ly_paths}
+    write_nic(man, list(docs.values()))
     man_p.write_text(json.dumps(dict(sorted(man.items())), indent=1, ensure_ascii=False))
     for p in ly_paths:
         txt = p.read_text(); trail = "\n" if txt.endswith("\n") else ""
-        d = json.loads(txt)
+        d = docs[p]
         for k, s in SIL.items():
             slug = FORM[k].lower().replace("-", "_")
             size = "S" if s["W"] == 64 else "L"
