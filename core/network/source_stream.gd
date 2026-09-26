@@ -42,6 +42,18 @@ static func source(id: String) -> RemoteSourceDef:
 	return _sources[id] as RemoteSourceDef
 
 
+## Add a source at run time (tests register a fixture). It goes into the same cache
+## `source()` reads, loading the directory first if it has not been loaded yet.
+static func register(def: RemoteSourceDef) -> void:
+	if not _sources_loaded:
+		_sources_loaded = true
+		for r in ContentDB.load_dir(ContentDB.SOURCES_DIR):
+			if r is RemoteSourceDef:
+				var d := r as RemoteSourceDef
+				_sources[d.id] = d
+	_sources[def.id] = def
+
+
 ## The shared PopulationDef, loaded once (a default when the asset is missing).
 static func population() -> PopulationDef:
 	if _population == null:

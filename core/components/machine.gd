@@ -91,6 +91,9 @@ var emitted := 0
 var channel := 0  # output: which expected stream it validates
 var received: Array = []  # output: Packet list
 
+## Network fixture state (NicLogic): credit, per-channel remote buffers and counters.
+var net: Dictionary = {}
+
 # --- USB socket (lab): a locked usb_input the player plugs a data module into ---
 var device: String = ""  # plugged module kind, "" = none (docs/SYSTEMS_EXPANSION.md §2)
 var last_device: String = ""  # kind of the last plugged module; keeps the wire valid after removal
@@ -258,7 +261,8 @@ func footprint() -> Array[Vector2i]:
 	return out
 
 
-## Raw width spec of a port: an int, "W", "P:<param>", "R:<param>", "F:<i>", "F:+" or "*".
+## Raw width spec of a port: an int, "W", "P:<param>", "R:<param>", "F:<i>", "F:+",
+## "N:<param>" (the record width of the remote source bound to that param) or "*".
 ## "*" marks an any-width sink (usb_output) — the ONLY exception to the width-match rule.
 func port_width_spec(port_id: String) -> Variant:
 	var pd := Catalog.port_def(type, port_id)
@@ -304,7 +308,8 @@ func field_widths() -> Array:
 
 ## Effective width of a port: an explicit int, the instance width for "W",
 ## "P:<param>" (= the instance param value), "R:<param>" (= instance width minus that param),
-## "F:<i>" (= field i's width, 0 when unconfigured), "F:+" (= the sum of the field widths)
+## "F:<i>" (= field i's width, 0 when unconfigured), "F:+" (= the sum of the field widths),
+## "N:<param>" (= the bound remote source's record width, 0 while unbound/unknown)
 ## or "*" (= the connected source width, 0 while unconnected).
 ## A raw port has width 0: raw links carry a semantic value, not a word.
 func port_width(port_id: String) -> int:
@@ -336,6 +341,9 @@ func port_width(port_id: String) -> int:
 		var fw2 := field_widths()
 		var i := int(s.substr(2))
 		return int(fw2[i]) if i < fw2.size() else 0
+	if s.begins_with("N:"):
+		var def: RemoteSourceDef = SourceStream.source(str(params.get(s.substr(2), "")))
+		return def.width if def != null else 0
 	return width
 
 
@@ -393,6 +401,7 @@ func reset() -> void:
 	held = null
 	primed = false
 	last_mem_op = ""
+	net = {}
 	work_done = 0
 	temp = 0
 	heat_stage = 0
@@ -541,7 +550,7 @@ func pop_output(port: String) -> Packet:
 ## Machines that push results straight out (IO sources/sinks, the delay line) bypass the lane
 ## gate so their own rules — socket overrun, strict overflow, the delay's fixed hold — hold.
 func start(sim) -> void:
-	if type in ["input", "usb_input", "output", "terminal_output", "usb_output", "delay", "constant", "clock"]:
+	if type in ["input", "usb_input", "output", "terminal_output", "usb_output", "delay", "constant", "clock", "nic"]:
 		ComponentLogic.for_type(type).start(self, sim)
 		return
 	while true:

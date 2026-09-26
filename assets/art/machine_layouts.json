@@ -1710,6 +1710,70 @@
      ]
     }
    ]
+  },
+  "nic": {
+   "form": "Module-M",
+   "family": "io",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "NIC",
+    "pos": [
+     16,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    12,
+    9
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      96,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      160,
+      64
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      224,
+      64
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      288,
+      64
+     ]
+    }
+   ]
   }
  },
  "areas": {

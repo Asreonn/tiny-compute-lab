@@ -1,0 +1,112 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/nic_logic.gd" id="1_nic"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_nic"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_nic"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_nic"]
+
+[sub_resource type="Resource" id="Resource_nicp1"]
+script = ExtResource("2_nic")
+key = "tier"
+label = "Tier"
+kind = "enum"
+options = PackedStringArray("1", "2", "3")
+default_text = "1"
+
+[sub_resource type="Resource" id="Resource_nicp2"]
+script = ExtResource("2_nic")
+key = "rx_a"
+label = "RX A source"
+kind = "text"
+default_text = ""
+
+[sub_resource type="Resource" id="Resource_nicp3"]
+script = ExtResource("2_nic")
+key = "rx_b"
+label = "RX B source"
+kind = "text"
+default_text = ""
+
+[sub_resource type="Resource" id="Resource_nicp4"]
+script = ExtResource("2_nic")
+key = "rx_c"
+label = "RX C source"
+kind = "text"
+default_text = ""
+
+[sub_resource type="Resource" id="Resource_nicp5"]
+script = ExtResource("2_nic")
+key = "tx_a"
+label = "TX A buyer"
+kind = "text"
+default_text = ""
+
+[sub_resource type="Resource" id="Resource_nicp6"]
+script = ExtResource("2_nic")
+key = "tx_b"
+label = "TX B buyer"
+kind = "text"
+default_text = ""
+
+[sub_resource type="Resource" id="Resource_nicr1"]
+script = ExtResource("3_nic")
+id = "rx_a"
+dir = "out"
+width = "N:rx_a"
+cell = Vector2i(0, 0)
+side = 1
+label = "RX A"
+
+[sub_resource type="Resource" id="Resource_nicr2"]
+script = ExtResource("3_nic")
+id = "rx_b"
+dir = "out"
+width = "N:rx_b"
+cell = Vector2i(1, 0)
+side = 1
+label = "RX B"
+
+[sub_resource type="Resource" id="Resource_nicr3"]
+script = ExtResource("3_nic")
+id = "rx_c"
+dir = "out"
+width = "N:rx_c"
+cell = Vector2i(2, 0)
+side = 1
+label = "RX C"
+
+[sub_resource type="Resource" id="Resource_nicr4"]
+script = ExtResource("3_nic")
+id = "tx_a"
+dir = "in"
+width = "*"
+cell = Vector2i(3, 0)
+side = 1
+label = "TX A"
+
+[sub_resource type="Resource" id="Resource_nicr5"]
+script = ExtResource("3_nic")
+id = "tx_b"
+dir = "in"
+width = "*"
+cell = Vector2i(4, 0)
+side = 1
+label = "TX B"
+
+[resource]
+script = ExtResource("4_nic")
+id = "nic"
+display_name = "Network Module"
+family = "io"
+size = "X"
+ticks = 1
+campaign_ticks = 1
+power = 0
+heat = 0
+max_lanes = 1
+glyph_text = "NIC"
+description = "The laptop's network card: moves records between remote sources and the factory under one frame budget (16 bits = 1 frame). It never reads the data."
+ports = Array[ExtResource("3_nic")]([SubResource("Resource_nicr1"), SubResource("Resource_nicr2"), SubResource("Resource_nicr3"), SubResource("Resource_nicr4"), SubResource("Resource_nicr5")])
+params = Array[ExtResource("2_nic")]([SubResource("Resource_nicp1"), SubResource("Resource_nicp2"), SubResource("Resource_nicp3"), SubResource("Resource_nicp4"), SubResource("Resource_nicp5"), SubResource("Resource_nicp6")])
+logic = ExtResource("1_nic")
+menu_order = 1150

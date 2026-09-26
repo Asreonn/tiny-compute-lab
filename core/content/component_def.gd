@@ -10,7 +10,7 @@ const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "m
 @export var id := ""
 @export var display_name := ""
 @export_enum("io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal", "power") var family := "math"
-@export_enum("S", "M", "L") var size := "M"
+@export_enum("S", "M", "L", "X") var size := "M"
 ## Job length in ticks: tutorial "legacy" boards and campaign boards (readable dwell).
 @export var ticks := 1
 @export var campaign_ticks := 1

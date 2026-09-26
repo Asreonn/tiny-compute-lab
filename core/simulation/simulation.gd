@@ -663,6 +663,10 @@ func connect_error(a: int, pa: String, b: int, pb: String, ignore: Array = []) -
 		return "Wires start at an output port"
 	if gb["dir"] == Catalog.DIR_OUT:
 		return "Target must be an input or control port"
+	if ma.type == "nic" and not pa in NicLogic.open_ports(NicLogic.tier(ma)):
+		return "Sealed port (NIC Mk%d)" % NicLogic.tier(ma)
+	if mb.type == "nic" and not pb in NicLogic.open_ports(NicLogic.tier(mb)):
+		return "Sealed port (NIC Mk%d)" % NicLogic.tier(mb)
 	if str(ma.port_width_spec(pa)).begins_with("F:") and int(ga["width"]) <= 0:
 		return "That field is not configured (set Fields first)"
 	if str(mb.port_width_spec(pb)).begins_with("F:") and int(gb["width"]) <= 0:

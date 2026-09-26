@@ -31,7 +31,7 @@ const CAMPAIGN_SLOTS_PER_TILE := 2
 const MIN_WIDTH := 1
 const MAX_WIDTH := 64
 
-const SIZES := {"S": Vector2i(1, 1), "M": Vector2i(2, 1), "L": Vector2i(2, 2)}
+const SIZES := {"S": Vector2i(1, 1), "M": Vector2i(2, 1), "L": Vector2i(2, 2), "X": Vector2i(5, 1)}
 
 const FAMILIES := ComponentDef.FAMILIES
 const CATEGORIES := [

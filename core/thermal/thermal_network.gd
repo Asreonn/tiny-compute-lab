@@ -10,7 +10,7 @@ const TRANSPORT := ["thermal_spreader", "heat_pipe", "heat_pipe_heavy", "thermal
 const MANIFOLD := "thermal_manifold"
 const SINKS := ["fin_stack", "radiator", "radiator_large"]
 const BLOWERS := ["blower", "blower_hp", "fan_bank"]
-const CONTACT_CAP := {"S": 600, "M": 1200, "L": 2400}
+const CONTACT_CAP := {"S": 600, "M": 1200, "L": 2400, "X": 600}
 
 var sim: Simulation
 var _machines := {}  # mid -> Machine
