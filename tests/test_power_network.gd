@@ -127,7 +127,10 @@ static func _copper_t(t) -> void:
 	t.check(PowerNetwork.placement_error(sim, "power_rail", Vector2i(4, 6)) == SPLIT_MSG, "a T junction is refused")
 	t.check(PowerNetwork.placement_error(sim, "power_rail", Vector2i(3, 6)) == "", "an extension that keeps a line is fine")
 	t.check(PowerNetwork.placement_error(sim, "add", Vector2i(4, 6)) == "", "non-copper types are not checked")
-	sim.place("power_rail", Vector2i(4, 6), 0, {}, 3)
+	# the simulation now refuses the T (copper never T-joins); add the tile directly so the
+	# module's dead-chain fallback is still exercised
+	var tm := Machine.new(0, "power_rail", Vector2i(4, 6), 3)
+	sim.add_machine(tm)
 	var a: Machine = sim.place("add", Vector2i(5, 4), 0, {"k": 1}, 3)
 	var pn := PowerNetwork.build(sim, 32, 8)
 	t.check(not pn.nodes.has("c205"), "the T chain has no node (dead)")

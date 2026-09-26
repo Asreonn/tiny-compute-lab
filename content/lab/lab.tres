@@ -42,3 +42,6 @@ lane_levels = PackedInt32Array(3, 5, 21)
 bus_lane_levels = PackedInt32Array(5, 17, 21)
 efficiency_level = 21
 quest_window_level = 15
+onboard_capacity = 0
+power_input_row = 12
+controller_tier_levels = PackedInt32Array(15, 15, 17, 20)

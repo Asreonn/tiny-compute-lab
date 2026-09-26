@@ -526,6 +526,7 @@ func _progress_changed(sim: Simulation) -> void:
 func _ensure_io(sim: Simulation) -> void:
 	_sync_reservations(sim)
 	_ensure_ports(sim)
+	_ensure_power_fixtures(sim)
 	if level == 0 and files == 0:
 		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
 		if first_in != null and first_in.device == "":
@@ -543,6 +544,13 @@ func _sync_reservations(sim: Simulation) -> void:
 	for row in LabDef.sealed_rows(frontier(), false):
 		for c in _bay_cells(sim, "out", row):
 			sim.reserved[c] = LabDef.slot_label("out", row)
+	# the power fixtures' tiles (2x1 input at columns 0-1, 2x2 controller at columns 2-3,
+	# rows power_input_row..power_input_row+1) stay sealed until the PSU appears
+	if not has_psu():
+		var row := LabDef.CONFIG.power_input_row
+		var label := "Power · opens at L%d" % (LabDef.CONFIG.power_level + 1)
+		for c in [Vector2i(0, row), Vector2i(1, row), Vector2i(2, row), Vector2i(3, row), Vector2i(2, row + 1), Vector2i(3, row + 1)]:
+			sim.reserved[c] = label
 
 
 func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
@@ -568,6 +576,43 @@ func _ensure_ports(sim: Simulation) -> void:
 		sim.add_machine(m)
 		var n := LabDef.PORT_ROWS.find(row) + 1
 		m.label = "USB In %d" % n if side == "in" else "USB Out %d" % n
+
+
+## The locked power input + controller at the lower left edge (P5b): the input is the network's
+## supply, the controller sets its tier. Created AFTER the ports (the ports' creation order
+## must not change; saves match locked machines by creation order). When a player machine
+## already holds a tile, the fixtures wait and the player is told to clear the edge (the tiles
+## are reserved before the PSU exists, so this only happens on old saves).
+func _ensure_power_fixtures(sim: Simulation) -> void:
+	if not has_psu():
+		return
+	var row := LabDef.CONFIG.power_input_row
+	for c in [Vector2i(0, row), Vector2i(1, row), Vector2i(2, row), Vector2i(3, row), Vector2i(2, row + 1), Vector2i(3, row + 1)]:
+		var m := sim.machine_at(c)
+		if m != null and not m.locked:
+			_io_warning = "Clear the tiles at the lower left edge for the power input"
+			return
+	if _power_fixture_at(sim, "power_input", Vector2i(0, row)) == null:
+		var mi := Machine.new(0, "power_input", Vector2i(0, row), 1)
+		mi.locked = true
+		mi.label = "Power Input"
+		sim.add_machine(mi)
+	var ctrl := _power_fixture_at(sim, "power_controller", Vector2i(2, row))
+	if ctrl == null:
+		var mc := Machine.new(0, "power_controller", Vector2i(2, row), 1, 0, {"tier": controller_tier()})
+		mc.locked = true
+		mc.label = "Power Controller"
+		sim.add_machine(mc)
+	elif str(ctrl.params.get("tier", "")) != controller_tier():
+		ctrl.params["tier"] = controller_tier()
+
+
+func _power_fixture_at(sim: Simulation, type: String, cell: Vector2i) -> Machine:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == type and m.cell == cell:
+			return m
+	return null
 
 
 ## The port that opened at rack `row`.
@@ -937,6 +982,28 @@ static var POWER_LEVEL: int:
 
 func has_psu() -> bool:
 	return level >= POWER_LEVEL
+
+
+## The power network is on once the PSU exists (P5b): the lab then browning out is per-path.
+func uses_power_network() -> bool:
+	return has_psu()
+
+
+## The network's onboard budget: what the controller feeds without any copper (0 = unlimited).
+func onboard_capacity() -> int:
+	return LabDef.CONFIG.onboard_capacity
+
+
+## The controller tier at the current level: the highest controller_tier_levels entry <= level
+## ("ctrl" before the first entry; power_level picks the fixtures, these only pick the tier).
+func controller_tier() -> String:
+	var tiers := ["ctrl", "basic", "eff", "hc"]
+	var gates := LabDef.CONFIG.controller_tier_levels
+	var out := "ctrl"
+	for i in gates.size():
+		if level >= int(gates[i]):
+			out = tiers[i]
+	return out
 
 
 ## The PSU's capacity in power units, 0 = unlimited (Simulation.work_rate brownout uses it).

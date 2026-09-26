@@ -18,6 +18,13 @@ extends Resource
 @export var quest_window := 2
 ## The first level with a PSU (power caps, clock modes after it), heat and the Monitor.
 @export var power_level := 15
+## The power network's onboard budget (0 = unlimited; the current campaign keeps 0).
+@export var onboard_capacity := 0
+## The board row (0-based) of the locked power input / controller fixtures.
+@export var power_input_row := 12
+## The level index from which the controller tier is ctrl / basic / eff / hc (the first entry is
+## also when the fixtures appear; power_level picks the fixtures, these only pick the tier).
+@export var controller_tier_levels: PackedInt32Array = PackedInt32Array([15, 16, 17, 20])
 @export var heat_level := 16
 @export var monitor_level := 8
 ## The PSU tiers: capacity in power units and name (LevelDef.reward psu_tier picks one).

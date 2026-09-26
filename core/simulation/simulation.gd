@@ -24,6 +24,9 @@ var size := Vector2i(20, 12)
 ## Power capacity / demand cached once per step, before the process phase (deterministic).
 var _cap := 0
 var _demand := 0
+## The power network (P5b): rebuilt from the mission's supply/onboard once per layout change.
+var power_net: PowerNetwork = null
+var _power_dirty := true
 var _quiet := 0  # > 0 while a batch edit runs (apply_layout): `changed` fires once at the end
 ## The board heat field (SYSTEMS_EXPANSION §5); null until a run with heat steps.
 var thermal: ThermalGrid = null
@@ -71,6 +74,7 @@ func clear() -> void:
 	_next_machine_id = 1
 	_next_conn_id = 1
 	reset_run()
+	_power_dirty = true
 	_emit_changed()
 
 
@@ -139,6 +143,9 @@ func placement_error(type: String, cell: Vector2i, rot: int, ignore_id: int = -1
 				return "Sealed USB bay"
 	if mission != null and not mission.allows(type):
 		return "Not available in this mission"
+	var pe := PowerNetwork.placement_error(self, type, cell)
+	if pe != "":
+		return pe
 	return ""
 
 
@@ -825,6 +832,12 @@ func step() -> void:
 	# 4. process (brownout inputs cached once per step)
 	_cap = power_capacity()
 	_demand = power_demand()
+	if mission != null and mission.has_method("uses_power_network") and mission.uses_power_network():
+		if power_net == null or _power_dirty or power_net.supply != _cap:
+			power_net = PowerNetwork.build(self, _cap, mission.onboard_capacity() if mission.has_method("onboard_capacity") else 0)
+		_power_dirty = false
+	else:
+		power_net = null
 	for id in mids:
 		var m: Machine = machines[id]
 		var had := not m.jobs.is_empty()
@@ -980,7 +993,9 @@ func power_demand() -> int:
 ## ×½ with the same floor, CRITICAL 0).
 func work_rate(m: Machine) -> int:
 	var r := m.clock_rate()
-	if _cap > 0 and _demand > _cap:
+	if power_net != null:
+		r = power_net.work_rate(m.id, r)
+	elif _cap > 0 and _demand > _cap:
 		r = maxi(1, r * _cap / _demand)
 	if m.thermal_den > 0 and m.thermal_num != m.thermal_den:
 		if m.thermal_num <= 0:
@@ -1067,7 +1082,19 @@ func first_bound(target_id: int) -> Dictionary:
 
 
 func overloaded() -> bool:
+	if power_net != null:
+		for nid in power_net.nodes:
+			if power_net.state(nid) == "over":
+				return true
+		return false
 	return _cap > 0 and _demand > _cap
+
+
+## The tightest power stage on machine `mid`'s path (P5b), {} when the network is off.
+func power_bottleneck(mid: int) -> Dictionary:
+	if power_net == null:
+		return {}
+	return power_net.bottleneck(mid)
 
 
 func total_power() -> int:
@@ -1155,6 +1182,7 @@ func load_player_layout(d: Dictionary) -> void:
 
 
 func _emit_changed() -> void:
+	_power_dirty = true
 	if _quiet == 0:
 		changed.emit()
 
