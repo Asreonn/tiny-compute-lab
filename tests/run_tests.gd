@@ -26,6 +26,7 @@ func _init() -> void:
 	ContentTests.run(self)
 	BusLanesTests.run(self)
 	ComputeLaneTests.run(self)
+	SourceSinkTests.run(self)
 	test_all_missions_pass()
 	test_determinism()
 	test_wrong_constant_fails_with_reason()

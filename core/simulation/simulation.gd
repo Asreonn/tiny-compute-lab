@@ -398,6 +398,7 @@ func insert_device(machine_id: int, kind: String, stream_override: Dictionary = 
 	m.stream = stream
 	m.width = new_width
 	m.interval = int(spec.get("interval", 4))
+	m.burst = maxi(1, int(spec.get("burst", 1)))
 	m.pattern = spec.get("pattern", [])
 	m.pattern_idx = 0
 	m.fifo.clear()
@@ -444,6 +445,7 @@ func remove_device(machine_id: int) -> bool:
 	m.device = ""
 	m.stream = []
 	m.pattern = []
+	m.burst = 1
 	m.fifo.clear()
 	m.gen_seq = 0
 	events.append({"kind": "device", "machine": machine_id, "device": ""})

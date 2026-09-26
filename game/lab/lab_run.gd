@@ -24,6 +24,7 @@ class QuestProgress:
 	var delivered := 0
 	var rejected := 0
 	var accepted_ticks: Array[int] = []  # ticks of accepted values, the last 60 (min_rate)
+	var rate_since := -1  # the tick since which quest_rate has stayed >= min_rate (sustain)
 	var window_lost := 0  # overruns since the window started
 	var window_rejected := 0  # wrong deliveries in the window (max_rejected)
 	var filled := false  # count + constraints met: ready to be filed
@@ -373,6 +374,16 @@ func after_tick(sim: Simulation) -> void:
 					_restart_window(q, "%s reached %s — the window restarted." % [m.label, ThermalGrid.STAGE_NAMES[m.heat_stage]])
 					break
 		_trim(q, sim.tick)
+		# sustain (FACTORY_SYSTEMS §4): track how long min_rate has held, then re-check the
+		# fill gate every tick so filling needs the rate to hold for the full N seconds.
+		if c.min_rate > 0.0:
+			if quest_rate(q) >= c.min_rate:
+				if qp.rate_since < 0:
+					qp.rate_since = sim.tick
+			else:
+				qp.rate_since = -1
+			if c.sustain > 0.0:
+				_check_filled(sim, q)
 	var ww := _q(level).warning
 	if ww != "":
 		warning = ww
@@ -392,6 +403,7 @@ func _restart_window(q: int, why: String) -> void:
 	qp.window_lost = 0
 	qp.window_rejected = 0
 	qp.accepted_ticks.clear()
+	qp.rate_since = -1
 	qp.warning = why
 
 
@@ -405,6 +417,10 @@ func _check_filled(sim: Simulation, q: int) -> void:
 		return
 	if c.min_rate > 0.0 and quest_rate(q) < c.min_rate:
 		return
+	if c.sustain > 0.0:
+		# min_rate must have held continuously for N Lab seconds (N × 10 ticks).
+		if qp.rate_since < 0 or sim.tick - qp.rate_since < int(c.sustain * Simulation.TICKS_PER_SEC):
+			return
 	if c.max_lost >= 0 and qp.window_lost > c.max_lost:
 		return
 	qp.filled = true

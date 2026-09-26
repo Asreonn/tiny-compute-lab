@@ -52,15 +52,18 @@ func _make_packet(sim, m, value: Variant, seq: int = -1) -> Packet:
 
 
 ## Lab socket (docs/SYSTEMS_EXPANSION.md §2): every `interval` ticks the plugged module pushes
-## the next stream value into a 2-slot FIFO; when the wire is full the OLDEST pending value is
-## dropped and counted as `lost`. Every tick one pending value moves into the free output slot,
+## `burst` stream values into a FIFO that holds 2 × burst (FACTORY_SYSTEMS §2.3). When the FIFO
+## overflows the OLDEST pending value is dropped and counted as `lost`. As many pending values
+## move into the output head + backlog each tick as the wire's lanes accept (1 without a wire),
 ## so a blocked socket never stalls the stream — it overruns. Without a module nothing is
-## generated (the wire stays in place and simply sees no data).
+## generated (the wire stays in place and simply sees no data). Burst 1 on a 1-lane wire is
+## exactly the original behaviour.
 func _start_socket(m, sim) -> void:
 	if m.device != "" and not m.stream.is_empty() and sim.tick >= m.next_emit:
-		var seq: int = m.gen_seq
-		m.fifo.append([m.stream[seq % m.stream.size()], seq])
-		m.gen_seq += 1
+		for g in m.burst:
+			var seq: int = m.gen_seq
+			m.fifo.append([m.stream[seq % m.stream.size()], seq])
+			m.gen_seq += 1
 		# An optional pattern cycles the emission intervals (bursty contracts); otherwise the
 		# module's plain interval applies.
 		var wait: int = m.interval
@@ -68,15 +71,22 @@ func _start_socket(m, sim) -> void:
 			wait = int(m.pattern[m.pattern_idx % m.pattern.size()])
 			m.pattern_idx += 1
 		m.next_emit = sim.tick + maxi(1, wait)
-		if m.fifo.size() > 2:
+		while m.fifo.size() > 2 * m.burst:
 			m.fifo.pop_front()
 			m.lost += 1
 			sim.events.append({"kind": "lost", "machine": m.id})
-	if m.outq["out"] == null and not m.fifo.is_empty():
+	var cap := 1
+	var c: Connection = sim.connection_at_port(m.id, "out")
+	if c != null:
+		cap = c.lanes
+	while not m.fifo.is_empty() and m.waiting_results() < cap:
 		var entry: Array = m.fifo.pop_front()
 		var p := _make_packet(sim, m, entry[0], int(entry[1]))
 		p.path.append(m.label)
-		m.outq["out"] = p
+		if m.outq["out"] == null:
+			m.outq["out"] = p
+		else:
+			m.out_backlog["out"].append(p)
 		m.processed += 1
 		m.emitted += 1
 
@@ -86,12 +96,15 @@ func _start_output(m, sim) -> void:
 		return
 	if m.type == "usb_output" and m.socket and m.device == "":
 		return  # empty Lab output port: nothing is there (can_accept already refuses)
-	var p: Packet = m.pop("in")
-	m.received.append(p)
-	m.processed += 1
-	if m.type == "usb_output" and m.socket and m.device == "monitor":
-		# The Monitor keeps the last 10 samples and judges nothing (SYSTEMS_EXPANSION §2.1).
-		while m.received.size() > 10:
-			m.received.pop_front()
-		return
-	sim.note_output(m, p)
+	# A multi-lane wire may deliver several packets in one tick; every queued packet is judged
+	# this same tick (the sink drains, FACTORY_SYSTEMS §2.3).
+	while not m.inq["in"].is_empty():
+		var p: Packet = m.pop("in")
+		m.received.append(p)
+		m.processed += 1
+		if m.type == "usb_output" and m.socket and m.device == "monitor":
+			# The Monitor keeps the last 10 samples and judges nothing (SYSTEMS_EXPANSION §2.1).
+			while m.received.size() > 10:
+				m.received.pop_front()
+			continue
+		sim.note_output(m, p)

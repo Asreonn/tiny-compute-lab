@@ -29,6 +29,8 @@ var ops: Array = []
 var count := 0
 ## Accepted values per Lab second (= per 10 ticks), rolling over the last 60 ticks. 0 = none.
 var min_rate := 0.0
+## `min_rate` must hold continuously for the last N Lab seconds (FACTORY_SYSTEMS §4). 0 = none.
+var sustain := 0.0
 ## Socket overruns allowed in the window. -1 = none.
 var max_lost := -1
 ## Wrong values (rejected deliveries) allowed in the window: a filter that must really filter.
@@ -57,6 +59,7 @@ static func from_level(lv: Dictionary) -> Contract:
 	c.kind = str(d.get("kind", "deliver"))
 	c.count = int(d.get("count", 0))
 	c.min_rate = float(d.get("min_rate", 0.0))
+	c.sustain = float(d.get("sustain", 0.0))
 	c.max_lost = int(d.get("max_lost", -1))
 	c.max_rejected = int(d.get("max_rejected", -1))
 	c.max_power = int(d.get("max_power", 0))
@@ -381,7 +384,17 @@ func _keep(v: Variant, op: Dictionary) -> bool:
 # ------------------------------------------------------------------ text
 
 ## Short HUD text, e.g. "deliver 010 × 20", "map x → x + 3 (3-bit)", "Caesar +3 (text)".
+## A min_rate contract shows its rate; a sustain contract adds how long it must hold.
 func describe() -> String:
+	var s := _describe_body()
+	if min_rate > 0.0:
+		s += " @ %d/s" % int(min_rate)
+		if sustain > 0.0:
+			s += " for %ds" % int(round(sustain))
+	return s
+
+
+func _describe_body() -> String:
 	match kind:
 		"deliver":
 			return "deliver %s × %d" % [_bin(value), count]

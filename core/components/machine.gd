@@ -76,6 +76,7 @@ var last_mem_op := ""  # "read" / "write" (the Cells area shows it)
 var stream: Array = []  # input: Array[BitVector|RawValue] to emit
 var interval := 1  # input: ticks between packets
 var pattern: Array = []  # socket: optional intervals cycled per emitted value (bursts)
+var burst := 1  # socket: values generated per emission (FACTORY_SYSTEMS §2.3)
 var pattern_idx := 0  # socket: next pattern slot to use
 var strict := false  # input: drop (and fail) instead of waiting when blocked
 var loop := false  # input: repeat the stream until the mission passes (campaign sources)
@@ -192,6 +193,10 @@ func heat_mult() -> int:
 func in_capacity(port_id: String) -> int:
 	if type == "buffer" and port_id == "in":
 		return int(params.get("capacity", 4))
+	# Sinks drain a whole 8-lane bus in one tick (FACTORY_SYSTEMS §2.3): a multi-lane wire
+	# may hand them several packets per tick and every one is validated that same tick.
+	if type in ["output", "terminal_output", "usb_output"]:
+		return 8
 	return maxi(1, lanes())
 
 
