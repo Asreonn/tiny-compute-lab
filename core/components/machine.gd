@@ -69,6 +69,8 @@ var delay_line: Array = []  # [[Packet, ready_tick], ...]
 var last_carry := 0  # Add: carry out of the most recent addition
 var carries := 0  # Add: total carry-outs this run
 var dropped := 0  # codec: values dropped this run (unencodable or of the wrong kind)
+var orphans := 0  # waiting values discarded because their record can no longer be completed
+var orphan_check_tick := -1000  # last tick the orphan scan ran (throttled, deterministic)
 # memory / control machines (Group E–F)
 var memory: Array = []  # register (1 cell), register bank (4), RAM (16): BitVector per cell
 var held: Packet = null  # register: the packet last written (its lineage is re-emitted on read)
@@ -193,6 +195,38 @@ func heat_mult() -> int:
 	return int(CLOCK_HEAT[clock_mode()])
 
 
+## Idle baseline (DATA_FACTORY §2.0b): percent of the full-rate heat / power a powered part
+## still costs while idle (the def's idle_pct, data-driven); 0 for unpowered or locked parts.
+func idle_pct() -> int:
+	if locked or power() <= 0:
+		return 0
+	return clampi(int(def().get("idle_pct", 12)), 0, 100)
+
+
+## Heat generated this tick (tenths of °C): heat × clock heat × (idle share × lanes + active share
+## × work done / clock rate). Full load is exactly the rated heat × lanes; an idle powered part
+## still warms by idle_pct.
+func heat_this_tick() -> int:
+	var base := heat() * heat_mult()
+	if base <= 0:
+		return 0
+	var cr := maxi(1, clock_rate())
+	var idle := idle_pct()
+	return base * (idle * lanes() * cr + (100 - idle) * work_done) / (100 * cr)
+
+
+## Power drawn this tick: the idle share of power_demand() plus the active share scaled by the
+## work done. A readout only — the power network sizes the rails for the peak power_demand().
+func power_draw() -> int:
+	var d := power_demand()
+	if d <= 0:
+		return 0
+	var full := maxi(1, lanes() * clock_rate())
+	var idle := idle_pct()
+	var num := d * (idle * full + (100 - idle) * mini(work_done, full))
+	return (num + 50 * full) / (100 * full)  # rounded to the nearest unit
+
+
 ## Values per Lab second at the current lanes / clock / processing ticks (FACTORY_SYSTEMS §3.3):
 ## lanes × clock work rate / (processing ticks × WORK_PER_TICK) × TICKS_PER_SEC. Used by the
 ## upgrade preview and the hover card.
@@ -207,6 +241,11 @@ func in_capacity(port_id: String) -> int:
 	# may hand them several packets per tick and every one is validated that same tick.
 	if type in ["output", "terminal_output", "usb_output"]:
 		return 8
+	# A part that combines several inputs holds one more value per input than it has lanes, so
+	# an early value can wait for its record's partner (DATA_FACTORY §3.1). Waiting still fills
+	# the queue and backs up the branch.
+	if inq.size() >= 2:
+		return lanes() + 1
 	return maxi(1, lanes())
 
 
@@ -318,6 +357,8 @@ func reset() -> void:
 	last_carry = 0
 	carries = 0
 	dropped = 0
+	orphans = 0
+	orphan_check_tick = -1000
 	next_emit = 0
 	emitted = 0
 	received = []
@@ -500,6 +541,95 @@ func pop(port: String) -> Packet:
 	var p: Packet = inq[port].pop_front()
 	p.path.append(label)
 	return p
+
+
+## Index of the first queued value on `port` that fits record `c` (ctx == c, or context-free);
+## -1 when none. With c < 0 the first queued value fits.
+func find_ctx(port: String, c: int) -> int:
+	var q: Array = inq[port]
+	for i in q.size():
+		var k: int = (q[i] as Packet).ctx
+		if c < 0 or k == c or k < 0:
+			return i
+	return -1
+
+
+## Take one value from each of `ports` that all belong to the same record (DATA_FACTORY §3.1):
+## the oldest record present on every port, context-free values fitting any. Returns
+## {port: Packet} (removed from the queues, path stamped) or {} when no record is complete.
+## Waiting values whose record can no longer be completed are discarded as ORPHANS (checked at
+## most every 8 ticks).
+func take_record(ports: Array, sim) -> Dictionary:
+	for port in ports:
+		if (inq[port] as Array).is_empty():
+			_check_orphans(ports, sim)
+			return {}
+	var cands: Array = []
+	for port in ports:
+		for p in inq[port]:
+			var k: int = (p as Packet).ctx
+			if k >= 0 and not cands.has(k):
+				cands.append(k)
+	cands.sort()
+	cands.append(-1)  # finally: a record made only of context-free values
+	for c in cands:
+		var picks := {}
+		for port in ports:
+			var i := _find_exact(port, c)
+			if i < 0:
+				picks = {}
+				break
+			picks[port] = i
+		if picks.is_empty():
+			continue
+		var out := {}
+		for port in ports:
+			var p: Packet = inq[port][picks[port]]
+			inq[port].remove_at(picks[port])
+			p.path.append(label)
+			out[port] = p
+		return out
+	_check_orphans(ports, sim)
+	return {}
+
+
+## First index on `port` fitting record c: ctx == c or context-free; for c = -1 only a
+## context-free value (so a pure context-free record never swallows a record value).
+func _find_exact(port: String, c: int) -> int:
+	var q: Array = inq[port]
+	for i in q.size():
+		var k: int = (q[i] as Packet).ctx
+		if k == c or k < 0:
+			return i
+	return -1
+
+
+## Discard waiting values whose record can never be completed: a partner port has no value of
+## that record and none can still arrive (Simulation.can_still_arrive). Throttled to one scan per
+## 8 ticks, deterministic by tick.
+func _check_orphans(ports: Array, sim) -> void:
+	if sim == null or not sim.has_method("can_still_arrive") or sim.tick - orphan_check_tick < 8:
+		return
+	orphan_check_tick = sim.tick
+	for port in ports:
+		var q: Array = inq[port]
+		var i := 0
+		while i < q.size():
+			var p: Packet = q[i]
+			var gone := false
+			if p.ctx >= 0:
+				for other in ports:
+					if other == port or _find_exact(other, p.ctx) >= 0:
+						continue
+					if not sim.can_still_arrive(id, other, p.ctx):
+						gone = true
+						break
+			if gone:
+				q.remove_at(i)
+				orphans += 1
+				sim.note_orphan(self, p)
+			else:
+				i += 1
 
 
 ## Refresh the visible state after all phases ran this tick.

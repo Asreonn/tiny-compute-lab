@@ -9,10 +9,11 @@ func start(m, sim) -> void:
 	match m.type:
 		"adder":
 			# a pair at a time: both inputs must be waiting; the result carries both lineages
-			if m.inq["a"].is_empty() or m.inq["b"].is_empty():
+			var got: Dictionary = m.take_record(["a", "b"], sim)
+			if got.is_empty():
 				return
-			var pa: Packet = m.pop("a")
-			var pb: Packet = m.pop("b")
+			var pa: Packet = got["a"]
+			var pb: Packet = got["b"]
 			var r := pa.data.add_carry(pb.data.unsigned())
 			m.last_carry = int(r["carry"])
 			m.carries += m.last_carry

@@ -42,27 +42,31 @@ func _register(m, sim) -> void:
 		m.memory[0] = p.data
 		m.held = p
 		m.last_mem_op = "write"
-		m.begin_job({"out": p.derive(sim.new_packet_id(), p.data)} if echo else {}, p)
+		var echoed := p.derive(sim.new_packet_id(), p.data)
+		echoed.ctx = -1  # stored state is not a record: a feedback loop pairs it with any value
+		m.begin_job({"out": echoed} if echo else {}, p)
 		return
 	if not m.inq["read"].is_empty():
 		var r: Packet = m.pop("read")
 		var out: Packet = m.held.derive(sim.new_packet_id(), m.memory[0]) if m.held != null else Packet.new(sim.new_packet_id(), m.memory[0], sim.tick)
 		out.merge_origins(r)
+		out.ctx = -1  # stored state is context-free (DATA_FACTORY §3.1)
 		m.last_mem_op = "read"
 		m.begin_job({"out": out}, r)
 
 
 ## Register bank / RAM: one operation = one address + one value + one WE bit (all consumed).
 func _memory(m, sim, cells: int) -> void:
-	if m.inq["a"].is_empty() or m.inq["d"].is_empty() or m.inq["we"].is_empty():
+	var got: Dictionary = m.take_record(["a", "d", "we"], sim)
+	if got.is_empty():
 		return
 	if m.memory.size() != cells:
 		m.memory = []
 		for i in cells:
 			m.memory.append(BitVector.of(0, m.width))
-	var pa: Packet = m.pop("a")
-	var pd: Packet = m.pop("d")
-	var pw: Packet = m.pop("we")
+	var pa: Packet = got["a"]
+	var pd: Packet = got["d"]
+	var pw: Packet = got["we"]
 	var idx: int = pa.data.unsigned() % cells
 	if pw.data.as_bool():
 		m.memory[idx] = BitVector.of(pd.data.unsigned(), m.width)
@@ -98,11 +102,12 @@ func _rom(m, sim) -> void:
 
 
 func _alu(m, sim) -> void:
-	if m.inq["a"].is_empty() or m.inq["b"].is_empty() or m.inq["op"].is_empty():
+	var got: Dictionary = m.take_record(["a", "b", "op"], sim)
+	if got.is_empty():
 		return
-	var pa: Packet = m.pop("a")
-	var pb: Packet = m.pop("b")
-	var po: Packet = m.pop("op")
+	var pa: Packet = got["a"]
+	var pb: Packet = got["b"]
+	var po: Packet = got["op"]
 	var op := str(m.params.get("op1" if po.data.as_bool() else "op0", "ADD"))
 	var out: Packet = pa.derive(sim.new_packet_id(), MemoryOps.alu(op, pa.data, pb.data))
 	out.merge_origins(pb)

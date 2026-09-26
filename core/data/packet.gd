@@ -19,6 +19,11 @@ var meta: Dictionary = {}
 ## "value": BitVector|RawValue}. Sources stamp it, single-input machines copy it,
 ## combining machines union it. Both payload types are immutable, so sharing is safe.
 var origins: Dictionary = {}
+## Record context (docs/DATA_FACTORY.md §3.1): the session sequence of the record this value
+## belongs to. Sources stamp it; derived values keep it; parts with several inputs combine only
+## values of the same ctx. -1 = context-free (constants, clock pulses, stored state): it fits
+## any record.
+var ctx: int = -1
 
 
 func _init(p_id: int, p_data: BitVector, p_tick: int, p_origin: int = -1) -> void:
@@ -45,6 +50,7 @@ func derive(new_id: int, new_data: BitVector) -> Packet:
 	p.path = path.duplicate()
 	p.meta = meta.duplicate()
 	p.origins = _copy_origins()
+	p.ctx = ctx
 	return p
 
 
@@ -55,6 +61,7 @@ func derive_raw(new_id: int, new_raw: RawValue) -> Packet:
 	p.path = path.duplicate()
 	p.meta = meta.duplicate()
 	p.origins = _copy_origins()
+	p.ctx = ctx
 	return p
 
 
@@ -65,6 +72,8 @@ func derive_raw(new_id: int, new_raw: RawValue) -> Packet:
 func merge_origins(other: Packet) -> void:
 	if other == null:
 		return
+	if ctx < 0:
+		ctx = other.ctx
 	for k in other.origins:
 		var e: Dictionary = other.origins[k]
 		if not origins.has(k) or int(e.get("seq", -1)) > int((origins[k] as Dictionary).get("seq", -1)):

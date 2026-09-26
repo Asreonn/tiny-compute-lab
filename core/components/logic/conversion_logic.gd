@@ -52,10 +52,13 @@ func _start_width(m, sim) -> void:
 
 ## Bus Combiner: hi:lo, one pair at a time (the inverse of the Bit Splitter).
 func _start_combiner(m, sim) -> void:
-	if not m.has_free_lane() or m.inq["hi"].is_empty() or m.inq["lo"].is_empty():
+	if not m.has_free_lane():
 		return
-	var ph: Packet = m.pop("hi")
-	var pl: Packet = m.pop("lo")
+	var got: Dictionary = m.take_record(["hi", "lo"], sim)
+	if got.is_empty():
+		return
+	var ph: Packet = got["hi"]
+	var pl: Packet = got["lo"]
 	var out := pl.derive(sim.new_packet_id(), pl.data.concat(ph.data))
 	out.merge_origins(ph)
 	m.begin_job({"out": out}, pl)

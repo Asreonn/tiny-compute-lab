@@ -568,6 +568,85 @@ func output_connected(m: Machine, port: String) -> bool:
 	return connection_at_port(m.id, port) != null
 
 
+func input_connected(m: Machine, port: String) -> bool:
+	return connection_at_port(m.id, port) != null
+
+
+## Record identity (DATA_FACTORY §3.1): can a value of record `c` (or a context-free one) still
+## reach input `port` of machine `mid`? Walks the wires and machines upstream of that port: true
+## when one of them still holds such a value, or a source upstream has not emitted record c yet.
+## Exact and deterministic; used to discard ORPHANS whose partner was dropped on another path.
+func can_still_arrive(mid: int, port: String, c: int) -> bool:
+	if connection_at_port(mid, port) == null:
+		return true  # an unwired input is waiting for the player, not for a lost record
+	var seen := {}
+	var stack: Array = [[mid, port]]
+	while not stack.is_empty():
+		var e: Array = stack.pop_back()
+		var cn := connection_at_port(int(e[0]), str(e[1]))
+		if cn == null or cn.to_id != int(e[0]):
+			continue
+		for slot in cn.all_packets():
+			var k: int = (slot["packet"] as Packet).ctx
+			if k == c or k < 0:
+				return true
+		if seen.has(cn.from_id) or not machines.has(cn.from_id):
+			continue
+		seen[cn.from_id] = true
+		var src: Machine = machines[cn.from_id]
+		if _machine_may_hold(src, c):
+			return true
+		if src.inq.is_empty():
+			if _source_may_emit(src, c):
+				return true
+			continue
+		for k in src.inq:
+			stack.append([src.id, k])
+	return false
+
+
+## Does `m` hold a value of record c (or a context-free one) anywhere inside?
+func _machine_may_hold(m: Machine, c: int) -> bool:
+	var lists: Array = []
+	for k in m.inq:
+		lists.append(m.inq[k])
+	for k in m.out_backlog:
+		lists.append(m.out_backlog[k])
+	for l in lists:
+		for p in l:
+			var k: int = (p as Packet).ctx
+			if k == c or k < 0:
+				return true
+	for k in m.outq:
+		var h: Packet = m.outq[k]
+		if h != null and (h.ctx == c or h.ctx < 0):
+			return true
+	for j in m.jobs:
+		for port in j["results"]:
+			var r: Packet = j["results"][port]
+			if r != null and (r.ctx == c or r.ctx < 0):
+				return true
+	for d in m.delay_line:
+		var dp: Packet = d[0]
+		if dp.ctx == c or dp.ctx < 0:
+			return true
+	for f in m.fifo:
+		if int(f[1]) == c:
+			return true
+	return false
+
+
+## Can a port-less source still emit record c? Sockets and inputs number their records; any
+## other generator (a Constant, a Clock) emits context-free values that fit every record.
+func _source_may_emit(m: Machine, c: int) -> bool:
+	match m.type:
+		"input", "usb_input":
+			if m.socket:
+				return m.device != "" and not m.stream.is_empty() and c >= m.gen_seq
+			return not m.stream.is_empty() and c >= m.emitted and (m.loop or c < m.stream.size())
+	return true
+
+
 ## Why a connection from (a, pa) to (b, pb) is impossible, or "" when it is valid.
 ## `ignore`: connection ids that are about to be replaced (rewiring) and do not count as
 ## occupying their ports.
@@ -945,6 +1024,11 @@ func note_discard(m: Machine, p: Packet) -> void:
 	events.append({"kind": "discard", "packet": p.id, "machine": m.id})
 
 
+## A waiting value whose record can no longer be completed was discarded (DATA_FACTORY §3.1).
+func note_orphan(m: Machine, p: Packet) -> void:
+	events.append({"kind": "orphan", "packet": p.id, "machine": m.id, "ctx": p.ctx})
+
+
 # ============================================================ metrics
 
 func input_rate() -> float:
@@ -980,6 +1064,17 @@ func power_demand() -> int:
 		var m: Machine = machines[id]
 		if not m.locked:
 			d += m.power_demand()
+	return d
+
+
+## Σ power actually drawn this tick (idle baseline + active share; a readout — the rails are sized
+## for power_demand()).
+func power_draw() -> int:
+	var d := 0
+	for id in sorted_machine_ids():
+		var m: Machine = machines[id]
+		if not m.locked:
+			d += m.power_draw()
 	return d
 
 

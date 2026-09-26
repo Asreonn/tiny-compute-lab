@@ -45,10 +45,11 @@ func _start_merger(m, sim) -> void:
 
 
 func _start_demux(m, sim) -> void:
-	if m.inq["in"].is_empty() or m.inq["sel"].is_empty():
+	var got: Dictionary = m.take_record(["in", "sel"], sim)
+	if got.is_empty():
 		return
-	var d: Packet = m.pop("in")
-	var sel: Packet = m.pop("sel")
+	var d: Packet = got["in"]
+	var sel: Packet = got["sel"]
 	d.merge_origins(sel)
 	var port := "b" if sel.data.as_bool() else "a"
 	var out := {}
@@ -56,15 +57,29 @@ func _start_demux(m, sim) -> void:
 	m.begin_job(out, d)
 
 
-## Mux: the select bit says which input to take next; only that input is consumed.
+## Mux: the select bit says which input to take next; only that input is consumed. The chosen
+## value must belong to the select bit's record (DATA_FACTORY §3.1): the oldest select whose
+## record waits on its chosen input goes first.
 func _start_mux(m, sim) -> void:
-	if m.inq["sel"].is_empty():
+	var si := -1
+	var di := -1
+	var port := "a"
+	var sels: Array = m.inq["sel"]
+	for i in sels.size():
+		var sp: Packet = sels[i]
+		port = "b" if sp.data.as_bool() else "a"
+		di = m.find_ctx(port, sp.ctx)
+		if di >= 0:
+			si = i
+			break
+	if si < 0:
 		return
-	var port := "b" if (m.inq["sel"][0] as Packet).data.as_bool() else "a"
-	if m.inq[port].is_empty():
-		return
-	var sel: Packet = m.pop("sel")
-	var d: Packet = m.pop(port)
+	var sel: Packet = sels[si]
+	sels.remove_at(si)
+	sel.path.append(m.label)
+	var d: Packet = m.inq[port][di]
+	m.inq[port].remove_at(di)
+	d.path.append(m.label)
 	d.merge_origins(sel)
 	m.begin_job({"out": d}, d)
 

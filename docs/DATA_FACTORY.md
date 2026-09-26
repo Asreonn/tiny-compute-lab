@@ -237,11 +237,11 @@ Everything is × the width factor: a Gate or splitter on a 16-bit record draws 3
     dropping.
 - **Context-free values** (`ctx = -1`) fit any record:
   - Constants, Clock pulses and tie-offs;
-  - **state outputs**: Register, Register Bank reads.
+  - **stored state**: the Register's output (echo and read).
   - State is not a record, so accumulator and feedback loops (Running Sum, the CPU branch) keep
     working.
   - A Latch output belongs to its EN's record.
-  - A RAM read belongs to its address's record.
+  - A RAM or Register Bank read belongs to its address's record.
 
 ### 3.2 Tie-offs
 - A data input marked `tie` in its PortDef may be left unconnected. It then reads the component's

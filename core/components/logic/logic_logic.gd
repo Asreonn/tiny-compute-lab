@@ -24,10 +24,11 @@ func start(m, sim) -> void:
 			var v := BitVector.of(1 if r else 0, 1)
 			m.begin_job({"out": p.derive(sim.new_packet_id(), v)}, p)
 		"and_gate", "or_gate", "xor_gate":
-			if m.inq["a"].is_empty() or m.inq["b"].is_empty():
+			var got: Dictionary = m.take_record(["a", "b"], sim)  # one record: identity-safe pairing
+			if got.is_empty():
 				return
-			var pa: Packet = m.pop("a")
-			var pb: Packet = m.pop("b")
+			var pa: Packet = got["a"]
+			var pb: Packet = got["b"]
 			var v: BitVector
 			match m.type:
 				"and_gate": v = pa.data.band(pb.data)
@@ -49,10 +50,11 @@ func start(m, sim) -> void:
 			var pn: Packet = m.pop("in")
 			m.begin_job({"out": pn.derive(sim.new_packet_id(), pn.data.bnot())}, pn)
 		"gate":
-			if m.inq["in"].is_empty() or m.inq["ctrl"].is_empty():
+			var got: Dictionary = m.take_record(["in", "ctrl"], sim)
+			if got.is_empty():
 				return
-			var d: Packet = m.pop("in")
-			var ctrl: Packet = m.pop("ctrl")
+			var d: Packet = got["in"]
+			var ctrl: Packet = got["ctrl"]
 			if ctrl.data.as_bool():
 				d.merge_origins(ctrl)
 				m.begin_job({"out": d}, d)

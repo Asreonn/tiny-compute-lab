@@ -277,6 +277,7 @@ static func _network_conservation(t) -> void:
 		dsum += v
 	t.check(rsum == dsum, "recirculated removal equals the dump (%d == %d)" % [rsum, dsum])
 	p.jobs.clear()
+	sim.remove(p.id)  # the idle baseline would keep a powered part warm (DATA_FACTORY §2.0b)
 	var prev := 0
 	for v in sim.thermal.t:
 		prev += v
@@ -375,6 +376,10 @@ static func _small_trace() -> Array:
 	sim.place("heatsink", Vector2i(7, 4), 0, {}, 3)
 	_run(sim, ms, 400)
 	var snap := sim.thermal.t.duplicate()
+	# switch the compute off: powered parts keep an idle baseline (DATA_FACTORY §2.0b), so only a
+	# board without them cools all the way back to ambient
+	for m in ms:
+		sim.remove(m.id)
 	var never_neg := true
 	for i in 3000:
 		sim.step()

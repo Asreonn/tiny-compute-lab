@@ -98,9 +98,7 @@ func step(sim, mids: Array) -> void:
 	# 1. generate
 	for id in mids:
 		var m: Machine = sim.machines[id]
-		if m.work_done <= 0:
-			continue
-		var h := m.heat() * m.heat_mult() * m.work_done / maxi(1, m.clock_rate())
+		var h := m.heat_this_tick()  # idle baseline + work done (DATA_FACTORY §2.0b)
 		if h <= 0:
 			continue
 		var cells := _cells_sorted(m)
