@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_lt"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_lt"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_lt"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_lt"]
+
+[sub_resource type="Resource" id="Resource_lt1"]
+script = ExtResource("2_lt")
+key = "init"
+label = "Initial"
+default_int = 0
+min_value = 0
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_lt2"]
+script = ExtResource("2_lt")
+key = "d"
+label = "Tie D"
+default_int = 1
+min_value = 0
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_lt3"]
+script = ExtResource("3_lt")
+id = "in"
+side = 2
+label = "D"
+
+[sub_resource type="Resource" id="Resource_lt4"]
+script = ExtResource("3_lt")
+id = "ctrl"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+label = "EN"
+
+[sub_resource type="Resource" id="Resource_lt5"]
+script = ExtResource("3_lt")
+id = "out"
+dir = "out"
+side = 0
+label = "Q"
+
+[resource]
+script = ExtResource("4_lt")
+id = "latch"
+display_name = "Latch"
+family = "memory"
+size = "S"
+ticks = 1
+campaign_ticks = 2
+power = 1
+max_lanes = 1
+glyph_text = "LT"
+description = "State: when EN is 1 it stores D and outputs it; when EN is 0 it outputs the stored value. An unwired D stores the tie value."
+ports = Array[ExtResource("3_lt")]([SubResource("Resource_lt3"), SubResource("Resource_lt4"), SubResource("Resource_lt5")])
+params = Array[ExtResource("2_lt")]([SubResource("Resource_lt1"), SubResource("Resource_lt2")])
+logic = ExtResource("1_lt")
+menu_order = 335

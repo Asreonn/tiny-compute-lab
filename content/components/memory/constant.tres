@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_k"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_k"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_k"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_k"]
+
+[sub_resource type="Resource" id="Resource_k1"]
+script = ExtResource("2_k")
+key = "value"
+label = "Value"
+default_int = 1
+min_value = 0
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_k2"]
+script = ExtResource("3_k")
+id = "out"
+dir = "out"
+side = 0
+
+[resource]
+script = ExtResource("4_k")
+id = "constant"
+display_name = "Constant"
+family = "memory"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 1
+glyph_text = "K"
+description = "Emits its fixed value whenever its wire has room; it fits any record."
+ports = Array[ExtResource("3_k")]([SubResource("Resource_k2")])
+params = Array[ExtResource("2_k")]([SubResource("Resource_k1")])
+logic = ExtResource("1_k")
+menu_order = 336

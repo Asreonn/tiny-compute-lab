@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_jn"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_jn"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_jn"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_jn"]
+
+[sub_resource type="Resource" id="Resource_jn1"]
+script = ExtResource("3_jn")
+id = "a"
+side = 3
+
+[sub_resource type="Resource" id="Resource_jn2"]
+script = ExtResource("3_jn")
+id = "b"
+side = 2
+
+[sub_resource type="Resource" id="Resource_jn3"]
+script = ExtResource("3_jn")
+id = "c"
+side = 1
+
+[sub_resource type="Resource" id="Resource_jn4"]
+script = ExtResource("3_jn")
+id = "out"
+dir = "out"
+side = 0
+
+[resource]
+script = ExtResource("4_jn")
+id = "join"
+display_name = "Join"
+family = "routing"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 4
+glyph_text = "JN"
+description = "Takes values from the connected inputs in turn and sends them on as one stream; the order may change."
+ports = Array[ExtResource("3_jn")]([SubResource("Resource_jn1"), SubResource("Resource_jn2"), SubResource("Resource_jn3"), SubResource("Resource_jn4")])
+logic = ExtResource("1_jn")
+menu_order = 167

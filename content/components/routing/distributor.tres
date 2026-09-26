@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_ds"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_ds"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_ds"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_ds"]
+
+[sub_resource type="Resource" id="Resource_ds1"]
+script = ExtResource("3_ds")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_ds2"]
+script = ExtResource("3_ds")
+id = "a"
+dir = "out"
+side = 3
+
+[sub_resource type="Resource" id="Resource_ds3"]
+script = ExtResource("3_ds")
+id = "b"
+dir = "out"
+side = 0
+
+[sub_resource type="Resource" id="Resource_ds4"]
+script = ExtResource("3_ds")
+id = "c"
+dir = "out"
+side = 1
+
+[resource]
+script = ExtResource("4_ds")
+id = "distributor"
+display_name = "Distributor"
+family = "routing"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 4
+glyph_text = "DS"
+description = "Deals each value to the next connected output in turn (A, B, C), skipping a full one: the manual-parallelism part."
+ports = Array[ExtResource("3_ds")]([SubResource("Resource_ds1"), SubResource("Resource_ds2"), SubResource("Resource_ds3"), SubResource("Resource_ds4")])
+logic = ExtResource("1_ds")
+menu_order = 166

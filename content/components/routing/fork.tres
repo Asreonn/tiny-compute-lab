@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_fk"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_fk"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_fk"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_fk"]
+
+[sub_resource type="Resource" id="Resource_fk1"]
+script = ExtResource("3_fk")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_fk2"]
+script = ExtResource("3_fk")
+id = "a"
+dir = "out"
+side = 3
+
+[sub_resource type="Resource" id="Resource_fk3"]
+script = ExtResource("3_fk")
+id = "b"
+dir = "out"
+side = 0
+
+[sub_resource type="Resource" id="Resource_fk4"]
+script = ExtResource("3_fk")
+id = "c"
+dir = "out"
+side = 1
+
+[resource]
+script = ExtResource("4_fk")
+id = "fork"
+display_name = "Fork"
+family = "routing"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 4
+glyph_text = "FK"
+description = "Duplicates each value to every connected output; a full branch holds the next copy back, so fan-out is limited by the slowest branch."
+ports = Array[ExtResource("3_fk")]([SubResource("Resource_fk1"), SubResource("Resource_fk2"), SubResource("Resource_fk3"), SubResource("Resource_fk4")])
+logic = ExtResource("1_fk")
+menu_order = 165

@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_pr"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_pr"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_pr"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_pr"]
+
+[sub_resource type="Resource" id="Resource_pr1"]
+script = ExtResource("3_pr")
+id = "in"
+side = 2
+
+[sub_resource type="Resource" id="Resource_pr2"]
+script = ExtResource("3_pr")
+id = "out"
+dir = "out"
+side = 0
+
+[resource]
+script = ExtResource("4_pr")
+id = "probe"
+display_name = "Probe"
+family = "io"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 1
+glyph_text = "PR"
+description = "Shows the last value as 0/1 bits; passes values on, or keeps them when its output is not wired."
+ports = Array[ExtResource("3_pr")]([SubResource("Resource_pr1"), SubResource("Resource_pr2")])
+logic = ExtResource("1_pr")
+menu_order = 25

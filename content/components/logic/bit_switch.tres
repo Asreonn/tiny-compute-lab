@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_bs"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_bs"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_bs"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_bs"]
+
+[sub_resource type="Resource" id="Resource_bs1"]
+script = ExtResource("3_bs")
+id = "in"
+side = 2
+label = "D"
+
+[sub_resource type="Resource" id="Resource_bs2"]
+script = ExtResource("3_bs")
+id = "ctrl"
+dir = "ctrl"
+role = "control"
+width = "1"
+side = 3
+label = "EN"
+
+[sub_resource type="Resource" id="Resource_bs3"]
+script = ExtResource("3_bs")
+id = "out"
+dir = "out"
+side = 0
+label = "Q"
+
+[resource]
+script = ExtResource("4_bs")
+id = "bit_switch"
+display_name = "Bit Switch"
+family = "logic"
+size = "S"
+ticks = 1
+campaign_ticks = 2
+power = 1
+max_lanes = 4
+glyph_text = "SW"
+description = "Bit logic: passes D while EN is 1; when EN is 0 it outputs 0 of the same width, so it always answers."
+ports = Array[ExtResource("3_bs")]([SubResource("Resource_bs1"), SubResource("Resource_bs2"), SubResource("Resource_bs3")])
+logic = ExtResource("1_bs")
+menu_order = 95

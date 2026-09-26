@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/components/logic/primitive_logic.gd" id="1_clk"]
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="2_clk"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="3_clk"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="4_clk"]
+
+[sub_resource type="Resource" id="Resource_clk1"]
+script = ExtResource("2_clk")
+key = "period"
+label = "Period"
+default_int = 10
+min_value = 1
+max_value = 100
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_clk2"]
+script = ExtResource("3_clk")
+id = "out"
+dir = "out"
+role = "control"
+width = "1"
+side = 0
+label = "CLK"
+
+[resource]
+script = ExtResource("4_clk")
+id = "clock"
+display_name = "Clock"
+family = "control"
+size = "S"
+ticks = 1
+campaign_ticks = 1
+power = 0
+max_lanes = 1
+glyph_text = "CLK"
+description = "Emits a 1-bit pulse every Period ticks; a pulse is skipped when the wire is full."
+ports = Array[ExtResource("3_clk")]([SubResource("Resource_clk2")])
+params = Array[ExtResource("2_clk")]([SubResource("Resource_clk1")])
+logic = ExtResource("1_clk")
+menu_order = 385

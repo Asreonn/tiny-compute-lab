@@ -518,7 +518,7 @@ func pop_output(port: String) -> Packet:
 ## Machines that push results straight out (IO sources/sinks, the delay line) bypass the lane
 ## gate so their own rules — socket overrun, strict overflow, the delay's fixed hold — hold.
 func start(sim) -> void:
-	if type in ["input", "usb_input", "output", "terminal_output", "usb_output", "delay"]:
+	if type in ["input", "usb_input", "output", "terminal_output", "usb_output", "delay", "constant", "clock"]:
 		ComponentLogic.for_type(type).start(self, sim)
 		return
 	while true:
