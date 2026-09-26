@@ -1258,6 +1258,8 @@ func load_player_layout(d: Dictionary) -> void:
 				used[mid] = true
 				map[i] = mid
 				var lm: Machine = machines[mid]
+				if lm.type == "nic" and md.has("params"):
+					_restore_nic_bindings(lm, md["params"])
 				if md.has("last_device"):
 					lm.last_device = str(md["last_device"])
 				var dev := str(md.get("device", ""))
@@ -1340,6 +1342,8 @@ func apply_layout(d: Dictionary) -> void:
 			if lmid >= 0:
 				used_locked[lmid] = true
 				map[i] = lmid
+				if machines[lmid].type == "nic" and md.has("params"):
+					_restore_nic_bindings(machines[lmid], md["params"])
 			li += 1
 		else:
 			var k2 := _layout_key(md)
@@ -1630,4 +1634,13 @@ func _locked_match(md: Dictionary, locked_by_index: Array, li: int, used: Dictio
 	if li < locked_by_index.size() and not used.has(locked_by_index[li]):
 		return locked_by_index[li]
 	return -1
+
+
+## A saved NIC's RX/TX bindings survive save/load and undo; the tier always comes from the Lab.
+static func _restore_nic_bindings(lm: Machine, saved_params: Variant) -> void:
+	if not (saved_params is Dictionary):
+		return
+	for k in ["rx_a", "rx_b", "rx_c", "tx_a", "tx_b"]:
+		if (saved_params as Dictionary).has(k):
+			lm.params[k] = (saved_params as Dictionary)[k]
 

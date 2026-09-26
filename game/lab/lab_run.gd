@@ -76,6 +76,8 @@ var new_devices := PackedStringArray()
 ## PSU tier (SYSTEMS_EXPANSION §4), an index into LabConfig.psu_capacity / psu_names: 0 Starter 8
 ## · 1 Improved 16 · 2 Desktop 32 · 3 High-Capacity 64 in the default campaign.
 var psu_tier := 0
+## NIC tier (JOB C6b): 0 = the Network Module has not been earned yet; 1..3 = its tier.
+var nic_tier := 0
 var _io_warning := ""
 
 
@@ -291,6 +293,7 @@ func build_board(sim: Simulation) -> void:
 	sim.mission = self
 	unlocked = LabDef.unlocks_upto(frontier())
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))  # rewards of every finished level
+	nic_tier = maxi(nic_tier, LabDef.nic_tier_upto(level))
 	_ensure_io(sim)
 	# a fresh board has the current quest's Job stick in output port 1 (a save re-applies its own)
 	var first_out := _output_at(sim, LabDef.PORT_ROWS[0])
@@ -319,11 +322,14 @@ func reset(_sim: Simulation) -> void:
 
 
 func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
-	if m.type != LabDef.OUTPUT_TYPE or not Devices.is_job(m.device):
+	var dev := m.device
+	if m.type == "nic":
+		dev = str(m.params.get("tx_" + str(p.meta.get("tx", "a")), ""))
+	if not (m.type == LabDef.OUTPUT_TYPE or m.type == "nic") or not Devices.is_job(dev):
 		return
 	var q := _quest_of_packet(p)
 	# a quest's Job stick takes that quest's results only; a plain Job drive judges any quest
-	var dq := Devices.quest_of(m.device)
+	var dq := Devices.quest_of(dev)
 	var target := dq if dq >= 0 else q
 	var ok := false
 	if target >= 0:
@@ -509,6 +515,7 @@ func _advance(sim: Simulation) -> void:
 func _progress_changed(sim: Simulation) -> void:
 	_io_warning = ""
 	psu_tier = maxi(psu_tier, LabDef.psu_tier_upto(level))
+	nic_tier = maxi(nic_tier, LabDef.nic_tier_upto(level))
 	unlocked = LabDef.unlocks_upto(frontier())
 	var sz := LabDef.size_for(frontier())
 	var old_size := sim.size
@@ -527,6 +534,7 @@ func _ensure_io(sim: Simulation) -> void:
 	_sync_reservations(sim)
 	_ensure_ports(sim)
 	_ensure_power_fixtures(sim)
+	_ensure_nic(sim)
 	if level == 0 and files == 0:
 		var first_in := _input_at(sim, LabDef.PORT_ROWS[0])
 		if first_in != null and first_in.device == "":
@@ -551,6 +559,10 @@ func _sync_reservations(sim: Simulation) -> void:
 		var label := "Power · opens at L%d" % (LabDef.CONFIG.power_level + 1)
 		for c in [Vector2i(0, row), Vector2i(1, row), Vector2i(2, row), Vector2i(3, row), Vector2i(2, row + 1), Vector2i(3, row + 1)]:
 			sim.reserved[c] = label
+	# the closed Network Module bay on the top edge (JOB C6b): reserved until a reward earns it
+	if nic_tier == 0 and LabDef.CONFIG.nic_bay_level >= 0 and frontier() >= LabDef.CONFIG.nic_bay_level:
+		for i in 5:
+			sim.reserved[LabDef.CONFIG.nic_cell + Vector2i(i, 0)] = "Network · opens later"
 
 
 func _bay_cells(sim: Simulation, side: String, row: int) -> Array[Vector2i]:
@@ -613,6 +625,37 @@ func _power_fixture_at(sim: Simulation, type: String, cell: Vector2i) -> Machine
 		if m.type == type and m.cell == cell:
 			return m
 	return null
+
+
+## The locked Network Module, or null before it exists.
+func _nic_fixture(sim: Simulation) -> Machine:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "nic":
+			return m
+	return null
+
+
+## The locked 5×1 Network Module on the top edge (JOB C6b). Created AFTER the power fixtures
+## (locked machines are matched by creation order in saves, so it must come last). Its tier
+## follows the rewards; its RX/TX bindings are the player's and survive save/load.
+func _ensure_nic(sim: Simulation) -> void:
+	if nic_tier <= 0:
+		return
+	var base := LabDef.CONFIG.nic_cell
+	for i in 5:
+		var m := sim.machine_at(base + Vector2i(i, 0))
+		if m != null and not m.locked:
+			_io_warning = "Clear the top edge tiles for the Network Module"
+			return
+	var nic := _nic_fixture(sim)
+	if nic == null:
+		var m := Machine.new(0, "nic", base, 16, 0, {"tier": str(nic_tier)})
+		m.locked = true
+		sim.add_machine(m)
+		m.label = "Network Module"
+	elif str(nic.params.get("tier", "")) != str(nic_tier):
+		nic.params["tier"] = str(nic_tier)
 
 
 ## The port that opened at rack `row`.
@@ -678,6 +721,11 @@ func _socket_ids(sim: Simulation) -> Array[int]:
 	for id in sim.sorted_machine_ids():
 		var m: Machine = sim.machines[id]
 		if m.type == "usb_input" and m.socket:
+			out.append(id)
+	# NIC RX records count as source values for contracts (JOB C6b): after the USB sockets.
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type == "nic":
 			out.append(id)
 	return out
 

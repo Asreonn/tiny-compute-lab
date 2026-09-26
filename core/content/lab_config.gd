@@ -30,6 +30,10 @@ extends Resource
 ## The PSU tiers: capacity in power units and name (LevelDef.reward psu_tier picks one).
 @export var psu_capacity: PackedInt32Array = PackedInt32Array([8, 16, 32, 64])
 @export var psu_names: PackedStringArray = PackedStringArray(["Starter Adapter", "Improved Adapter", "Desktop PSU", "High-Capacity PSU"])
+## The top-left tile of the locked 5×1 Network Module bay on the top edge (JOB C6b).
+@export var nic_cell := Vector2i(8, 0)
+## From this level index on, the closed bay is reserved; -1 = never.
+@export var nic_bay_level := -1
 ## The level index at which max machine lanes become 2, 4, 8 (FACTORY_SYSTEMS §3.1).
 @export var lane_levels: PackedInt32Array = PackedInt32Array([3, 5, 21])
 ## The level index at which max wire lanes become 2, 4, 8 (FACTORY_SYSTEMS §2.1).

@@ -105,6 +105,8 @@ func start(m, sim) -> void:
 				net["waited"] = true
 				break
 			m.pop(port)
+			p.meta["tx"] = ch
+			sim.note_output(m, p)
 			net["credit"] = float(net["credit"]) - f
 			frames_this_tick += f
 			tx_state["sent"] = int(tx_state["sent"]) + 1

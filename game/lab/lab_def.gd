@@ -57,6 +57,14 @@ static func psu_tier_upto(i: int) -> int:
 	return t
 
 
+## The best NIC tier earned by the levels finished before level `i` (their "reward" entries).
+static func nic_tier_upto(i: int) -> int:
+	var t := 0
+	for k in range(0, clampi(i, 0, LEVELS.size())):
+		t = maxi(t, int(LEVELS[k].get("reward", {}).get("nic_tier", 0)))
+	return t
+
+
 ## Index of the first level that unlocks machine `type`, or -1 when no level does (yet).
 static func unlock_level(type: String) -> int:
 	for i in LEVELS.size():
