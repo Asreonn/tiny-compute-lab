@@ -499,6 +499,7 @@ func insert_device(machine_id: int, kind: String, stream_override: Dictionary = 
 	m.pattern_idx = 0
 	m.fifo.clear()
 	m.gen_seq = 0
+	m.stream_source = str(spec.get("source", ""))
 	# A newly plugged USB stick starts in TEST from LabConfig.test_level on (JOB C7b).
 	m.test_mode = mission != null and mission.has_method("test_before_live") and bool(mission.test_before_live())
 	m.next_emit = tick + 1

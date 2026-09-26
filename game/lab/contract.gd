@@ -49,8 +49,24 @@ var pair: Array = []
 ## The primary stream's values (one cycle), for ops that depend on history: prefix_sum,
 ## ram_program, seq_table. The origin's seq says where in the stream a value came from.
 var stream: Array = []
+## route: output key ("A", "B", …) -> op chain; a record must arrive only where its chain gives a
+## value (DATA_FACTORY §9.2).
+var outputs: Dictionary = {}
+## route: the source whose record the chains start from ("" = the first record origin found).
+var route_source := ""
+## correlate: the sources whose records must meet (same seq), primary first.
+var sources: Array = []
+## correlate: conditions that must all hold, else the product must NOT arrive (DROP).
+var match_conds: Array = []
+## correlate (and the "compose" op): the product, MSB first.
+var compose_items: Array = []
+## Sale worth of one accepted record (the standing product's value).
+var worth := 1
+## Components allowed upstream of the quest's outputs (-1 = no cap). Checked by the Lab.
+var max_components := -1
 var _seq := -1
 var _pair_values := {}  # kind -> origin value, while one paired packet is being judged
+var _recs := {}  # source id -> {"value": BitVector, "seq": int}, while one packet is judged
 
 
 static func from_level(lv: Dictionary) -> Contract:
@@ -67,6 +83,13 @@ static func from_level(lv: Dictionary) -> Contract:
 	c.primary_socket = int(d.get("primary_socket", 0))
 	c.ops = d.get("ops", [])
 	c.pair = d.get("pair", [])
+	c.outputs = d.get("outputs", {})
+	c.route_source = str(d.get("source", ""))
+	c.sources = d.get("sources", [])
+	c.match_conds = d.get("match", [])
+	c.compose_items = d.get("compose", [])
+	c.worth = int(d.get("worth", 1))
+	c.max_components = int(d.get("max_components", -1))
 	var streams: Dictionary = lv.get("streams", {})
 	if not streams.is_empty():
 		c.source_kind = str(streams.keys()[0])
@@ -90,17 +113,69 @@ static func from_level(lv: Dictionary) -> Contract:
 # ------------------------------------------------------------------ judging
 
 ## The expected payload for `p`, DROP (it must not arrive) or null (no primary origin).
-func expected_for(p: Packet, sockets: Array[int]) -> Variant:
+func expected_for(p: Packet, sockets: Array[int], key: String = "") -> Variant:
+	_recs = records_of(p) if p != null else {}
+	var out: Variant = _expected(p, sockets, key)
+	_recs = {}
+	return out
+
+
+func _expected(p: Packet, sockets: Array[int], key: String) -> Variant:
 	if kind == "deliver":
 		return value
 	if kind == "paired":
 		return _expected_paired(p)
+	if kind == "route":
+		return _expected_route(key)
+	if kind == "correlate":
+		return _expected_correlate()
 	var sid := _primary_id(sockets)
 	if sid < 0 or p == null or not p.origins.has(sid):
 		return null
 	var entry: Dictionary = p.origins[sid]
 	_seq = int(entry.get("seq", -1))
 	return expect_from(entry.get("value"))
+
+
+## route: the start record's chain for the output it reached; DROP = it must not arrive there.
+func _expected_route(key: String) -> Variant:
+	if _recs.is_empty():
+		return null
+	var start: Variant = null
+	if route_source != "" and _recs.has(route_source):
+		start = _recs[route_source]["value"]
+	else:
+		var ids := _recs.keys()
+		ids.sort()
+		start = _recs[ids[0]]["value"]
+	if not outputs.has(key):
+		return DROP
+	var cur: Variant = start
+	for op in outputs[key]:
+		cur = apply_op(op, cur)
+		if cur is String:
+			return DROP
+	return cur
+
+
+## correlate: one record of every source with one shared seq, the match conditions, the product.
+func _expected_correlate() -> Variant:
+	if sources.is_empty():
+		return null
+	var seq := -2
+	for s in sources:
+		if not _recs.has(str(s)):
+			return null  # a source never took part: the value cannot be judged
+		var sq := int(_recs[str(s)]["seq"])
+		if seq != -2 and sq != seq:
+			return null  # records of different sessions: never a valid product
+		seq = sq
+	for c in match_conds:
+		if not cond(c):
+			return DROP
+	if not compose_items.is_empty():
+		return compose(compose_items)
+	return _recs[str(sources[0])]["value"]
 
 
 ## Paired: every kind in `pair` must be among the packet's origins with one shared seq.
@@ -151,8 +226,8 @@ func expect_from(origin: Variant) -> Variant:
 
 ## True when the delivered payload matches the expectation in payload type (raw vs bits),
 ## width (bits) and value. DROP or null are always rejected.
-func judge(p: Packet, sockets: Array[int]) -> bool:
-	var exp: Variant = expected_for(p, sockets)
+func judge(p: Packet, sockets: Array[int], key: String = "") -> bool:
+	var exp: Variant = expected_for(p, sockets, key)
 	if exp == null or exp is String:
 		return false
 	if exp is BitVector:
@@ -238,6 +313,13 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 				if cur is String:
 					return DROP
 			return cur
+		"when":
+			return v if cond(op.get("cond", {})) else DROP
+		"compose":
+			return compose(op.get("items", []))
+		"record":
+			var rs := str(op.get("source", ""))
+			return _recs[rs]["value"] if _recs.has(rs) else DROP
 		"prefix_sum":
 			# running sum of the stream up to and including this value (seq), at `width`
 			if _seq < 0 or stream.is_empty():
@@ -283,6 +365,132 @@ func apply_op(op: Dictionary, v: Variant) -> Variant:
 				"xor_src": return bv.bxor(BitVector.of(n, bv.width))
 			return bv.add(n)
 	return DROP
+
+
+# ------------------------------------------------------------------ records (DATA_FACTORY §9)
+
+## The record origins of a packet: source id -> {"value": BitVector, "seq": int}. Remote and dump
+## records carry "source" in their origins entry; the first entry per source wins (origin keys
+## in ascending order, so the choice is deterministic).
+static func records_of(p: Packet) -> Dictionary:
+	var out := {}
+	if p == null:
+		return out
+	var keys := p.origins.keys()
+	keys.sort()
+	for k in keys:
+		var e: Dictionary = p.origins[k]
+		if not e.has("source") or not (e.get("value") is BitVector):
+			continue
+		var src := str(e["source"])
+		if not out.has(src):
+			out[src] = {"value": e["value"], "seq": int(e.get("seq", -1))}
+	return out
+
+
+## A named field of the record `src` carries in the packet being judged (-1 when missing).
+func field_value(src: String, name: String) -> int:
+	if not _recs.has(src):
+		return -1
+	var def := SourceStream.source(src)
+	if def == null:
+		return -1
+	return SourceStream.field(def, _recs[src]["value"], name)
+
+
+## The width of a named field in a source's schema (0 when unknown).
+func field_width(src: String, name: String) -> int:
+	var def := SourceStream.source(src)
+	if def == null:
+		return 0
+	for r in SourceStream.field_ranges(def):
+		if str(r["name"]) == name:
+			return int(r["width"])
+	return 0
+
+
+## An operand: [src, field] reads a field; an int is itself.
+func _operand(a: Variant) -> int:
+	if a is Array and (a as Array).size() == 2:
+		return field_value(str(a[0]), str(a[1]))
+	return int(a)
+
+
+## A condition over record fields: eq ne gt ge lt le (a vs b or k), bit (a, k), all / any (of),
+## not (c). A missing operand makes a comparison false.
+func cond(c: Variant) -> bool:
+	if not (c is Dictionary):
+		return false
+	var d: Dictionary = c
+	match str(d.get("op", "")):
+		"eq", "ne", "gt", "ge", "lt", "le":
+			var a := _operand(d.get("a", -1))
+			var b := _operand(d["b"]) if d.has("b") else int(d.get("k", 0))
+			if a < 0 or b < 0:
+				return false
+			match str(d["op"]):
+				"eq": return a == b
+				"ne": return a != b
+				"gt": return a > b
+				"ge": return a >= b
+				"lt": return a < b
+			return a <= b
+		"bit":
+			var x := _operand(d.get("a", -1))
+			var k := int(d.get("k", 0))
+			return x >= 0 and k >= 0 and (x >> k) & 1 == 1
+		"all":
+			for sub in d.get("of", []):
+				if not cond(sub):
+					return false
+			return true
+		"any":
+			for sub in d.get("of", []):
+				if cond(sub):
+					return true
+			return false
+		"not":
+			return not cond(d.get("c", {}))
+	return false
+
+
+## Build a product MSB first from [src, field] slices, ["const", "bits"], ["cond", c] (1 bit)
+## and ["score", [[c, w], …], width] (the sum of the weights that hold, wrapping). DROP when a
+## field is missing.
+func compose(items: Array) -> Variant:
+	var acc := 0
+	var total := 0
+	for it in items:
+		if not (it is Array) or (it as Array).is_empty():
+			return DROP
+		var a: Array = it
+		var head := str(a[0])
+		var v := 0
+		var w := 0
+		match head:
+			"const":
+				var bv := BitVector.from_bin(str(a[1]))
+				v = bv.unsigned()
+				w = bv.width
+			"cond":
+				v = 1 if cond(a[1]) else 0
+				w = 1
+			"score":
+				w = int(a[2])
+				for term in a[1]:
+					if term is Array and cond(term[0]):
+						v += int(term[1])
+				v = v & ((1 << w) - 1)
+			_:
+				w = field_width(head, str(a[1]))
+				v = field_value(head, str(a[1]))
+				if w <= 0 or v < 0:
+					return DROP
+		acc = (acc << w) | (v & ((1 << w) - 1))
+		total += w
+	if total <= 0:
+		return DROP
+	return BitVector.of(acc, total)
 
 
 static func _num(v: Variant) -> int:
@@ -408,6 +616,12 @@ func _describe_body() -> String:
 			if ki.is_empty():
 				return "filter × %d" % count
 			return "keep %s %s %d" % [src, str(ki.get("cmp", ">")), int(ki.get("k", 0))]
+		"route":
+			var keys := outputs.keys()
+			keys.sort()
+			return "route: %s" % ", ".join(PackedStringArray(keys))
+		"correlate":
+			return "match %s" % " + ".join(PackedStringArray(sources))
 		"paired":
 			var src := str(_first_op("add_src").get("src", "key"))
 			if _is_caesar_paired():

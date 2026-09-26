@@ -98,6 +98,9 @@ var net: Dictionary = {}
 var device: String = ""  # plugged module kind, "" = none (docs/SYSTEMS_EXPANSION.md §2)
 var last_device: String = ""  # kind of the last plugged module; keeps the wire valid after removal
 var socket := false  # true = lab socket semantics (module stream + 2-slot FIFO overrun)
+## The remote source a Database Dump stick streams ("" = none): its values are that source's
+## records, stamped with origins "source" so contracts can judge them (DATA_FACTORY §9.1).
+var stream_source := ""
 ## Test mode (JOB C7a): the socket generates nothing; test vectors arrive via emit_test.
 ## A setting, like `device` — reset() must not clear it.
 var test_mode := false
