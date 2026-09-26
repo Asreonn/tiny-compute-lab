@@ -40,7 +40,8 @@ static func run(t) -> void:
 	_stages(t)
 	_gate(t)
 	_isolated(t)
-	_cluster_and_pipes(t)
+	_packed_cluster(t)
+	_network(t)
 	_processor(t)
 	_critical(t)
 	_brownout_blower(t)
@@ -118,41 +119,183 @@ static func _isolated(t) -> void:
 	t.check(oc.heat_stage >= S.HOT, "an overclocked Add (x4 heat) runs HOT or worse (t=%d)" % oc.temp)
 
 
-static func _cluster_and_pipes(t) -> void:
+static func _packed_cluster(t) -> void:
 	var sim := _sim()
 	var cl := _cluster(sim)
 	var peak: Array = _run(sim, cl)
 	t.check(_max_stage(cl) == S.HOT and peak.max() == S.HOT, "four Adds packed edge to edge reach HOT without throttling (t=%d)" % cl[0].temp)
-	var hot := _max_stage(cl)
-	# the same cluster with a 3-cell heat pipe chain to a heatsink
+
+
+## P7b: the ThermalNetwork is plugged into the grid. Heat pipes are raised hardware now — they
+## carry heat only through the network model (offers → allocation → sink dump), never by
+## conduction, so the old "pipe chain to a heatsink" cases are replaced by the network ones.
+static func _network(t) -> void:
+	_network_radiator(t)
+	_network_fin_stack(t)
+	_network_third_blower(t)
+	_network_recirculate(t)
+	_network_pipe_material(t)
+	_network_conservation(t)
+
+
+## Pipes from the Processor's contact tile (10,9) to the west inlet of a sink at (9, rad_y).
+static func _pipe_run(sim: Simulation, rad_y: int, pipe := "heat_pipe") -> void:
+	sim.place(pipe, Vector2i(10, 9), 0, {}, 3)
+	sim.place(pipe, Vector2i(9, 9), 0, {}, 3)
+	for y in range(9, rad_y - 1, -1):
+		sim.place(pipe, Vector2i(8, y), 0, {}, 3)
+
+
+## A Processor piped into a top-edge Radiator with two Blowers stays <= WARM; without the
+## network the same Processor reaches THROTTLING (the existing calibration above).
+static func _network_radiator(t) -> void:
+	var sim := _sim()
+	var p := sim.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim, 0)
+	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	var peak: Array = _run(sim, [p])
+	t.check(peak[0] <= S.WARM, "a Processor piped into a top-edge Radiator stays <= WARM (t=%d)" % p.temp)
+	t.check(sim.thermal.net.network_of(p.id) != "" and sim.thermal.net.sinks()[0]["exhaust_out"], "the Processor is attached and the Radiator exhausts out")
+
+
+## The same pipe run into a passive Fin Stack (capacity 400, no airflow) caps the removal lower
+## than the Radiator's 1600, so a fast Processor runs hotter with it.
+static func _network_fin_stack(t) -> void:
+	var sim := _sim()
+	var p := sim.place("processor", Vector2i(10, 10), 0, {"clock": "fast"}, 3)
+	_pipe_run(sim, 0)
+	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	_run(sim, [p])
+	var with_radiator := p.temp
 	var sim2 := _sim()
-	var cl2 := _cluster(sim2)
-	for x in [21, 22, 23]:
-		sim2.place("heat_pipe", Vector2i(x, 10), 0, {}, 3)
-	sim2.place("heatsink", Vector2i(24, 10), 0, {}, 3)
-	_run(sim2, cl2)
-	t.check(_max_stage(cl2) <= hot - 1, "a 3-cell heat pipe to a heatsink lowers the cluster by >= 1 stage (%s)" % str(cl2.map(func(m): return m.temp)))
-	# the heatsink alone at the same distance barely helps: the pipe does the work
-	var sim3 := _sim()
-	var cl3 := _cluster(sim3)
-	sim3.place("heatsink", Vector2i(24, 10), 0, {}, 3)
-	_run(sim3, cl3)
-	t.check(_max_stage(cl3) == S.HOT, "without the pipe the distant heatsink leaves the cluster HOT")
-	# a vertical chain works the same way (rotation = axis)
-	var sim4 := _sim()
-	var cl4 := _cluster(sim4)
-	for y in [12, 13, 14]:
-		sim4.place("heat_pipe", Vector2i(18, y), 1, {}, 3)
-	sim4.place("heatsink", Vector2i(18, 15), 0, {}, 3)
-	_run(sim4, cl4)
-	t.check(_max_stage(cl4) <= hot - 1, "a vertical pipe chain (rotated) cools the cluster too")
-	# pipes are insulated sideways: a pipe running past the cluster (across its axis) does nothing
-	var sim5 := _sim()
-	var cl5 := _cluster(sim5)
-	for x in [17, 18, 19]:
-		sim5.place("heat_pipe", Vector2i(x, 9), 0, {}, 3)  # horizontal, along the cluster's top edge
-	_run(sim5, cl5)
-	t.check(_max_stage(cl5) >= S.HOT, "a pipe touching the cluster only with its insulated side moves no heat")
+	var p2 := sim2.place("processor", Vector2i(10, 10), 0, {"clock": "fast"}, 3)
+	_pipe_run(sim2, 0)
+	sim2.place("fin_stack", Vector2i(9, 0), 0, {}, 3)
+	var peak2: Array = _run(sim2, [p2])
+	t.check(p2.temp > with_radiator, "a passive Fin Stack runs the Processor hotter than the Radiator (%d vs %d)" % [p2.temp, with_radiator])
+	t.check(peak2[0] > S.WARM, "…and pushes it past WARM (peak %d)" % peak2[0])
+
+
+## A third Blower under the Radiator feeds no sink tile, so it changes nothing: the Processor's
+## temperature after 300 ticks is identical.
+static func _network_third_blower(t) -> void:
+	var sim := _sim()
+	var p := sim.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim, 0)
+	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	_run(sim, [p], 300)
+	var base := p.temp
+	var sim2 := _sim()
+	var p2 := sim2.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim2, 0)
+	sim2.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim2.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim2.place("blower", Vector2i(10, 2), 0, {}, 3)
+	sim2.place("blower", Vector2i(12, 2), 0, {}, 3)
+	_run(sim2, [p2], 300)
+	t.check(p2.temp == base, "a third Blower under the Radiator changes nothing (%d vs %d)" % [base, p2.temp])
+
+
+## A Radiator at the top edge exhausts out of the computer; moved down one row its exhaust tiles
+## lie inside the board, so the dumped heat recirculates and the board runs hotter.
+static func _network_recirculate(t) -> void:
+	var sim := _sim()
+	var p := sim.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim, 0)
+	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	_run(sim, [p])
+	var edge_total := 0
+	for v in sim.thermal.t:
+		edge_total += v
+	var sim2 := _sim()
+	var p2 := sim2.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim2, 1)
+	sim2.place("radiator", Vector2i(9, 1), 0, {}, 3)
+	sim2.place("blower", Vector2i(9, 3), 0, {}, 3)
+	sim2.place("blower", Vector2i(10, 3), 0, {}, 3)
+	_run(sim2, [p2])
+	var moved_total := 0
+	for v in sim2.thermal.t:
+		moved_total += v
+	t.check(p2.temp > p.temp or moved_total > edge_total, "a recirculating Radiator leaves the Processor or the board hotter (%d/%d vs %d/%d)" % [p2.temp, moved_total, p.temp, edge_total])
+
+
+## Three wide Adds (84×6 = 504 heat/tick each, 1512 > the copper 800) piped through copper vs
+## heavy pipes: the copper caps the removal at 800, the heavy pipe passes it all.
+static func _network_pipe_material(t) -> void:
+	var copper := _pipe_adds("heat_pipe")
+	var heavy := _pipe_adds("heat_pipe_heavy")
+	t.check(heavy[0] < copper[0], "three Adds through a heavy pipe run cooler than through copper (peak %d vs %d)" % [heavy[0], copper[0]])
+	t.check(heavy[1] < copper[1], "…and their hottest tile stays below the copper case (%d vs %d)" % [heavy[1], copper[1]])
+
+
+## Three width-64 Adds piped into a top-edge Radiator with two Blowers. Returns [peak stage,
+## hottest tile] after SETTLE ticks.
+static func _pipe_adds(pipe: String) -> Array:
+	var sim := _sim()
+	var adds := []
+	for x in [10, 12, 14]:
+		adds.append(sim.place("add", Vector2i(x, 10), 0, {"k": 1}, 64))
+	for x in [10, 11, 12, 13, 14, 15]:
+		sim.place(pipe, Vector2i(x, 9), 0, {}, 3)
+	sim.place(pipe, Vector2i(9, 9), 0, {}, 3)
+	for y in range(9, -1, -1):
+		sim.place(pipe, Vector2i(8, y), 0, {}, 3)
+	sim.place("radiator", Vector2i(9, 0), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 2), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 2), 0, {}, 3)
+	var peak: Array = _run(sim, adds)
+	var hot := 0
+	for a in adds:
+		hot = maxi(hot, a.temp)
+	return [peak.max(), hot]
+
+
+## With no sink exhausting out, the removal is internal: the dump equals the removal and the
+## board only cools by the ambient/edge dissipation (the existing conservation style).
+static func _network_conservation(t) -> void:
+	var sim := _sim()
+	var p := sim.place("processor", Vector2i(10, 10), 0, {}, 3)
+	_pipe_run(sim, 1)
+	sim.place("radiator", Vector2i(9, 1), 0, {}, 3)
+	sim.place("blower", Vector2i(9, 3), 0, {}, 3)
+	sim.place("blower", Vector2i(10, 3), 0, {}, 3)
+	_run(sim, [p], 500)
+	var rsum := 0
+	for v in sim.thermal.last_alloc.get("removal", {}).values():
+		rsum += v
+	var dsum := 0
+	for v in sim.thermal.last_alloc.get("dump", {}).values():
+		dsum += v
+	t.check(rsum == dsum, "recirculated removal equals the dump (%d == %d)" % [rsum, dsum])
+	p.jobs.clear()
+	var prev := 0
+	for v in sim.thermal.t:
+		prev += v
+	var grew := false
+	var never_neg := true
+	for i in 6000:
+		sim.step()
+		var cur := 0
+		for v in sim.thermal.t:
+			cur += v
+		grew = grew or cur > prev
+		prev = cur
+		if i % 50 == 0:
+			for v in sim.thermal.t:
+				never_neg = never_neg and v >= 0
+	var cold := true
+	for v in sim.thermal.t:
+		cold = cold and v == 0
+	t.check(not grew and cold and never_neg, "with no exhaust the board only cools by dissipation (grew=%s cold=%s never_neg=%s)" % [grew, cold, never_neg])
 
 
 static func _processor(t) -> void:

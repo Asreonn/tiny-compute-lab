@@ -12,10 +12,11 @@ const ENTER := [0, 250, 450, 600, 750]
 const EXIT_GAP := 50
 
 const K_BOARD := 8  # /64 per tile edge
-const K_PIPE := 24  # /64 along a heat pipe and into its end pads; pipe sides are insulated (0)
 const D_AMBIENT := 8  # /1024 per tick
 const D_EDGE := 32  # /1024 per board side a tile lies on (the chassis leaks a little)
 ## Cooling machines: [dissipation bonus /1024, Chebyshev radius, scales with the power it gets].
+## LEGACY: radius cooling for unattached blowers/radiators keeps the pre-overhaul levels
+## solvable; the progression rewrite (P13) removes it.
 const COOLERS := {
 	"heatsink": [128, 1, false],
 	"blower": [160, 2, true],
@@ -28,9 +29,14 @@ var dissipation := PackedInt32Array()  # d per tile on the last step (the therma
 var _base_d := PackedInt32Array()
 var _kx := PackedInt32Array()  # conductance of edge (x,y)-(x+1,y)
 var _ky := PackedInt32Array()  # conductance of edge (x,y)-(x,y+1)
-var _bodies: Array[PackedInt32Array] = []  # isothermal groups: machine footprints, pipe chains
+var _bodies: Array[PackedInt32Array] = []  # isothermal groups: machine footprints
 var _sig := -1  # layout hash the topology was built for
 var _box := Rect2i()  # every tile with t != 0 lies inside (empty = a cold board)
+var net: ThermalNetwork = null  # the thermal path model for the current layout
+var last_alloc := {}  # the last allocate() result (the thermal overlay reads it)
+var last_offers := {}  # the last tick's offers (the thermal overlay reads it)
+var _sink_tiles := {}  # tile -> true for every sink footprint (legacy blower check)
+var _net_tiles := {}  # tile -> true for every transport/manifold footprint (legacy radiator check)
 
 
 func _init(board: Vector2i) -> void:
@@ -80,13 +86,8 @@ static func celsius(temp: int) -> float:
 	return 25.0 + temp / 10.0
 
 
-## Heat pipe axis from its rotation: true = horizontal (E–W).
-static func pipe_horizontal(m: Machine) -> bool:
-	return m.rot % 2 == 0
-
-
-## One tick: generate → diffuse → equalise → dissipate. `mids` are the machine ids in ascending
-## order; each machine's work_done this tick drives its heat.
+## One tick: generate → diffuse → equalise → network removal → dissipate. `mids` are the machine
+## ids in ascending order; each machine's work_done this tick drives its heat.
 ##
 ## Only the warm part of the board is visited: `_box` bounds every tile that may hold heat, so a
 ## cold board costs nothing and a hot corner costs its own size. Every skipped tile and edge is
@@ -113,6 +114,14 @@ func step(sim, mids: Array) -> void:
 	for id in mids:
 		var m: Machine = sim.machines[id]
 		if not COOLERS.has(m.type):
+			continue
+		# LEGACY: radius cooling for unattached blowers/radiators keeps the pre-overhaul levels
+		# solvable; the progression rewrite (P13) removes it. Attached cooling runs through the
+		# ThermalNetwork instead, and the new parts (fin_stack / radiator_large / blower_hp /
+		# fan_bank) never get a radius bonus.
+		if m.type == "blower" and _feeds_sink(m):
+			continue
+		if m.type == "radiator" and _inlet_on_network(m):
 			continue
 		var spec: Array = COOLERS[m.type]
 		var bonus: int = spec[0]
@@ -159,7 +168,7 @@ func step(sim, mids: Array) -> void:
 						nt[i + w] += f2
 	t = nt
 	_box = b
-	# 3. equalise machine bodies and heat-pipe chains (a long chain may carry heat past the box)
+	# 3. equalise machine bodies (a long chain may carry heat past the box)
 	for body in _bodies:
 		var s := 0
 		for c in body:
@@ -171,6 +180,76 @@ func step(sim, mids: Array) -> void:
 		for j in body.size():
 			t[body[j]] = q2 + (1 if j < r else 0)
 			_include(body[j] % w, body[j] / w)
+	# 3.5 network removal: every connected machine offers a quarter of its body heat to the path;
+	# sinks dump it out of the computer or recirculate it into their exhaust tiles. Removal only
+	# lowers tiles (no box growth); recirculated dump tiles must be _include()d.
+	last_offers = {}
+	last_alloc = {}
+	if net != null:
+		var offers := {}
+		for id in mids:
+			var m: Machine = sim.machines[id]
+			if net.network_of(id) == "":
+				continue
+			var cells := _cells_sorted(m)
+			var body := 0
+			for c in cells:
+				body += t[c]
+			if body <= 0:
+				continue
+			var offer := mini(net.contact_cap(id), body / 4)
+			if offer <= 0:
+				continue
+			offers[id] = offer
+		last_offers = offers
+		if not offers.is_empty():
+			var alloc := net.allocate(offers)
+			last_alloc = alloc
+			var removal: Dictionary = alloc["removal"]
+			for id in offers:
+				var rem := int(removal.get(id, 0))
+				if rem <= 0:
+					continue
+				var cells := _cells_sorted(sim.machines[id])
+				var body := 0
+				for c in cells:
+					body += t[c]
+				var taken := 0
+				for c in cells:
+					var d := t[c] * rem / body
+					t[c] -= d
+					taken += d
+				var left := rem - taken
+				if left > 0:
+					t[cells[0]] = maxi(0, t[cells[0]] - left)
+			var dump: Dictionary = alloc["dump"]
+			for sid in dump:
+				var dv := int(dump[sid])
+				if dv <= 0:
+					continue
+				var m: Machine = sim.machines[sid]
+				var s: Vector2i = Catalog.size_of(m.type, 0)
+				var exhausts := []
+				for x in s.x:
+					exhausts.append(Vector2i(m.cell.x + x, m.cell.y - 1))
+				var out := true
+				for e in exhausts:
+					if e.y >= 0:
+						out = false
+				if out:
+					continue  # the heat leaves the computer
+				var inside := []
+				for e in exhausts:
+					if e.y >= 0 and e.x >= 0 and e.x < size.x:
+						inside.append(e)
+				if inside.is_empty():
+					continue
+				var q := dv / inside.size()
+				var r := dv - q * inside.size()
+				for j in inside.size():
+					var e: Vector2i = inside[j]
+					t[idx(e)] += q + (1 if j < r else 0)
+					_include(e.x, e.y)
 	# 4b. dissipate (rounded up so every warm tile keeps cooling), shrinking the box to the tiles
 	# still warm
 	var lo := Vector2i(size.x, size.y)
@@ -219,6 +298,7 @@ func _ensure_topology(sim, mids: Array) -> void:
 		return
 	_sig = sig
 	_build_topology(sim, mids)
+	net = ThermalNetwork.build(sim)
 
 
 func _build_topology(sim, mids: Array) -> void:
@@ -228,57 +308,35 @@ func _build_topology(sim, mids: Array) -> void:
 	_kx.fill(K_BOARD)
 	_ky.fill(K_BOARD)
 	_bodies = []
-	var pipe := {}  # tile index -> true if horizontal
+	_sink_tiles = {}
+	_net_tiles = {}
 	for id in mids:
 		var m: Machine = sim.machines[id]
-		if m.type == "heat_pipe":
-			pipe[idx(m.cell)] = pipe_horizontal(m)
-		elif m.footprint().size() > 1:
-			_bodies.append(_cells_sorted(m))
-	if pipe.is_empty():
-		return
-	# pipe edges: along the axis (pipe-pipe or into an end pad) = K_PIPE, across = insulated
-	for i in pipe:
-		var x: int = i % size.x
-		var y: int = i / size.x
-		if x + 1 < size.x:
-			_kx[i] = _pipe_edge(pipe, i, i + 1, true)
-		if x > 0:
-			_kx[i - 1] = _pipe_edge(pipe, i - 1, i, true)
-		if y + 1 < size.y:
-			_ky[i] = _pipe_edge(pipe, i, i + size.x, false)
-		if y > 0:
-			_ky[i - size.x] = _pipe_edge(pipe, i - size.x, i, false)
-	# chains: pipes joined by an edge that runs along either pipe's axis (straights and elbows)
-	var seen := {}
-	var keys := pipe.keys()
-	keys.sort()
-	for start in keys:
-		if seen.has(start):
+		if m.type in ThermalNetwork.TRANSPORT or m.type == ThermalNetwork.MANIFOLD:
+			# transport tiles are raised hardware now: no isothermal bodies, no pipe edges
+			for c in m.footprint():
+				_net_tiles[c] = true
 			continue
-		var chain := PackedInt32Array()
-		var stack := [start]
-		while not stack.is_empty():
-			var c: int = stack.pop_back()
-			if seen.has(c):
-				continue
-			seen[c] = true
-			chain.append(c)
-			var cx: int = c % size.x
-			var cy: int = c / size.x
-			for nb in [[c - 1, cx > 0, true], [c + 1, cx + 1 < size.x, true], [c - size.x, cy > 0, false], [c + size.x, cy + 1 < size.y, false]]:
-				if nb[1] and pipe.has(nb[0]) and not seen.has(nb[0]) and (pipe[c] == nb[2] or pipe[nb[0]] == nb[2]):
-					stack.append(nb[0])
-		chain.sort()
-		if chain.size() > 1:
-			_bodies.append(chain)
+		if m.type in ThermalNetwork.SINKS:
+			for c in m.footprint():
+				_sink_tiles[c] = true
+		if m.footprint().size() > 1:
+			_bodies.append(_cells_sorted(m))
 
 
-## Conductance of the edge a→b (b is right of / below a) when at least one side is a heat pipe.
-static func _pipe_edge(pipe: Dictionary, a: int, b: int, horizontal_edge: bool) -> int:
-	var pa = pipe.get(a)
-	var pb = pipe.get(b)
-	if pa != null and pb != null:
-		return K_PIPE if (pa == horizontal_edge or pb == horizontal_edge) else 0
-	var p = pa if pa != null else pb
-	return K_PIPE if p == horizontal_edge else 0
+## True when any tile directly north of the blower belongs to a sink footprint (it feeds the
+## network model instead of using its legacy radius bonus).
+func _feeds_sink(m: Machine) -> bool:
+	for x in Catalog.size_of(m.type, 0).x:
+		if _sink_tiles.has(Vector2i(m.cell.x + x, m.cell.y - 1)):
+			return true
+	return false
+
+
+## True when any inlet tile (west of the left column) is a transport/manifold tile (the radiator
+## is attached to the network model instead of using its legacy radius bonus).
+func _inlet_on_network(m: Machine) -> bool:
+	for y in Catalog.size_of(m.type, 0).y:
+		if _net_tiles.has(Vector2i(m.cell.x - 1, m.cell.y + y)):
+			return true
+	return false
