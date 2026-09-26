@@ -13,5 +13,10 @@
   - All data is a `BitVector`; NUMBER/CHAR/HEX are `ViewMode` interpretations only.
 - Visual style is LOCKED (`docs/STYLE_GUIDE.md`). Use the exported assets in `assets/art/` and
   tokens from `core/visual/palette.gd`; never invent new colours, shapes or materials.
+- Content is data: machines, sticks, levels and campaign rules are `.tres` assets under `content/`
+  (`docs/CONTENT.md`). Add or tune content there, not in code tables.
+- The factory systems (bus/compute lanes, power network, thermal caps) are specified in
+  `docs/FACTORY_SYSTEMS.md`. Performance: `tools/perf_probe.gd`, `docs/PERFORMANCE.md`. New views must
+  be change-driven.
 - GDScript style: tabs, typed vars where practical, `##` doc comments, match surrounding code.
 - Never commit; the orchestrator reviews and commits.

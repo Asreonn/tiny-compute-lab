@@ -399,3 +399,26 @@ Game rules: `docs/SYSTEMS_EXPANSION.md`.
 - Overload: the gauge turns red with overflow chevrons. The brownout is global, so no machine is
   marked individually.
 
+
+## 22. Factory growth overhaul → Godot (locked 2026-09-26; STYLE_GUIDE §15, Penpot `21`–`24`)
+
+| Penpot | Godot | Notes |
+|---|---|---|
+| Bus classes × lanes (`21/01`) | `world/connections/connection_view.gd` | Trench/edge widths from new `Palette` consts: `SIG_CLASS_TRENCH` {trace 8, byte 12, wide 16, backbone 22}, `SIG_LANE_TRENCH` {1: 8, 2: 12, 4: 16, 8: 22}, `SIG_LANE_CORE` {1: 2.5, 2: 2, 4: 1.4, 8: 1}. One core `Line2D` per lane via `SignalGeom.offset_poly`. Rails are two offset lines; backbone bands are drawn by the overlay layer. The class comes from `Connection.class_of(width)`, not from port `bus` flags (those stay only as the BusPort look). |
+| Lane beads (`21/01`) | `world/packets/packet_layer.gd` | Location `lane` → perpendicular offset; lanes > 1 draw the bead + tail instead of the chip |
+| Saturation tag / amber edge | `world/overlays/systems_overlay.gd` (Data mode) | Reads `Connection.saturated` history (Simulation metrics); never on the normal board |
+| Lane slices + MKn silk (`21/02`) | `world/machines/machine_view.gd` → new `LaneSlices` child painter (show_behind_parent = false) | Redraws only when `lane_progress()` changes (tick key) or while interpolating; geometry per size from STYLE_GUIDE §15.2 |
+| `ResourceIndicators` removal | `machine_view.gd` | Delete the RI node and its `_ri.set_data` call; the numbers move to the hover card |
+| Rails, Distribution Board, Lab Power Input (`22/03`) | new `world/power/power_part_view.gd` (a `ThermalPartView`-style painter per placed rail/board; rails join to neighbours like heat pipes); the Lab Power Input is a desk/laptop fixture drawn by `world/desk/desk_view.gd` next to the PSU | Bolts, grooves and lugs as in §15.3; brass α .55 |
+| Power contact / thermal contact | `machine_view.gd` `on_layout()` | Computed from `sim.occupancy()` adjacency to a rail / pipe end / manifold / cold plate; cached in the view key |
+| Manifold, liquid family (`22/04`) | `ThermalPartView` kinds `thermal_manifold`, `pump`, `cold_plate`, `reservoir`, `radiator_large`, `coolant_pipe` | Coolant pipes join like heat pipes (any orthogonal neighbour) |
+| Overlays (B / P / T / C) | `world/overlays/systems_overlay.gd` + `ui/hud/view_dock.gd` (+ key `C`) | One at a time; the board dims α .45–.55 |
+| Hover card v2 | `ui/hud/hover_card.gd` | New rows per §15.5 |
+| Upgrade card, wire card | new `ui/hud/upgrade_card.gd`, `ui/hud/wire_card.gd` | Opened from the quick bar (`U`) or by clicking a wire; data from `Simulation.upgrade_preview` |
+| Quick bar Upgrade | `ui/hud/quick_bar.gd` | New icon `assets/art/icon/icon_upgrade.svg` (double chevron, 20×20, 2 px stroke) |
+| Top bar power chip, contract bound line | `ui/hud/top_bar.gd`, `ui/hud/mission_summary.gd` / contract pane | Chips reuse the `HudKit` chip style (sunken, 1 px border, 8.5 px 800) |
+
+Rules that carry over:
+- Views read the simulation only.
+- Every new painter is change-driven (a `view_key` plus a tick key), exactly like the perf pass of
+  2026-09-26 (`docs/PERFORMANCE.md`).

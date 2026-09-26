@@ -261,7 +261,42 @@ later (see `docs/IMPLEMENTATION.md` slice E).
 - **Tokens:** colours and sizes come only from `core/visual/palette.gd` (generated from
   `design/tokens.json`). No art-direction changes: Style Lock V1 is canonical.
 
-## 8. Tests
+## 8. Content layer (docs/CONTENT.md)
+
+Machines, sticks, levels and the campaign rules are Godot Resources under `content/`:
+- `ComponentDef` / `DeviceDef` / `LevelDef` / `LabConfig`, and `ContentVariant` for variants.
+- `ContentDB` scans the folders. `Catalog`, `Devices` and `LabDef` build their tables from them at
+  start-up.
+- **A placed variant:** `Machine.type` = the base (behaviour and art), `Machine.variant` = the
+  variant id, `def_id()` for data and saves.
+- Registries `reload()` / `register()` at run time.
+
+## 9. Capacity model (docs/FACTORY_SYSTEMS.md)
+
+- **Wires:** `Connection.lanes` 1/2/4/8 are parallel conveyors.
+  - Push goes to the lowest free lane.
+  - Deliver takes the oldest head first, up to `lanes` per tick.
+  - `saturated` is flagged when the entry was refused while the wire flowed.
+  - The class (Trace / Byte / Wide / Backbone) is derived from the width.
+  - `Simulation.set_wire_lanes`.
+- **Machines:** `Machine.jobs` holds up to `lanes()` parallel jobs (`job` is a read alias of lane 0).
+  - Results queue in `outq` (head) + `out_backlog`, and leave as fast as the wire takes them.
+  - A lane starts only while `jobs + waiting results < lanes` (back-pressure).
+  - Power demand = rated × lanes × width factor × clock × efficiency, in integer quarters.
+  - Heat scales with the work done over all lanes.
+- **Sources and sinks:**
+  - Sockets emit `burst` values per emission (FIFO 2 × burst) and push as many per tick as the wire
+    accepts.
+  - Output sinks judge everything that arrives in a tick.
+- **Contracts:** `sustain` makes `min_rate` hold for N Lab seconds.
+- **Power network** (`core/power/`): the tree Input → Onboard + rail networks → boards → branches.
+  - The brownout applies per tree level: `r = max(1, r × cap / load)` at every overloaded node on
+    the machine's path.
+  - It is rebuilt only when the layout changes.
+- **Thermal:** heat-pipe chain transport caps, the manifold (joins chains), radiator/heatsink/blower
+  dissipation caps, and the liquid loop (pool model). Everything stays integer and conservative.
+
+## 10. Tests
 
 Run with `make test` (imports, then runs `tests/run_tests.gd` headless). Everything in `core/` and
 `game/` is covered headless:

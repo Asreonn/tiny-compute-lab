@@ -1,7 +1,7 @@
 # Tiny Compute Lab — Factory Systems (the growth overhaul)
 
-> Status: **design, 2026-09-26.** It becomes LOCKED with the commit "Factory growth overhaul design
-> locked". Source brief: `overhaulplan.md`. Levels: `docs/PROGRESSION.md`. Look: Penpot pages 20–26,
+> Status: **LOCKED 2026-09-26** (commit "Factory growth overhaul design locked").
+> Source brief: `overhaulplan.md`. Levels: `docs/PROGRESSION.md`. Look: Penpot pages 21–24,
 > summarised in `docs/STYLE_GUIDE.md §15`. Numbers marked *(cal.)* are calibration targets, tuned by
 > tests rather than by eye.
 >
@@ -169,8 +169,12 @@ New contract constraints (they join `count`, `min_rate`, `max_power`, `max_heat`
 | Distribution Board | `power_board` | M | 32 | L12 | a hub: it splits one incoming network into independent branch networks |
 | Heavy Distribution Board | `power_board_heavy` | M | 96 | L22 | a variant of `power_board` |
 
-Rails and boards occupy tiles. Nothing else may share a rail tile, and wires never cross rails.
-They draw no power and make no heat.
+Rails and boards occupy tiles; no machine shares a rail tile. **A data wire may cross a straight
+rail tile at a right angle** (a bridge, exactly like crossing another wire: `Router.CROSS_COST`),
+but never runs along a rail and never crosses a rail junction, end or board. This is what lets a
+rail spine run between two machine rows (machine row / rail row / machine row) and be fed by a
+riser that bridges the data lines. Heat pipes and coolant pipes stay walls: nothing crosses them.
+Rails and boards draw no power and make no heat.
 
 ### 5.2 The network (deterministic, rebuilt only when the layout changes)
 1. **Rail networks.** A rail network is a maximal set of orthogonally adjacent rail tiles, of any

@@ -146,3 +146,13 @@ Pass-through probes that re-interpret the bits flowing through them.
 4. Mux/Demux/Type Switch: control ports reuse Gate's N control.
 5. Buses + conversion (BusPort, WidthTag, procedural bus renderer).
 6. Memory (Register → RAM/ROM), then ALU/Decoder/PC for CPU-style missions.
+
+## 6. Factory growth overhaul (2026-09-26, `docs/FACTORY_SYSTEMS.md`, Penpot `21`–`24`)
+
+| Family | Parts | Size | Status |
+|---|---|---|---|
+| Power *(new, brass)* | Lab Power Input (fixture), Power Rail, Heavy Power Rail, Power Backbone, Distribution Board, Heavy Distribution Board | fixture / S chain / M | designed (page 22/03); DS phases 5–6 |
+| Thermal additions | Thermal Manifold | M | designed (22/04); phases 7–9 |
+| Liquid cooling | Pump, Coolant Pipe, Cold Plate, Reservoir, Large Radiator | S / S chain / L | designed (22/04); phase 9 |
+| Upgrades | lanes 1/2/4/8 (lane slices), efficiency, bus lanes | — | simulation done (phase 1); visuals phase 10 |
+| Compute gaps | Subtract, Increment, Decrement, Queue, Signed Decimal Viewer, Width Converter | M | kit exists (page 14); phase 14 |

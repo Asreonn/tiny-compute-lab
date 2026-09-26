@@ -188,3 +188,17 @@ About 5 s, played on game launch only (not on every board load). Any click or ke
 
 **Board edges** (laptop illusion): the locked USB Inputs sit in column 0 and the Contract Drive in
 the last two columns. Their modules protrude past the board edge, through the laptop's side ports.
+
+## 11. Factory growth overhaul motion (locked 2026-09-26)
+
+| Element | Motion | Ladder |
+|---|---|---|
+| Lane slice fill | Continuous, from `lane_progress()` + the SimulationManager alpha. A finished lane empties in one frame. | L2 |
+| Upgrade applied | New slices grow from 0 to full height in 150 ms, staggered 30 ms left → right. A removed slice fades 120 ms. | L2 |
+| Lane beads | Travel like packets: constant speed along their lane offset. The tail follows the path. | L1 |
+| Saturation tag (Data overlay) | Fades in 150 ms. The amber edge is static (no pulse). | L3 |
+| Breaker trip (overload) | The lever drops in 120 ms, the LED goes ◆. The PSU keeps its existing overload pulse (≤ 2 pulses, then steady). | L5 |
+| Overlay switch | The board dim cross-fades in 200 ms. Chips fade in 150 ms, staggered 20 ms. | — |
+| Pump / Large Radiator fans | The impeller rotates at `rate / 12` × 1 turn/s, ramping over 400 ms when starting or stopping. A running Blower is unchanged. | L1 |
+| Coolant chevrons (Thermal overlay only) | Crawl along the loop at 24 px/s × (flow / 400). | L1 |
+| Bridge | Static; no animation. | — |

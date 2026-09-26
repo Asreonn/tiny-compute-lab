@@ -1,6 +1,6 @@
 # Tiny Compute Lab — Progression (factory-growth eras)
 
-> Status: **design, 2026-09-26**, locked with `docs/FACTORY_SYSTEMS.md`.
+> Status: **LOCKED 2026-09-26** with `docs/FACTORY_SYSTEMS.md`.
 > - Replaces the level table of `docs/SYSTEMS_EXPANSION.md §10`. Contract kinds, ops and
 >   constraints are unchanged, apart from the additions in FACTORY_SYSTEMS §4.
 > - Levels are LevelDef assets in `content/lab/levels/`, and the order is in `content/lab/lab.tres`

@@ -325,3 +325,169 @@ The body is never tinted.
 ### 14.9 Interaction and overlays (pages `18`, `19`)
 Hover card, quick action bar, smart-wire targets, connected-move hologram, palette QoL, and the thermal
 and power overlays. Exact numbers are in `docs/VISUAL_SYSTEM.md §21` and `systems_v1.js`.
+
+## 15. Factory growth overhaul (locked 2026-09-26; Penpot pages `21`–`24`)
+
+The rules are in `docs/FACTORY_SYSTEMS.md`. The Penpot helpers (bus, lane slices, rails, boards,
+liquid parts) are stored in the file as plugin data `tcl/lib12` (restore after `lib`…`lib11`). As
+always, this **extends** Style Lock V1: no new colours, no new materials.
+
+**One colour per system:**
+
+| System | Colour |
+|---|---|
+| Data | teal / magenta / IO green |
+| Power | brass `material.gold` on a dark insulator |
+| Heat | copper |
+| Coolant | dark tubes with copper fittings |
+
+Width is never shown by colour.
+
+### 15.1 Bus classes × lanes (page `21 / 01`)
+
+**Trench** width = `max(class, lanes)`:
+- Class: Trace 8, Byte 12, Wide 16, Backbone 22.
+- Lanes: 1 → 8, 2 → 12, 4 → 16, 8 → 22.
+- The edge is the trench + 2.
+
+**Class marks** (inside the trench):
+
+| Class | Marks |
+|---|---|
+| Trace | plain `material.vent` |
+| Byte Bus | two 1.25 px rails (`machine.frame-hover` α .9) at ±(T/2 − 1.25) |
+| Wide Bus | rails, with the trench filled `bg.trace` |
+| Backbone | Wide + 1 px cross-bands every 16 px (`material.frame` α .45) |
+
+**Lane cores:**
+- One core per lane, in the data colour, α .55 (idle .30, selected .80).
+- Core width: 2.5 (1 lane) · 2 (2) · 1.4 (4) · 1 (8).
+- Cores are evenly spread in trench − 5 px; 2 lanes use 55 % of that spread.
+
+**Packets on lanes > 1:**
+- A lane bead replaces the chip: a 9×3.6 px (lanes ≤ 2) or 6×2.4 px (lanes > 2) head in
+  `text.primary` with a data-colour centre.
+- A tail of 26 / 18 px at α .35.
+- A 1-lane Trace keeps today's packet chip.
+
+**Width tag:** `8b ×4` (sunken, 9 px, border-strong) on long runs and at width changes.
+
+**Saturated (Data overlay only, L3):**
+- A 1 px amber edge at α .65.
+- A tag `BANDWIDTH n/n`, and the width tag border turns amber.
+- A saturated wire is never drawn amber on the normal board.
+
+**Routing:** chamfers are 18 on every bus, and lanes are offset in parallel (miter).
+
+### 15.2 Lane slices (page `21 / 02`)
+
+Lane slices are real die slices, one per lane. They are drawn only when lanes > 1.
+
+| Size | Geometry | Position |
+|---|---|---|
+| M | 4×10, 2 px gap | row at (64, 44) |
+| L | 5×14, 2 px gap | row at (64, 98) |
+| S | 6×3 bars, 1 px gap | column at (45, 16) from the bottom up |
+
+- **Slice:** `material.die` with a 0.75 px `machine.frame-hover` α .8 rim.
+- **Busy fill:** bottom-up = that lane's job progress, in the family accent at α .85 (L2).
+- The 1-lane machine keeps its progress ring.
+- **Silk:** `MKn` at 7 px, `material.silk` α .5, at (18, 53) on M and (16, 110) on L. It is the only
+  new text on a chassis.
+- **Removed from every chassis:** `ResourceIndicators` (clock dots, power pips, tick pips). The
+  numbers live in hover, the Inspector and the overlays.
+- **Compute-bound (Compute overlay only, L3):** a 1 px amber bracket around the slices and a tag
+  `COMPUTE-BOUND n/n`.
+
+### 15.3 Power (page `22 / 03`)
+
+- **Rails:** tile chains that join by orthogonal adjacency; segments run centre → edge with square
+  caps.
+
+  | Class | Insulator (`material.plate-lo` + 1 px `material.frame` edge) | Brass bar (`material.gold`, α .55 on the normal board, .95 in the overlay) |
+  |---|---|---|
+  | Rail | 16 | 6 |
+  | Heavy | 22 | 12, with a 1.5 px `material.vent` groove |
+  | Backbone | 30 | 20, with two grooves |
+
+  - A bolt at every tile centre: `material.frame` ring with a `material.plate-hi` head.
+  - A 1 px top highlight at α .10.
+- **Distribution Board (M):**
+  - A breaker panel on a thermal-style footprint: a busbar (west), a comb, and 6 breakers (4 wide on
+    Heavy) with `text.secondary` levers.
+  - A tripped breaker drops its lever and turns it amber.
+  - Status LED V2: Idle / Blocked (near) / Error ◆ (over).
+  - Brass lugs at the west (input) and at N/S/E (branches).
+- **Lab Power Input:** a DC jack in the laptop frame (west edge, `machine.frame-hover` housing, bore,
+  gold pin, copper barrel when plugged) plus a brass terminal block on the board tile, with a
+  `DC IN` silk label.
+- **Power contact:** a 3-pin gold header (14×6) on the chassis edge that touches a rail. It is
+  hardware (L0), and a machine fed by the onboard traces has none.
+- **Bridge:** a data trace drawn over a straight rail tile at a right angle. No other mark is
+  needed: the trench edge makes the gap.
+- **Power overlay (P):**
+  - The board dims (`bg.void` α .45–.55).
+  - Rails at full brass, tinted by state: near amber, over red, as a 10 px halo at α .22.
+  - One chip per network: `BRANCH A · 12/16`.
+  - The worst node gets a dashed 1.5 px red outline (L4).
+  - Dead rails are grey (α .35) and hatched.
+  - The onboard load is shown as a chip on the laptop frame.
+
+### 15.4 Thermal and liquid (page `22 / 04`)
+
+- **Thermal contact:** a 6×3 copper pad on the chassis edge, drawn only where a pipe end, manifold
+  or cold plate touches.
+- **Thermal Manifold (M):** a copper header block (108×24, r5) with 3 stubs top and bottom, bores, and
+  screws.
+- **Liquid parts:**
+
+  | Part | Look |
+  |---|---|
+  | Pump (S) | volute with an impeller cover and 3 gold power pins |
+  | Cold Plate (S) | copper block with a micro-fin window and two barbs |
+  | Reservoir (S) | clear tube, coolant `text.secondary` α .25, copper caps |
+  | Large Radiator (L) | the Radiator core with two fans |
+
+- **Coolant Pipe:**
+  - A 16 px `material.frame` edge, 14 px `material.plate-hi` wall and 7 px `material.vent` bore,
+    with round caps.
+  - Copper fittings (18×4) at every tile joint.
+  - No colour on the normal board.
+- **Thermal overlay (T):**
+  - A heat-map tile tint (amber α ≤ .38).
+  - One chip per chain `A 150/320`, per manifold, and per radiator `DUMP 440/600`.
+  - A chip on the hottest machine.
+  - Liquid: hot runs get a 4 px amber core (α .8) and cold runs a `text.secondary` core (α .45).
+    Chevrons point along the loop flow.
+- **Floor rule:** heat pipes and coolant pipes are walls. Nothing crosses them, and they never touch
+  data wires.
+
+### 15.5 Information UX (page `23 / 05`)
+
+- **Hover card v2:** 250 wide.
+  - Title `ADD · MK3`, a family bar, and a subtitle `x + 2 · 5-bit`.
+  - Rows Width / Lanes / Rate / Power (+ network) / Heat / Temp / State / Processing: keys 9 px
+    muted, values 10 px.
+- **Upgrade card:** 360 wide.
+  - Segmented rows for Width, Lanes, Clock and Efficiency. The selected step is `state.build` at
+    α .22 with a 1 px border; a locked step is muted with a lock glyph.
+  - A before → after preview (Rate green, Power/Heat amber when they rise) and APPLY
+    (`state.build`). One undo step.
+- **Wire card:** 300 wide, with a Lanes row, Load, Carries, and a bound line.
+- **Quick bar:** Move · Duplicate · Rotate · **Upgrade** (new icon: a double chevron up) ·
+  Copy settings · Delete. Key `U` opens the Upgrade card.
+- **Top bar:** `⚡ demand / supply`, plus one chip for the worst overloaded node.
+- **Contract pane:** the rate held (`held 0 s`) and one bound line with `icon_bottleneck`:
+  `BANDWIDTH-BOUND · wire …`.
+- **View dock:** N · B (Data) · F · T · P · **C (Compute, new)**. One overlay at a time.
+
+### 15.6 Scenes (page `24`)
+
+- A: USB → Add → Drive.
+- B: the same line with lanes and a twin Add.
+- C: 8-bit Byte Bus trunk.
+- D: a power district feeding a rail spine between two compute rows.
+- G: the full lab, 28×15.
+
+E and F are on page `22 / 04`. All are at 1:1 gameplay scale. G is the readability reference: when a
+new part is added, place it in G and check that the board stays calm.
