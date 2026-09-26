@@ -39,8 +39,8 @@ and expand what is already on the board.
 |---|---|---|---|
 | Data | width (bits) × bandwidth (values/tick) | wires (`Connection.lanes`), sockets | bus lanes 1/2/4/8 |
 | Compute | lanes × work rate | machines (`lanes`, `clock`, `efficiency` params) | lanes 1/2/4/8, clock, efficiency |
-| Power | supply × distribution | PSU on the desk, onboard traces, rails, distribution boards | PSU tier, rails, boards |
-| Thermal | transport × dissipation | heat pipes, manifolds, heatsinks, blowers, radiators, liquid loop | pipes, manifolds, radiators, the loop |
+| Power | source → conversion → distribution → pads | desk PSU + Lab Power Jack, Power Controller/VRM, planes, Distribution Boards, rails, chassis pads | adapter tier, VRM tier, plane/rail class, more boards/outputs, more pads |
+| Thermal | capture → collection → transport → dissipation → airflow | chassis contacts, spreaders, manifolds, heat pipes/trunks, fin stacks/radiators, blowers, liquid loop | contact upgrade, wider pipe/trunk, more branches, bigger radiator, blowers up to need, exhaust placement, liquid |
 
 **There are no hard component limits.** A player may place 40 Adds. What limits them is:
 - board space;
@@ -154,103 +154,223 @@ New contract constraints (they join `count`, `min_rate`, `max_power`, `max_heat`
 **Concurrent quests are demoted.** `LabConfig.quest_window` is **1** until the Multi-input era
 (L16) and 2 after it (`quest_window_level`).
 
-## 5. Power: a physical distribution network
+## 5. Power: one computer's power path (revised 2026-09-26, "hardware fantasy" brief)
 
-### 5.1 Parts
+Power works like a computer's power path, a chain of **stages**, each with its own capacity:
 
-| Part | Id | Size | Capacity *(cal.)* | Unlock | Notes |
+```
+SOURCE            CONVERSION              DISTRIBUTION                              LOAD
+desk adapter/PSU → Power Controller / VRM → Main Power Plane → Distribution Board → rails → pads → machines
+(Lab Power Jack)   (fixed board module)     (flat copper embedded in the PCB)          (short local taps)
+```
+
+A machine runs slower when **the tightest stage on its path** is over capacity. Adding capacity to
+any other stage does nothing. A bigger PSU behind a weak VRM or rail does not help; the player has
+to find the bottleneck.
+
+### 5.1 Parts by stage *(capacities are calibration targets)*
+
+| Stage | Part | Id | Where / size | Capacity | Unlock |
 |---|---|---|---|---|---|
-| Lab Power Input | `power_input` | S, locked | = PSU supply | L12 | a fixture on the west board edge at `LabConfig.power_input_row`; the desk PSU plugs into it; its **terminal** is the tile east of it |
-| Starter Adapter → Improved Adapter → Desktop PSU → High-Capacity PSU → Server PSU | desk item | — | 8 / 16 / 32 / 64 / 128 | rewards | supply, unchanged tiers plus Server PSU |
-| Onboard traces | implicit | — | **8** | — | the laptop's own copper; feeds every machine that is not on a rail network |
-| Power Rail | `power_rail` | S, chainable | 16 | L12 | tiles joined by any orthogonal adjacency, like a bus bar; no rotation needed |
-| Heavy Power Rail | `power_rail_heavy` | S, chainable | 48 | L22 | |
-| Power Backbone | `power_backbone` | S, chainable | 128 | L24 | |
-| Distribution Board | `power_board` | M | 32 | L12 | a hub: it splits one incoming network into independent branch networks |
-| Heavy Distribution Board | `power_board_heavy` | M | 96 | L22 | a variant of `power_board` |
+| Source | Starter Adapter → Improved Adapter → Desktop PSU → High-Power PSU → Server PSU | desk item, plugs into the **Lab Power Jack** | desk | 8 / 16 / 32 / 64 / 128 | rewards (unchanged track) |
+| Source | Lab Power Jack | `power_input` | fixed, west laptop edge at `power_input_row` | — | L12 |
+| Conversion | Power Controller → Basic VRM → Efficient VRM → High-Current VRM | `power_controller` (tier param) | fixed L module beside the jack; outputs E and S | 12 / 32 / 32 (half the conversion heat) / 96 | L12 / L13 / L18 / L22 |
+| Distribution | Main Power Plane | `power_plane` | S tiles, **linear chains** | 64 | L12 |
+| Distribution | Heavy Power Plane | `power_plane_heavy` | S tiles, linear chains | 192 | L22 |
+| Distribution | Distribution Board | `power_board` | M; 1 input (W) + up to 3 outputs (N/E/S), a breaker lamp per output | 48 | L12 |
+| Distribution | Heavy Distribution Board | `power_board_heavy` (variant) | M | 144 | L22 |
+| Distribution | Power Rail (the local branch along a machine row) | `power_rail` | S tiles, linear chains | 16 | L12 |
+| Distribution | Heavy Rail | `power_rail_heavy` | S tiles, linear chains | 48 | L18 |
+| Load | Power pads (built into the chassis) | — | south edge, one per tile of width | 8 per tapped pad | — |
+| Later | Capacitor / Capacitor Bank (burst buffer), Priority Controller (priorities per output), local VRM | — | — | — | future |
 
-Rails and boards occupy tiles; no machine shares a rail tile. **A data wire may cross a straight
-rail tile at a right angle** (a bridge, exactly like crossing another wire: `Router.CROSS_COST`),
-but never runs along a rail and never crosses a rail junction, end or board. This is what lets a
-rail spine run between two machine rows (machine row / rail row / machine row) and be fed by a
-riser that bridges the data lines. Heat pipes and coolant pipes stay walls: nothing crosses them.
-Rails and boards draw no power and make no heat.
+**Topology rules** (they keep the base view readable):
+- Planes and rails are **linear**. A tile never joins three copper neighbours. **Branching happens
+  only at a Distribution Board** (or at the controller's two outputs). "Where does it split?" always
+  has a visible answer.
+- A **tap** is automatic. A machine pad that touches a rail or plane tile draws a short tap into it.
+  There are no tap tiles and no long cables.
+- **High-power machines need several pads.** Each tapped pad carries at most 8. For example, an
+  8-lane Add (demand 8) is fine on one pad, but a Processor Mk2 (demand 16) needs both.
+- Copper occupies floor tiles; no machine shares one. **A data wire may bridge a straight copper
+  tile at a right angle** (`Router.CROSS_COST`), never along it and never at an end or board.
+- Planes, rails and boards draw no power.
+- **The VRM makes heat:** conversion heat = load / 8 per tick (Efficient VRM: / 16) on its own tiles.
+  A hard-working VRM therefore wants a thermal branch too.
 
-### 5.2 The network (deterministic, rebuilt only when the layout changes)
-1. **Rail networks.** A rail network is a maximal set of orthogonally adjacent rail tiles, of any
-   class. Its id is its lowest tile index. **Its capacity is its weakest tile's class** (one Power
-   Rail tile in a Heavy line caps it at 16).
-2. **Nodes and tree.**
-   - The nodes are the Input (root), Onboard, each rail network and each board.
-   - The Input's only child networks are Onboard and the one rail network holding its terminal
-     tile (the *feeder*).
-   - A board is a child of the first network, in BFS order, that touches its footprint. Every
-     other network touching the board is a child of that board: its branches.
-   - The tree is found by BFS in ascending node id order. Nodes the BFS does not reach are
-     **dead**: disconnected rails power nothing, and the hover says "Not connected to the Lab
-     Power Input".
-3. **Attachment.** A machine is fed by the lowest-id live network or board that touches any of
-   its footprint tiles (orthogonal adjacency), and otherwise by Onboard. Locked IO draws nothing.
-4. **Load** of a node = Σ the demand of the machines it feeds + Σ its children's loads.
-5. **Work rate.** Walk the path root → the machine's node. At each node where `load > cap`, set
-   `r = max(1, r × cap / load)` (integer floor). This is today's brownout rule applied per level
-   of the tree. Nothing ever breaks, and "no path" never happens (Onboard is always there).
-6. **States per node:** normal < 75 %, near 75–100 %, overloaded > 100 %. A machine's **power
-   bottleneck** is the node on its path with the smallest `cap / load`.
-7. **Gating.**
-   - Before `LabDef.CONFIG.power_level` (L12), every capacity is unlimited: today's behaviour.
-   - From L12 the Input, Onboard (8) and rails apply.
+### 5.2 Flow (deterministic; rebuilt when the layout changes; `core/power/`)
+1. **Tree.**
+   - The source (the PSU) feeds the controller.
+   - The controller's two outputs each start a chain.
+   - A chain that ends on a Distribution Board's input side feeds that board, and each board
+     output starts a new chain.
+   - Chains are walked from the source end; tile order gives flow direction.
+   - Copper not reachable from the controller is **dead**. Its hover reads "not connected to the
+     Power Controller".
+2. **Taps.**
+   - A machine is fed at the first tapped tile, in path order, of the lowest-id live chain touching
+     one of its pads.
+   - All its tapped pads must be on that chain; pads on other chains are ignored and the hover says
+     so.
+   - An untapped machine draws from the **onboard traces**: a small implicit child of the controller
+     with capacity 8, the early-game path.
+3. **Load of every node** (each copper tile, board, controller, source) = Σ the demand fed at or
+   downstream of it.
+4. **Bottleneck.**
+   - A machine's path is: source → controller → the chain tiles up to its tap → its pads (capacity
+     8 × tapped pads).
+   - Its bottleneck is the node with the smallest `cap / load` among overloaded nodes.
+   - Work rate `r = max(1, r × cap_b / load_b)` (integer). Only the tightest stage counts, and
+     slowdowns never compound.
+5. **States:** normal < 75 %, near 75–100 %, over > 100 %.
+6. **Gating:**
+   - Before `power_level` everything is unlimited.
+   - From L12 the chain applies.
+   - `LabConfig.onboard_capacity` = 0 keeps the old campaign unlimited until the progression
+     rewrite.
    - The tutorial missions stay unlimited.
 
-This produces the brief's "PSU installed, but the infrastructure limits delivery". Take a Desktop
-PSU (32) where everything hangs off Onboard traces (8): the machines run at 8/demand. Adding a
-feeder rail (16) and a board with two branches spreads the load.
+### 5.3 What the player can do (no universal answer)
+- Upgrade the adapter.
+- Upgrade the VRM.
+- Upgrade the plane or rail class.
+- Split the load over another Distribution Board output or a second controller output.
+- Tap a second pad.
+- Lower the clock.
+- Switch the machine to efficient.
+- Later: capacitors for bursts.
 
-### 5.3 Readouts
-- **Top bar:** `Power 14 / 32` (demand / supply). When any node is overloaded, it adds a chip naming
-  the worst node, e.g. `Onboard traces 11/8`.
-- **Hover** on a machine: `Power 4 · Rail network #3 (12/16)`.
-- **Hover** on a rail or board: `Heavy Power Rail · network 38/48 · 7 machines`.
+### 5.4 Readouts
+- **Normal board:** structure only. An overloaded node gets a 1 px amber edge (rail or plane
+  segment) or its breaker lamp (board or controller). There are no numbers and no glow.
+- **Power overlay (P):** one chip per node, plus a stage panel for the hovered or selected machine:
+  `Adapter 120 · VRM 60 · Main Plane 40 ⚠ · Branch 40 · Pads 16 · Demand 52`.
+- **Hover:** `Power 8 · Rail B (26/16 ⚠) · 2 pads`.
+- **Top bar:** demand / source, plus a chip for the worst node.
 
-## 6. Thermal: transport and dissipation capacities
+## 6. Thermal: one computer's cooling path (revised 2026-09-26)
 
-The field, stages and hysteresis are unchanged (SYSTEMS_EXPANSION §5).
+Heat has its own staged chain, and every stage has a capacity:
 
-### 6.1 Capacities *(cal.)*
-- **Heat Pipe chain transport cap: 320 per tick.** Each tick, sum the positive heat flow into a
-  chain body from tiles outside it. If the sum exceeds the cap, scale every inflow edge by
-  `cap / sum` (floor, in ascending edge order). Conservation holds exactly.
-- **Thermal Manifold** (`thermal_manifold`, M, copper header, L14):
-  - Every heat-pipe chain touching it, plus the manifold itself, forms **one** isothermal body.
-  - Its transport cap is the sum of its pipes' caps.
-  - It collects several machines' pipes into one run towards a cooling district.
-- **Radiator dissipation cap: 600 per tick.** A cooler's bonus removal over its radius is summed. If
-  the sum exceeds its cap, every tile's share is scaled down (floor, ascending tile order).
-- **Heatsink cap: 160 per tick.**
-- **Blower cap: 240 × rate / 12.**
-- **Thermal contact** (visual and rules): the tile side of a machine that a heat-pipe end pad,
-  manifold or cold plate touches draws a small copper contact pad on the chassis edge. Heat enters
-  and leaves the body only through those contacts and the board, as today.
+```
+SOURCE       CAPTURE                 COLLECTION               TRANSPORT                  DISSIPATION           AIRFLOW
+machine → integrated contact → Copper Spreader / Manifold → heat pipe / trunk → Fin Stack / Radiator → blower → exhaust (chassis edge)
+```
 
-### 6.2 Liquid cooling (Era 10, L24)
+- The temperature field, the heat generation and the stages with hysteresis stay as they are
+  (`ThermalGrid`, SYSTEMS_EXPANSION §5). Density still matters: neighbours heat each other.
+- **What changes is how heat leaves.** It no longer leaves through "coolers with a radius" next to
+  the machines. It leaves through the machine's **thermal contact**, into a **thermal network**,
+  out at a **radiator**, and into the air.
+- Fans are no longer local props. They live in the cooling assembly and only feed airflow to
+  radiators.
 
-| Part | Id | Size | Power | Rule *(cal.)* |
-|---|---|---|---|---|
-| Pump | `pump` | S | 2 | loop flow +400 × rate/12 per tick |
-| Coolant Pipe | `coolant_pipe` | S, chainable | 0 | joins loop parts by orthogonal adjacency; insulated (no board exchange) |
-| Cold Plate | `cold_plate` | S | 0 | takes `min(t × 32 / 64, 240)` per tick from each touching machine body |
-| Large Radiator | `radiator_large` | L | 1 | dumps up to 900 × rate/12 per tick from the loop |
-| Reservoir | `reservoir` | S | 0 | +1000 loop buffer |
+### 6.1 Parts by stage *(cal.; H = heat units per tick, tenths of °C as today)*
 
-- A **loop** is a connected set of coolant pipes, pumps, plates, large radiators and reservoirs.
-- A loop **runs** when it has at least one pump and one large radiator.
-- **Each tick:**
-  - `pool += Σ plate intake`, capped by the loop flow (Σ pumps) and by the free buffer
-    (base 200 + reservoirs).
-  - `pool -= min(pool, Σ radiator dump)`.
-- A loop that does not run takes nothing. It is deterministic and conservative.
-- The Thermal overlay shows each loop's intake, flow and dump.
+| Stage | Part | Id | Size | Capacity | Unlock |
+|---|---|---|---|---|---|
+| Capture | Integrated Thermal Contact | built into every heat-producing chassis (north edge) | — | S 600 · M 1200 · L 2400 | L14 |
+| Capture | High-Capacity Contact | machine upgrade param `contact` = high | — | ×2.5 | L22 |
+| Capture (liquid) | Cold Plate / Water Block | machine upgrade `contact` = liquid (coolant ports on the chassis) | — | ×4 | L24 |
+| Collection | Copper Spreader | `thermal_spreader` | S tiles, linear; laid along a row's contact side; every touching contact feeds in | 2400 per chain | L14 |
+| Collection | Thermal Manifold | `thermal_manifold` | M; sockets W/N/S in, E out | 4800 | L15 |
+| Collection | Vapor Chamber | — | later | — | future |
+| Transport | Copper Heat Pipe | `heat_pipe` | S tiles; joins any orthogonal neighbour (T-junctions allowed) | 800 | L14 |
+| Transport | Heavy Heat Pipe | `heat_pipe_heavy` | S tiles | 2000 | L18 |
+| Transport | Thermal Trunk | `thermal_trunk` | S tiles (a wide flat vapor-chamber bar) | 4800 | L22 |
+| Dissipation | Passive Fin Stack | `fin_stack` | M; needs no airflow | 400 | L14 |
+| Dissipation | Radiator | `radiator` | L; airflow need 40 | 1600 | L15 |
+| Dissipation | Large Radiator | `radiator_large` | two L cores; airflow need 100 | 4800 | L24 |
+| Airflow | Small Blower | `blower` | S; power 2 | airflow 25 | L15 |
+| Airflow | High-Pressure Blower | `blower_hp` | M; power 4 | airflow 60 | L22 |
+| Airflow | Fan Bank | `fan_bank` | L; power 6 | airflow 120 | L24 |
+| Liquid | Coolant Pipe, Pump, Reservoir | `coolant_pipe`, `pump`, `reservoir` | S | pipe 3200 · pump flow 1200 (Pump II 2400) · reservoir buffer +4000 | L24 |
+| Early option | Heatsink (clip-on) | `heatsink` | sits on a machine's contact (no network needed) | 120, dumps locally into the grid | L14 |
+| Later | Thermal Mass / Heat Buffer | — | stores a burst | — | future |
 
+### 6.1b Layers and crossings (one board, three layers)
+- **Power** copper is embedded in the board: planes, rails and taps are the bottom layer.
+- **Data** traces run on the board surface. A data wire may bridge a straight copper tile at a right
+  angle (§5.1).
+- **Thermal** hardware is raised and mounted on top: heat pipes, trunks, spreaders and coolant
+  pipes. A heat-pipe or coolant tile may pass **over** a straight data wire or copper tile at a
+  right angle. It never runs along one and never crosses at a junction or end.
+- Machines, boards and assemblies block every layer.
+- Two thermal tiles that touch join the same network (T-junctions). Spreaders are the exception:
+  they are linear.
+
+### 6.2 Network and flow (deterministic, integer)
+1. **Network.**
+   - A thermal network is a connected set of spreader, pipe, trunk and manifold tiles.
+   - Pipes and trunks join any orthogonal neighbour, so **T-junctions are allowed**. Spreaders are
+     linear.
+   - A machine is **connected** when a network tile touches its contact edge.
+   - A radiator or fin stack is connected when a network tile touches its **inlet side**. The inlet
+     is the side opposite its exhaust; the exhaust is set by rotation.
+2. **Tree.**
+   - Each network is walked from its radiators outward, BFS in ascending tile order.
+   - Every tile, manifold, spreader chain, contact and radiator is a node with a capacity (§6.1).
+   - Its flow = the heat that passes through it towards a radiator.
+3. **Each tick, after generation and diffusion:**
+   - **Offer.** Each connected machine offers `min(contact cap, body heat × 1/4)` from its
+     footprint tiles. A cool machine offers little; a hot one offers up to its contact capacity.
+   - **Allocation.** Offers flow up the tree. At every node whose flow exceeds its capacity, all the
+     offers through it are scaled down proportionally (integer, ascending id; the remainder goes to
+     the lowest id).
+   - **Radiator stage.** Radiators take `min(inflow, cap × min(1, airflow / need))`.
+   - **Airflow.**
+     - A blower counts for a radiator when it touches the radiator's inlet side with its outlet
+       facing it.
+     - Airflow is summed and **capped at the radiator's need**, so extra fans add nothing.
+     - A blower whose intake side is blocked by a machine gives half.
+     - Passive fin stacks need no airflow.
+   - **Exhaust.**
+     - A radiator whose exhaust side faces the board edge dumps the heat out of the computer.
+     - Otherwise it **recirculates**: the dumped heat is added to the tiles in front of its
+       exhaust, so a badly placed plant heats the board.
+   - **Removal.** The allocated heat is taken from the machines' footprint tiles, in proportion to
+     each machine's share.
+4. **Exact conservation.** Heat leaves only through edge exhausts, ambient dissipation and the
+   board edge, exactly as the grid does today.
+5. **Liquid.**
+   - A loop is a connected set of coolant pipe, pump, reservoir, radiator (liquid inlet) and
+     liquid-contact machines.
+   - The loop is the same chain: contact (cold plate) → pipe → **pump flow** → radiator → airflow.
+     It is the same allocation with the pump as one more stage.
+   - The reservoir buffers up to its size between ticks.
+   - A loop without a running pump moves nothing. More fans never fix a weak pump.
+
+### 6.3 What the player can do
+- Tap more contacts into the network.
+- Use High-Capacity Contacts.
+- Add a second branch.
+- Use a wider pipe or trunk.
+- Place a manifold.
+- Use a bigger radiator.
+- Add blowers, only up to the radiator's need.
+- Fix the airflow direction.
+- Move the plant to the edge.
+- Lower the clock or switch to efficient.
+- Spread machines out (density).
+- Later: liquid.
+
+### 6.4 Readouts
+- **Normal board:** structure only.
+  - The copper path is continuous and visible: contact → branch → T-junction → trunk → manifold →
+    transport → fin stack → blower → exhaust vent.
+  - Hot parts warm subtly: amber sheen on pipes near hot machines, and on the fin-stack base.
+  - A saturated stage gets a 1 px amber edge. There are no numbers.
+- **Thermal overlay (T):** the heat map plus one chip per stage node, and a **stage panel** for the
+  hovered machine: `Heat 52 · Contact 80 · Spreader 96 · Trunk 40 ⚠ · Radiator 80 · Airflow 90/40`.
+
+### 6.5 Migration from the current model
+- Heat pipes stay placeable tiles. They now join any neighbour and carry capped flow instead of
+  isothermal conduction.
+- The Heatsink becomes the clip-on early option.
+- The Blower loses its dissipation radius and becomes an airflow part of a radiator.
+- The Radiator keeps its L size and gains an inlet/exhaust by rotation.
+- Old saves keep their parts. Layouts that relied on radius cooling will simply cool less; the
+  progression rewrite re-tunes the thermal levels.
 ## 7. Information UX
 
 ### 7.1 The normal board stays calm
@@ -310,21 +430,19 @@ The contract pane names the first bound it finds on the path to the drive.
   `MATERIAL_DIE` with a `MATERIAL_FRAME` hairline. A busy lane fills bottom-up with its progress in
   the family accent at 60 %. The single progress ring remains only on 1-lane machines.
 - **Power.**
-  - Rails are brass bus bars (`MATERIAL_GOLD` core on a `MATERIAL_PLATE_LO` insulator, 10 / 14 /
-    20 px wide by class) with bolt dots at joints.
-  - Boards are a dark panel with breaker slots.
-  - The Lab Power Input is a keyed barrel-jack fixture on the laptop edge.
-  - Power is never teal and never a wire.
+  - Power parts are siblings of the machine family: canonical shells with a gold tab and square
+    gold terminals.
+  - Copper is a dark, flush PCB pour with gold edge lines and via rows. Taps run to solder pads;
+    contacts are gold teeth on the chassis.
+  - Power is never teal, never a pipe, and never a bare PCB module (STYLE_GUIDE §15.3).
 - **Thermal.**
-  - Copper, unchanged.
-  - The manifold is a copper header block with pipe stubs.
-  - Contacts are 6 × 3 px copper pads.
-- **Liquid.**
-  - Coolant pipes are dark tubes (`MATERIAL_PLATE_HI` walls, `MATERIAL_VENT` bore) with copper
-    fittings.
-  - Flow chevrons are shown only in the Thermal overlay.
-  - The hot line is tinted amber only in the Thermal overlay.
-  - No new colours.
+  - The hardware is physical but flattened: soldered heat-pipe bands, vapor-chamber trunks, and
+    spreaders in rail mounts.
+  - Chassis parts use canonical shells with a copper tab and round copper sockets.
+  - The radiator and its blowers form one shrouded cooling assembly under the chassis vent
+    (STYLE_GUIDE §15.4).
+- **Liquid.** The same chain: coolant tubes with copper fittings, and a pump and reservoir in
+  canonical S shells. The hot/cold tint appears in the Thermal overlay only.
 - **VFX ladder** unchanged (L0 routine … L5 critical). Lane fills are L1. Saturation and
   power-bound marks are L3 (warning, amber), shown only in overlays or on the failing path.
 
@@ -398,3 +516,18 @@ reviews each before the next starts.
 - Blueprints are saved with the Lab.
 - **Not in this overhaul:** a collapsed single-box module that hides its internals. That needs
   hierarchical simulation and is future work.
+
+## 13. Future: composed hardware (compatibility requirement, not implemented now)
+
+Primitive machines → saved groups (blueprints, §12.1) → a **composed block** (ALU, CPU core, GPU-like
+array) that behaves as one high-demand machine.
+
+So that power and thermal already scale to such blocks:
+- `ComponentDef` carries **`pads`** (count and side), **`contact_cap`** and **`max_lanes`**. A big
+  block simply declares many pads, a large contact and a wide data interface.
+- A block's demand, heat and bandwidth come from the same formulas (lanes × width factor ×
+  clock × efficiency).
+- It therefore needs a heavy rail with several taps, a High-Capacity or liquid contact, and a wide
+  bus.
+- The staged power and thermal chains never special-case machine types. They read only those def
+  fields, so a future block plugs in unchanged.

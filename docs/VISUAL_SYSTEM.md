@@ -409,9 +409,13 @@ Game rules: `docs/SYSTEMS_EXPANSION.md`.
 | Saturation tag / amber edge | `world/overlays/systems_overlay.gd` (Data mode) | Reads `Connection.saturated` history (Simulation metrics); never on the normal board |
 | Lane slices + MKn silk (`21/02`) | `world/machines/machine_view.gd` → new `LaneSlices` child painter (show_behind_parent = false) | Redraws only when `lane_progress()` changes (tick key) or while interpolating; geometry per size from STYLE_GUIDE §15.2 |
 | `ResourceIndicators` removal | `machine_view.gd` | Delete the RI node and its `_ri.set_data` call; the numbers move to the hover card |
-| Rails, Distribution Board, Lab Power Input (`22/03`) | new `world/power/power_part_view.gd` (a `ThermalPartView`-style painter per placed rail/board; rails join to neighbours like heat pipes); the Lab Power Input is a desk/laptop fixture drawn by `world/desk/desk_view.gd` next to the PSU | Bolts, grooves and lugs as in §15.3; brass α .55 |
-| Power contact / thermal contact | `machine_view.gd` `on_layout()` | Computed from `sim.occupancy()` adjacency to a rail / pipe end / manifold / cold plate; cached in the view key |
-| Manifold, liquid family (`22/04`) | `ThermalPartView` kinds `thermal_manifold`, `pump`, `cold_plate`, `reservoir`, `radiator_large`, `coolant_pipe` | Coolant pipes join like heat pipes (any orthogonal neighbour) |
+| Power parts (`22/03`, sibling family) | `world/machines/machine_view.gd` (`MachineShell` composition like any machine) + a `PowerPartView` painter for the window contents (VRM phase bank, breakers, jack face) | New layouts in `assets/art/machine_layouts.json` for `power_controller` (L Module), `power_board` (M Module) and `power_input` (M EdgeIn), plus a gold family tab. Square power ports need a new port art `port_power_*` (square body, gold core) |
+| Copper planes, rails, taps (`22/03`) | new `world/power/copper_view.gd` (one painter per connected run, drawn under wires); taps and terminal pads are drawn from `PowerNetwork` attachment data | Dark pour, gold edge/centre lines, via rows, 1 px amber overload edge (§15.3) |
+| Machine contacts (power teeth, thermal plate) | `machine_view.gd` `on_layout()` | Always drawn (hardware). Tapped/connected state comes from the networks, cached in the view key |
+| Thermal transport (`22/04`) | new `world/thermal/thermal_net_view.gd` (flattened pipes, vapor-chamber trunks, spreaders, tees, clips), drawn **above** wires | One painter per network; heat wash from `ThermalNetwork` node loads |
+| Thermal chassis parts (`22/04`) | `machine_view.gd` + `ThermalPartView` window contents (manifold header, fin cores, fan windows) | Copper family tab; round thermal socket art `port_thermal_*` |
+| Cooling assembly shroud | `thermal_net_view.gd` draws the shroud and duct when blowers feed a radiator (from the airflow graph) | §15.4 |
+| Stage panel | new `ui/hud/stage_panel.gd`, shown by the P/T overlays for the hovered or selected machine | §15.5 |
 | Overlays (B / P / T / C) | `world/overlays/systems_overlay.gd` + `ui/hud/view_dock.gd` (+ key `C`) | One at a time; the board dims α .45–.55 |
 | Hover card v2 | `ui/hud/hover_card.gd` | New rows per §15.5 |
 | Upgrade card, wire card | new `ui/hud/upgrade_card.gd`, `ui/hud/wire_card.gd` | Opened from the quick bar (`U`) or by clicking a wire; data from `Simulation.upgrade_preview` |

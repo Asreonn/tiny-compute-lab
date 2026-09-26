@@ -189,7 +189,7 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 - Rules: `docs/FACTORY_SYSTEMS.md`.
 - Levels: `docs/PROGRESSION.md`.
 - Look: `docs/STYLE_GUIDE.md §15`, `docs/VISUAL_SYSTEM.md §22`, `docs/MOTION_SYSTEM.md §11`.
-- Penpot pages `21`–`24`, with the helpers in plugin data `tcl/lib12`.
+- Penpot pages `21`–`25`, with the helpers in plugin data `tcl/lib12`–`lib14`. The power and thermal revision (sibling family, staged chains) is on pages 22 and 25.
 
 **Process:**
 - DS implements one bounded job at a time.
@@ -201,9 +201,9 @@ Starts once the MVP content is complete. Everything must stay inside the canonic
 |---|---|---|
 | 1 | Capacity model: wire lanes (P1a), machine lanes + formulas (P1b), burst sources / draining sinks / sustain (P1c) | done |
 | 2 | Upgrade gates (LabConfig lane/bus/efficiency levels, quest window) + `set_machine_lanes` / `upgrade_preview` | in progress |
-| 3 | Bottleneck metrics: saturation / compute-bound / power-bound / heat-bound + the first bound on a contract path | |
-| 5–6 | Power network: parts as assets, `core/power/power_network.gd`, per-node brownout, Lab Power Input fixture | |
-| 7–9 | Thermal caps, manifold, liquid loop | |
+| 3 | Bottleneck metrics: saturation / compute-bound / power-bound / heat-bound + the first bound on a contract path | retry (two Flash runs looped) |
+| 5–6 | Power path (FACTORY_SYSTEMS §5, revised): parts as assets (jack, VRM tiers, planes/rails, Distribution Board), `core/power/power_network.gd` (linear copper, board branching, contacts/taps, tightest-stage slowdown), fixtures | next |
+| 7–9 | Thermal path (FACTORY_SYSTEMS §6, revised): contacts, spreaders, pipes/trunks, manifold, radiators with airflow and exhaust, the staged flow allocation on top of `ThermalGrid`, then liquid | |
 | 10 | Upgrade card, wire card, lane slices, bus-class wires, rails/boards/liquid views, `ResourceIndicators` removal | |
 | 11 | Overlays: Data / Power / Thermal / Compute | |
 | 12 | QoL: blueprints, palette groups for the new families | |

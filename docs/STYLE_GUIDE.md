@@ -326,10 +326,10 @@ The body is never tinted.
 Hover card, quick action bar, smart-wire targets, connected-move hologram, palette QoL, and the thermal
 and power overlays. Exact numbers are in `docs/VISUAL_SYSTEM.md §21` and `systems_v1.js`.
 
-## 15. Factory growth overhaul (locked 2026-09-26; Penpot pages `21`–`24`)
+## 15. Factory growth overhaul (locked 2026-09-26; Penpot pages `21`–`25`)
 
 The rules are in `docs/FACTORY_SYSTEMS.md`. The Penpot helpers (bus, lane slices, rails, boards,
-liquid parts) are stored in the file as plugin data `tcl/lib12` (restore after `lib`…`lib11`). As
+liquid parts) are stored in the file as plugin data `tcl/lib12`–`lib14`. Restore them in order after `lib`…`lib11`; lib13 and lib14 hold the revised sibling-family power and thermal parts. As
 always, this **extends** Style Lock V1: no new colours, no new materials.
 
 **One colour per system:**
@@ -399,68 +399,95 @@ Lane slices are real die slices, one per lane. They are drawn only when lanes > 
 - **Compute-bound (Compute overlay only, L3):** a 1 px amber bracket around the slices and a tag
   `COMPUTE-BOUND n/n`.
 
-### 15.3 Power (page `22 / 03`)
+### 15.3 Power (page `22 / 03`, revised 2026-09-26: siblings of the machine family)
 
-- **Rails:** tile chains that join by orthogonal adjacency; segments run centre → edge with square
-  caps.
+- **Rule:** after power enters the board, every power part is a **canonical chassis**: InstallPad,
+  MachineShell, chamfer, LED bezel, screws and a recessed function window, with a **gold family
+  tab** (`material.gold`, 24×3, the usual tab slot). Copper and gold are internal accents only. No
+  bare PCB modules and no brown boxes.
+- **Power terminals** are **square** ports on the canonical 24×24 contact pad:
 
-  | Class | Insulator (`material.plate-lo` + 1 px `material.frame` edge) | Brass bar (`material.gold`, α .55 on the normal board, .95 in the overlay) |
-  |---|---|---|
-  | Rail | 16 | 6 |
-  | Heavy | 22 | 12, with a 1.5 px `material.vent` groove |
-  | Backbone | 30 | 20, with two grooves |
-
-  - A bolt at every tile centre: `material.frame` ring with a `material.plate-hi` head.
-  - A 1 px top highlight at α .10.
-- **Distribution Board (M):**
-  - A breaker panel on a thermal-style footprint: a busbar (west), a comb, and 6 breakers (4 wide on
-    Heavy) with `text.secondary` levers.
-  - A tripped breaker drops its lever and turns it amber.
-  - Status LED V2: Idle / Blocked (near) / Error ◆ (over).
-  - Brass lugs at the west (input) and at N/S/E (branches).
-- **Lab Power Input:** a DC jack in the laptop frame (west edge, `machine.frame-hover` housing, bore,
-  gold pin, copper barrel when plugged) plus a brass terminal block on the board tile, with a
-  `DC IN` silk label.
-- **Power contact:** a 3-pin gold header (14×6) on the chassis edge that touches a rail. It is
-  hardware (L0), and a machine fed by the onboard traces has none.
-- **Bridge:** a data trace drawn over a straight rail tile at a right angle. No other mark is
-  needed: the trench edge makes the gap.
-- **Power overlay (P):**
-  - The board dims (`bg.void` α .45–.55).
-  - Rails at full brass, tinted by state: near amber, over red, as a 10 px halo at α .22.
-  - One chip per network: `BRANCH A · 12/16`.
-  - The worst node gets a dashed 1.5 px red outline (L4).
-  - Dead rails are grey (α .35) and hatched.
-  - The onboard load is shown as a chip on the laptop frame.
-
-### 15.4 Thermal and liquid (page `22 / 04`)
-
-- **Thermal contact:** a 6×3 copper pad on the chassis edge, drawn only where a pipe end, manifold
-  or cold plate touches.
-- **Thermal Manifold (M):** a copper header block (108×24, r5) with 3 stubs top and bottom, bores, and
-  screws.
-- **Liquid parts:**
-
-  | Part | Look |
+  | Layer | Look |
   |---|---|
-  | Pump (S) | volute with an impeller cover and 3 gold power pins |
-  | Cold Plate (S) | copper block with a micro-fin window and two barbs |
-  | Reservoir (S) | clear tube, coolant `text.secondary` α .25, copper caps |
-  | Large Radiator (L) | the Radiator core with two fans |
+  | Contact pad | `material.copper-dim` 18×18 |
+  | Body | 14×14 `material.die`, r2.5, 2 px `material.gold` stroke |
+  | Core | 5×5 gold |
 
-- **Coolant Pipe:**
-  - A 16 px `material.frame` edge, 14 px `material.plate-hi` wall and 7 px `material.vent` bore,
-    with round caps.
-  - Copper fittings (18×4) at every tile joint.
-  - No colour on the normal board.
-- **Thermal overlay (T):**
-  - A heat-map tile tint (amber α ≤ .38).
-  - One chip per chain `A 150/320`, per manifold, and per radiator `DUMP 440/600`.
-  - A chip on the hottest machine.
-  - Liquid: hot runs get a 4 px amber core (α .8) and cold runs a `text.secondary` core (α .45).
-    Chevrons point along the loop flow.
-- **Floor rule:** heat pipes and coolant pipes are walls. Nothing crosses them, and they never touch
-  data wires.
+  - Data ports stay round and teal; thermal sockets are round with a copper ring.
+- **Parts:**
+
+  | Part | Shell | Details |
+  |---|---|---|
+  | Lab Power Jack | M EdgeIn, locked, like the USB Input | DC jack face set into the laptop edge (frame, bore, gold pin, copper barrel when plugged); an input-filter glyph in a window; `DC IN` silk; power port E |
+  | Power Controller / VRM | L Module | Window = the **phase bank**: 2 / 3 / 3 / 5 phase cells. Each cell is a `material.die` cell with a copper choke outline and a load fill (gold α .55, amber when over). MiniDisplay W36 shows the rating (12 / 32 / 32 / 96). Efficient and High-Current tiers add the embedded thermal pickup (they make heat). Ports: power W in, E and S out |
+  | Distribution Board | M Module | Window with three breakers N / E / S. Each breaker has a lever (`text.secondary`, dropped and amber when tripped) and a lamp dot. LED shows the worst state. Ports: W in; N / E / S out (dimmed when unused) |
+
+- **Copper** (planes, rails):
+  - Flush, dark and low-contrast: a `board.pad` pour inside a 1 px `board.pad-edge`, with a faint
+    gold wash (α .10).
+  - Gold edge lines at α .62: planes get two edge lines; the Power Rail one centre line.
+  - Plane via rows (1.5 px rings every 16 px; two rows on the Heavy Plane).
+  - Widths: Rail 10 · Heavy Rail 16 · Main Plane 22 · Heavy Plane 32.
+  - Runs are straight or corners; a T is never drawn (branching = a Distribution Board).
+  - Where copper meets a terminal, a flat **terminal pad** (26×18, gold α .22, 1 px gold α .35)
+    joins them.
+- **Taps and contacts:**
+  - Machine contacts are cartridge-style gold teeth (3 × 3.5×4) on the south edge, one group per
+    tile; tapped = α .95, untapped = α .4.
+  - A tap is a 3 px (heavy 5 px) gold trace on a dark seat, from the contact to a round **solder
+    pad** (r 3.4) on the rail.
+- **Overload on the normal board (L3):** only a 1 px amber line along both edges of the overloaded
+  run, a dropped breaker, or full amber VRM phases with an Error LED. No glow and no numbers.
+- **Power overlay (P):** the board dims, copper lines go to α .95, each node gets a tint halo, and
+  there are chips plus the **stage panel** (§15.5).
+
+### 15.4 Thermal and liquid (page `22 / 04`, revised 2026-09-26)
+
+- **Rule:** transport hardware is physical copper, but every mount, window, socket and chassis
+  around it is canonical, with a **copper family tab**. Thermal hardware is raised: it passes over
+  data and power at right angles (FACTORY_SYSTEMS §6.1b).
+- **Contacts:**
+  - Integrated contact: an inset copper plate (24×4 inside a 28×7 `material.vent` recess) at the
+    north edge of every heat-producing chassis, with an amber wash when hot.
+  - High-capacity contact: a 36×6 plate with screws.
+  - Liquid contact: two round copper sockets on the chassis.
+- **Thermal socket:** the canonical 24×24 contact pad, a round 14 px `material.die` body with a
+  2 px copper ring, and a 6 px dark bore.
+- **Transport pieces:**
+
+  | Piece | Look |
+  |---|---|
+  | Copper Spreader | a flat copper bar (8 px) in a dark rail mount (18 px, `machine.body` / `machine.frame`, screws every half tile), hugging the south edge of its tile so it sits on the contacts |
+  | Heat pipe (flattened) | a flat band soldered onto the board: `board.pad-edge` seat (w + 3), copper edge lines, `material.copper-dim` face, a 1.2 px gold sheen at α .3, mitred corners. Copper 10 px, Heavy 14 px |
+  | Vapor-chamber trunk | a 22 px flat plate with the same seat and an internal pillar grid (dotted copper at α .35) |
+  | Mounting clips | canonical `machine.body` blocks with two screws |
+  | T-junction | a canonical 26×26 block with a copper tee and four screws |
+
+  - No drop shadows, no round-tube shading, no hoses.
+- **Chassis parts:**
+
+  | Part | Shell | Details |
+  |---|---|---|
+  | Thermal Manifold | M Module | copper header seen through a window; sockets W / N / S in, E out |
+  | Passive Fin Stack | M Module | fin core window with a copper base |
+  | Radiator | L Module | large fin core with a copper base, inlets W, exhaust slots on the N edge |
+  | Blower | S Module | round fan window; exhaust slots N; contact teeth S |
+  | High-Pressure Blower | M Module | as the Blower |
+  | Fan Bank | L Module | as the Blower |
+  | Pump | S Module | as the Blower, plus coolant sockets |
+  | Reservoir | S Module | tube window, coolant level |
+
+- **Cooling assembly:** a radiator (or two cores) plus the blowers feeding its intake are drawn
+  inside one **shroud** mounted on the board:
+  - a `machine.body` α .55 panel, 1.5 px `machine.frame` border, r8, corner screws;
+  - a dark duct between the fins and the blowers.
+  - The chassis vent in the laptop's rear-edge frame lines up with the fins.
+  - It is one piece of the computer, not a separate module.
+- **Normal-board cues (L3):**
+  - A saturated transport stage gets its seat drawn amber (1 px).
+  - Heat shows only as a subtle amber wash on contacts, pipes near hot machines and the fin core.
+  - An empty blower seat is a dashed amber outline.
+- **Thermal overlay (T):** the heat map, one chip per stage node, and the stage panel.
 
 ### 15.5 Information UX (page `23 / 05`)
 
@@ -481,13 +508,32 @@ Lane slices are real die slices, one per lane. They are drawn only when lanes > 
   `BANDWIDTH-BOUND · wire …`.
 - **View dock:** N · B (Data) · F · T · P · **C (Compute, new)**. One overlay at a time.
 
-### 15.6 Scenes (page `24`)
+- **Stage panel** (the diagnosis panel of the P and T overlays, for the hovered or selected
+  machine):
+  - A canonical panel 230–250 wide with a title (`POWER · MODULO #2` / `THERMAL · ADD #1`) and
+    one row per stage: stage name (9 px muted) and `load / capacity`.
+  - The tightest overloaded stage is red with `⚠` and a 2 px red flag at the left.
+  - A comfortable source row may read green.
+  - The last row gives the demand or heat and the resulting factor (`8 → ×0.89`).
 
+### 15.6 Scenes (pages `24` and `25`)
+
+**Data scenes, page `24`:**
 - A: USB → Add → Drive.
 - B: the same line with lanes and a twin Add.
-- C: 8-bit Byte Bus trunk.
-- D: a power district feeding a rail spine between two compute rows.
-- G: the full lab, 28×15.
+- C: an 8-bit Byte Bus trunk.
 
-E and F are on page `22 / 04`. All are at 1:1 gameplay scale. G is the readability reference: when a
-new part is added, place it in G and check that the board stays calm.
+**Hardware scenes, page `25`:**
+- A: a small system with one path of each kind.
+- B: a compute upgrade with two bottlenecks, conversion and dissipation.
+- C: a power bottleneck (Server PSU, Basic VRM pinned).
+- D: a thermal transport bottleneck; a third fan gives +0.
+- E: a dissipation bottleneck; the radiator is air-starved.
+- F: a shared cooling assembly.
+- G: the full lab.
+
+All are at 1:1. G is the readability reference: data, power and heat paths must each be traceable
+without an overlay.
+
+Explanatory text lives only in these mockups and in the docs. In-game, topology is communicated by
+form; numbers appear in hover, overlays and stage panels.
