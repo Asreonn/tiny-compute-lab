@@ -18,7 +18,7 @@ dir = "out"
 [resource]
 script = ExtResource("4_hgrya")
 id = "not_gate"
-display_name = "NOT"
+display_name = "Inverter"
 family = "logic"
 size = "S"
 campaign_ticks = 2

@@ -28,6 +28,7 @@ script = ExtResource("3_lt")
 id = "in"
 side = 2
 label = "D"
+tie = "d"
 
 [sub_resource type="Resource" id="Resource_lt4"]
 script = ExtResource("3_lt")

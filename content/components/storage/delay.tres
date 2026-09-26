@@ -9,7 +9,7 @@
 script = ExtResource("2_km86r")
 key = "ticks"
 label = "Delay"
-default_int = 3
+default_int = 1
 min_value = 1
 max_value = 9
 options = PackedStringArray()

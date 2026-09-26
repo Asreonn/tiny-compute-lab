@@ -9,12 +9,14 @@
 script = ExtResource("3_c1w3q")
 id = "a"
 side = 2
+tie = "a"
 
 [sub_resource type="Resource" id="Resource_xydxf"]
 script = ExtResource("3_c1w3q")
 id = "b"
 cell = Vector2i(0, 1)
 side = 2
+tie = "b"
 
 [sub_resource type="Resource" id="Resource_e5x4e"]
 script = ExtResource("3_c1w3q")
@@ -30,16 +32,43 @@ id = "out"
 dir = "out"
 cell = Vector2i(1, 0)
 
+[sub_resource type="Resource" id="Resource_take1"]
+script = ExtResource("2_lbbja")
+key = "take"
+label = "Take"
+kind = "enum"
+options = PackedStringArray("both", "chosen")
+default_text = "both"
+
+[sub_resource type="Resource" id="Resource_a1"]
+script = ExtResource("2_lbbja")
+key = "a"
+label = "Tie A"
+default_int = 0
+min_value = 0
+max_value = 255
+options = PackedStringArray()
+
+[sub_resource type="Resource" id="Resource_b1"]
+script = ExtResource("2_lbbja")
+key = "b"
+label = "Tie B"
+default_int = 0
+min_value = 0
+max_value = 255
+options = PackedStringArray()
+
 [resource]
 script = ExtResource("4_h8a0f")
 id = "mux"
-display_name = "Mux"
+display_name = "Selector"
 family = "routing"
 size = "L"
 campaign_ticks = 2
 power = 1
 icon = "op_merge"
-description = "Two streams in, one out: the select bit picks A (0) or B (1) for each value."
+description = "SEL picks A (0) or B (1). Take both: consumes SEL and both inputs each step. Take chosen: consumes only the chosen input. An unwired A or B reads its tie value."
 ports = Array[ExtResource("3_c1w3q")]([SubResource("Resource_tr3wj"), SubResource("Resource_xydxf"), SubResource("Resource_e5x4e"), SubResource("Resource_2bh2b")])
+params = Array[ExtResource("2_lbbja")]([SubResource("Resource_take1"), SubResource("Resource_a1"), SubResource("Resource_b1")])
 logic = ExtResource("1_dt0gk")
 menu_order = 190

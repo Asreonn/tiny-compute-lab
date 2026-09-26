@@ -57,17 +57,35 @@ func _start_demux(m, sim) -> void:
 	m.begin_job(out, d)
 
 
-## Mux: the select bit says which input to take next; only that input is consumed. The chosen
-## value must belong to the select bit's record (DATA_FACTORY §3.1): the oldest select whose
-## record waits on its chosen input goes first.
+## Selector (the evolved Mux): SEL picks A (0) or B (1). take = both: waits for SEL and both
+## inputs of one record, consumes all three, emits the chosen one. take = chosen (the old Mux):
+## consumes only the chosen input. An unwired A/B reads its tie param (a/b).
 func _start_mux(m, sim) -> void:
+	if str(m.params.get("take", "both")) != "chosen":
+		var got: Dictionary = m.take_record(["a", "b", "sel"], sim)
+		if got.is_empty():
+			return
+		var sel: Packet = got["sel"]
+		var pick := "b" if sel.data.as_bool() else "a"
+		var chosen: Packet = got[pick]
+		var other: Packet = got["a" if pick == "b" else "b"]
+		var out := chosen.derive(sim.new_packet_id(), chosen.data)
+		out.merge_origins(sel)
+		out.merge_origins(other)
+		m.begin_job({"out": out}, chosen)
+		return
 	var si := -1
 	var di := -1
 	var port := "a"
 	var sels: Array = m.inq["sel"]
+	var tied_pick := false
 	for i in sels.size():
 		var sp: Packet = sels[i]
 		port = "b" if sp.data.as_bool() else "a"
+		if m.is_tied(port, sim):
+			si = i
+			tied_pick = true
+			break
 		di = m.find_ctx(port, sp.ctx)
 		if di >= 0:
 			si = i
@@ -77,6 +95,10 @@ func _start_mux(m, sim) -> void:
 	var sel: Packet = sels[si]
 	sels.remove_at(si)
 	sel.path.append(m.label)
+	if tied_pick:
+		var out := sel.derive(sim.new_packet_id(), m.tie_packet(port, sim).data)
+		m.begin_job({"out": out}, sel)
+		return
 	var d: Packet = m.inq[port][di]
 	m.inq[port].remove_at(di)
 	d.path.append(m.label)

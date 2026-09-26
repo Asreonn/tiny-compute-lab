@@ -32,6 +32,8 @@ static func _feed(sim: Simulation, m: Machine, port: String, bin: String, ctx: i
 static func _pairs_by_record(t) -> void:
 	var sim := _sim()
 	var g := sim.place("and_gate", Vector2i(2, 2), 0, {}, 3)
+	var ib := sim.place("input", Vector2i(2, 6), 0, {}, 3)
+	sim.connect_ports(ib.id, "out", g.id, "b")
 	_feed(sim, g, "a", "110", 2)
 	_feed(sim, g, "a", "011", 1)
 	_feed(sim, g, "b", "111", 1)
@@ -46,6 +48,8 @@ static func _pairs_by_record(t) -> void:
 static func _context_free_fits(t) -> void:
 	var sim := _sim()
 	var g := sim.place("and_gate", Vector2i(2, 2), 0, {}, 3)
+	var ib := sim.place("input", Vector2i(2, 6), 0, {}, 3)
+	sim.connect_ports(ib.id, "out", g.id, "b")
 	_feed(sim, g, "a", "101", 5)
 	_feed(sim, g, "b", "111", -1)
 	var out: Packet = null

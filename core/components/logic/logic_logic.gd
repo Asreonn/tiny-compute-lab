@@ -8,11 +8,13 @@ func start(m, sim) -> void:
 		return
 	match m.type:
 		"compare":
-			if m.inq["in"].is_empty():
+			var got: Dictionary = m.take_record(["in", "b"], sim)  # B unwired = tied to k
+			if got.is_empty():
 				return
-			var p: Packet = m.pop("in")
+			var p: Packet = got["in"]
+			var pb: Packet = got["b"]
 			var x: BitVector = p.data
-			var c := x.ucmp(BitVector.of(int(m.params["k"]), x.width))
+			var c := x.ucmp(BitVector.of(pb.data.unsigned(), x.width))
 			var r := false
 			match str(m.params["op"]):
 				">": r = c > 0
@@ -21,8 +23,9 @@ func start(m, sim) -> void:
 				"≥": r = c >= 0
 				"≤": r = c <= 0
 				"≠": r = c != 0
-			var v := BitVector.of(1 if r else 0, 1)
-			m.begin_job({"out": p.derive(sim.new_packet_id(), v)}, p)
+			var out := p.derive(sim.new_packet_id(), BitVector.of(1 if r else 0, 1))
+			out.merge_origins(pb)
+			m.begin_job({"out": out}, p)
 		"and_gate", "or_gate", "xor_gate":
 			var got: Dictionary = m.take_record(["a", "b"], sim)  # one record: identity-safe pairing
 			if got.is_empty():

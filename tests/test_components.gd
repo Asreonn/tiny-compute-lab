@@ -62,7 +62,11 @@ static func _adder(t) -> void:
 
 static func _mux(t) -> void:
 	var sim := _sim()
-	var m := sim.place("mux", Vector2i(2, 2), 0, {}, 3)
+	var m := sim.place("mux", Vector2i(2, 2), 0, {"take": "chosen"}, 3)
+	var ia := sim.place("input", Vector2i(2, 6), 0, {}, 3)
+	var ib := sim.place("input", Vector2i(2, 8), 0, {}, 3)
+	sim.connect_ports(ia.id, "out", m.id, "a")
+	sim.connect_ports(ib.id, "out", m.id, "b")
 	_feed(sim, m, "a", "001")
 	_feed(sim, m, "b", "110")
 	_feed(sim, m, "sel", "1")
@@ -70,7 +74,9 @@ static func _mux(t) -> void:
 	t.check(o.get("port") == "out" and (o["packet"] as Packet).data.equals(BitVector.from_bin("110")), "select 1 takes B")
 	t.check(m.inq["a"].size() == 1, "the unselected input waits")
 	var sim2 := _sim()
-	var m2 := sim2.place("mux", Vector2i(2, 2), 0, {}, 3)
+	var m2 := sim2.place("mux", Vector2i(2, 2), 0, {"take": "chosen"}, 3)
+	var ia2 := sim2.place("input", Vector2i(2, 6), 0, {}, 3)
+	sim2.connect_ports(ia2.id, "out", m2.id, "a")
 	_feed(sim2, m2, "sel", "0")
 	t.check(_run_until_out(sim2, m2, 6).is_empty(), "no value on the selected input: nothing moves")
 
@@ -114,6 +120,8 @@ static func _gates(t) -> void:
 	for c in [["and_gate", "11001100", "10101010", "10001000"], ["or_gate", "11001100", "10101010", "11101110"], ["xor_gate", "11001100", "10101010", "01100110"]]:
 		var sim := _sim()
 		var g := sim.place(c[0], Vector2i(2, 2), 0, {}, 8)
+		var ib := sim.place("input", Vector2i(2, 6), 0, {}, 8)
+		sim.connect_ports(ib.id, "out", g.id, "b")
 		_feed(sim, g, "a", c[1], {1: {"seq": 0, "value": RawValue.text("h")}})
 		_feed(sim, g, "b", c[2], {2: {"seq": 0, "value": RawValue.key(223)}})
 		var p: Packet = _run_until_out(sim, g).get("packet")

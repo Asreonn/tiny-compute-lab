@@ -1259,7 +1259,11 @@ func load_player_layout(d: Dictionary) -> void:
 					remove_device(mid)  # the player had moved this port's module to the desk
 				li += 1
 		else:
-			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), md.get("params", {}), int(md.get("width", 0)))
+			var params: Dictionary = md.get("params", {})
+			if str(md["type"]) == "mux" and not params.has("take"):
+				params = params.duplicate()
+				params["take"] = "chosen"  # saves from before C3b: the old Mux consumed only the chosen input
+			var m := place(md["type"], Vector2i(md["cell"][0], md["cell"][1]), int(md.get("rot", 0)), params, int(md.get("width", 0)))
 			if m != null:
 				map[i] = m.id
 		i += 1

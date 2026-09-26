@@ -554,18 +554,54 @@ func find_ctx(port: String, c: int) -> int:
 	return -1
 
 
+## The param key a tied input reads when unconnected ("" = the port is not tie-able).
+func tie_param(port: String) -> String:
+	return str(Catalog.port_def(type, port).get("tie", ""))
+
+
+## True when `port` is tie-able and nothing is wired to it: it reads its tie param, never waits.
+func is_tied(port: String, sim) -> bool:
+	return tie_param(port) != "" and sim != null and not sim.input_connected(self, port)
+
+
+## A fresh context-free value of the tie param at the port's width.
+func tie_packet(port: String, sim) -> Packet:
+	return Packet.new(sim.new_packet_id(), BitVector.of(int(params.get(tie_param(port), 0)), port_width(port)), sim.tick)
+
+
 ## Take one value from each of `ports` that all belong to the same record (DATA_FACTORY §3.1):
 ## the oldest record present on every port, context-free values fitting any. Returns
 ## {port: Packet} (removed from the queues, path stamped) or {} when no record is complete.
 ## Waiting values whose record can no longer be completed are discarded as ORPHANS (checked at
-## most every 8 ticks).
+## most every 8 ticks). Tied unconnected inputs never wait: they get a fresh tie value.
+## With one waiting port the queue is taken in arrival order.
 func take_record(ports: Array, sim) -> Dictionary:
+	var wait: Array = []
+	var tied: Array = []
 	for port in ports:
+		if is_tied(port, sim):
+			tied.append(port)
+		else:
+			wait.append(port)
+	if wait.is_empty():
+		return {}
+	if wait.size() == 1:
+		var port: String = wait[0]
 		if (inq[port] as Array).is_empty():
-			_check_orphans(ports, sim)
+			return {}
+		var p: Packet = inq[port][0]
+		inq[port].remove_at(0)
+		p.path.append(label)
+		var out := {port: p}
+		for tp in tied:
+			out[tp] = tie_packet(tp, sim)
+		return out
+	for port in wait:
+		if (inq[port] as Array).is_empty():
+			_check_orphans(wait, sim)
 			return {}
 	var cands: Array = []
-	for port in ports:
+	for port in wait:
 		for p in inq[port]:
 			var k: int = (p as Packet).ctx
 			if k >= 0 and not cands.has(k):
@@ -574,7 +610,7 @@ func take_record(ports: Array, sim) -> Dictionary:
 	cands.append(-1)  # finally: a record made only of context-free values
 	for c in cands:
 		var picks := {}
-		for port in ports:
+		for port in wait:
 			var i := _find_exact(port, c)
 			if i < 0:
 				picks = {}
@@ -583,13 +619,15 @@ func take_record(ports: Array, sim) -> Dictionary:
 		if picks.is_empty():
 			continue
 		var out := {}
-		for port in ports:
+		for port in wait:
 			var p: Packet = inq[port][picks[port]]
 			inq[port].remove_at(picks[port])
 			p.path.append(label)
 			out[port] = p
+		for tp in tied:
+			out[tp] = tie_packet(tp, sim)
 		return out
-	_check_orphans(ports, sim)
+	_check_orphans(wait, sim)
 	return {}
 
 
