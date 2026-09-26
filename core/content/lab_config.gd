@@ -36,6 +36,8 @@ extends Resource
 @export var nic_bay_level := -1
 ## The level index at which max machine lanes become 2, 4, 8 (FACTORY_SYSTEMS §3.1).
 @export var lane_levels: PackedInt32Array = PackedInt32Array([3, 5, 21])
+## From this level index on, a newly plugged USB stick starts in TEST (JOB C7b); -1 = never.
+@export var test_level := -1
 ## The level index at which max wire lanes become 2, 4, 8 (FACTORY_SYSTEMS §2.1).
 @export var bus_lane_levels: PackedInt32Array = PackedInt32Array([5, 17, 21])
 ## The first level with the Efficiency upgrade (FACTORY_SYSTEMS §3.1).

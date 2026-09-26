@@ -48,6 +48,11 @@ var level_completed_tick := -1
 var drive_quest: Dictionary = {}  # output port id -> the quest it judged last (the drive's face)
 var _qp: Dictionary = {}  # quest index -> QuestProgress
 var _contracts: Dictionary = {}  # quest index -> Contract (pure data, built once)
+## Test runs (JOB C7b): run id -> TestRun, and quest -> the layout_version of its last all-pass
+## run (require_test compares it to the current circuit).
+var test_runs: Dictionary = {}
+var _next_test_run := 1
+var test_ok: Dictionary = {}
 
 ## The current quest's progress (the HUD and the older single-quest code read these).
 var delivered: int:
@@ -322,6 +327,14 @@ func reset(_sim: Simulation) -> void:
 
 
 func on_output(sim: Simulation, m: Machine, p: Packet) -> void:
+	# A test packet never counts for quests or sales: hand its delivery to its run and stop.
+	for k in p.origins:
+		var e: Dictionary = p.origins[k]
+		if e.has("test"):
+			var tr: TestRun = test_runs.get(int(e["run"]))
+			if tr != null:
+				tr.on_delivery(p)
+			return
 	var dev := m.device
 	if m.type == "nic":
 		dev = str(m.params.get("tx_" + str(p.meta.get("tx", "a")), ""))
@@ -373,6 +386,23 @@ func on_overflow(_sim: Simulation, _m: Machine, _p: Packet) -> void:
 	pass
 
 
+## Start a test run on source `mid` (a USB socket or a NIC RX channel) for quest `q` (default:
+## the current level) and switch the source to TEST. The vectors come from the quest's test set,
+## the source's default test vectors, or the first 4 stream values.
+func start_test(sim: Simulation, mid: int, channel: String = "", q: int = -1) -> TestRun:
+	q = level if q < 0 else q
+	sim.set_source_mode(mid, channel, "test")
+	var tr := TestRun.build(self, sim, _next_test_run, mid, channel, q)
+	_next_test_run += 1
+	test_runs[tr.id] = tr
+	return tr
+
+
+## From LabConfig.test_level on, a newly plugged USB stick starts in TEST (JOB C7b).
+func test_before_live() -> bool:
+	return LabDef.CONFIG.test_level >= 0 and level >= LabDef.CONFIG.test_level
+
+
 ## Lost values feed the max_lost constraint; a broken constraint only restarts the window.
 ## A stall is only a warning string; the lab never fails.
 func after_tick(sim: Simulation) -> void:
@@ -406,6 +436,17 @@ func after_tick(sim: Simulation) -> void:
 				qp.rate_since = -1
 			if c.sustain > 0.0:
 				_check_filled(sim, q)
+	# Test runs (JOB C7b): advance every run in id order; an all-pass run on the unchanged
+	# circuit records its layout_version for require_test.
+	var run_ids := test_runs.keys()
+	run_ids.sort()
+	for rid in run_ids:
+		var tr: TestRun = test_runs[rid]
+		if tr.done() and tr.total() > 0:
+			continue  # a finished run no longer scans the board
+		tr.update(sim, self)
+		if tr.done() and tr.all_pass() and tr.version == sim.layout_version:
+			test_ok[tr.quest] = tr.version
 	var ww := _q(level).warning
 	if ww != "":
 		warning = ww
@@ -444,6 +485,10 @@ func _check_filled(sim: Simulation, q: int) -> void:
 		if qp.rate_since < 0 or sim.tick - qp.rate_since < int(c.sustain * Simulation.TICKS_PER_SEC):
 			return
 	if c.max_lost >= 0 and qp.window_lost > c.max_lost:
+		return
+	# require_test (JOB C7b): the quest files only after one all-pass run on this circuit.
+	if bool(LabDef.level(q).get("require_test", false)) and int(test_ok.get(q, -1)) != sim.layout_version:
+		qp.warning = "Run the test set on this circuit first"
 		return
 	qp.filled = true
 	qp.warning = ""

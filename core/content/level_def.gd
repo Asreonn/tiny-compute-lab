@@ -11,6 +11,8 @@ extends Resource
 ## grow      the board size from this quest on (0 × 0 = unchanged)
 ## view      ViewMode.Mode the quest is shown in
 ## reward    e.g. {"psu_tier": 1} once the quest is done
+## tests     the quest's test set (JOB C7b): [{seq?: int, value?: "BIN string", note: String}]
+## require_test  the quest files only after one all-pass test run on its current circuit
 
 @export var id := ""
 @export var title := ""
@@ -22,6 +24,10 @@ extends Resource
 @export var grow := Vector2i.ZERO
 @export_enum("BIN", "UDEC", "HEX", "CHAR", "SDEC", "TYPE") var view := 0
 @export var reward: Dictionary = {}
+## The quest's test set (JOB C7b): [{seq?: int, value?: "BIN string", note: String}].
+@export var tests: Array[Dictionary] = []
+## True: the quest files only after one all-pass test run on its current circuit.
+@export var require_test := false
 
 
 func to_dict() -> Dictionary:
@@ -37,4 +43,8 @@ func to_dict() -> Dictionary:
 		d["grow"] = grow
 	if not reward.is_empty():
 		d["reward"] = reward.duplicate(true)
+	if not tests.is_empty():
+		d["tests"] = tests.duplicate(true)
+	if require_test:
+		d["require_test"] = true
 	return d
