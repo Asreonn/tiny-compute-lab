@@ -1,7 +1,14 @@
 # Tiny Compute Lab — The Data Factory (compute / data / network MVP refoundation)
 
-> Status: **DRAFT 2026-09-26 — for review.** It locks together with the revised Penpot pages
-> (§14) once the user has reviewed them.
+> Status: **LOCKED 2026-09-26** (user approval). Decisions made at the lock:
+> - Distributor and Join are generic flow primitives. The legacy Splitter and Merger stay for save
+>   compatibility; the new progression uses Distributor and Join.
+> - The idle baseline is data-driven (`ComponentDef.idle_pct`, default 12, meant to be
+>   rebalanced). It is not a fixed 20 %.
+> - Penpot numbers are illustrative, not balance constants.
+> - No custom module or blueprint authoring yet.
+> - C3–C8 may start. The correlation/enrichment content (C9+) waits until the page 24 scenes (one
+>   source live, three sources) are finished and locked.
 >
 > - Source brief: "COMPUTE / DATA / NETWORK MVP REFOUNDATION", 2026-09-26.
 > - Quest content: `docs/PROGRESSION.md`. The four physical capacities (data, compute, power,
@@ -154,10 +161,16 @@ are no special cases:
   - It leaves through the part's **integrated thermal pickup** into the shared spreader, then the
     manifold, the heat pipe / trunk, the radiator and the blowers.
   - There is never a local PSU or fan per part.
-- *Proposed (cal., needs approval):* each powered lane also leaks **20 % of its full-rate heat**
-  while idle.
-  - Over-provisioned copies then cost a little heat as well as power, which is physically right.
-  - It changes a heat-source number only; the thermal architecture is untouched.
+- **Idle baseline** (locked; data-driven, `ComponentDef.idle_pct`, default **12**, per-asset
+  override):
+  - **Heat** per tick is `heat × clock heat × (idle_pct % × lanes + (100 − idle_pct) % ×
+    work done / clock rate)`. Full load is unchanged; an idle powered part still warms by idle_pct.
+  - **Power draw** (`Machine.power_draw()`) is the same blend of `power_demand()`. It feeds the
+    readouts (hover card, Lab draw).
+  - The **rails stay sized for peak** `power_demand()`. The locked power network is unchanged, so
+    brownout still means the peak cannot be supplied.
+  - Over-provisioned copies therefore cost peak capacity (rails), a baseline draw and baseline
+    heat.
 - **Capacity** is `lanes × rate` (the §2 table's ticks). **Area** is the footprint in tiles, plus
   the wires and the space the power and thermal hardware need.
 
@@ -214,13 +227,21 @@ Everything is × the width factor: a Gate or splitter on a 16-bit record draws 3
     them is always right (§11).
 - **Routing parts** may emit nothing (Gate, Demux, Cond Router) or reorder (Distributor →
   pipelines → Join). Reordering is safe, because pairing is by record, not by arrival order.
-- **Orphans.** A drop (Gate/Demux) on one input's upstream path means that record's partner never
-  arrives.
-  - The combining part discards the waiting value as an **ORPHAN**.
-  - Orphans are counted and named in its hover card and Inspector.
-  - It is deterministic: drops are recorded per record, and each input knows its upstream parts.
+- **Orphans (exact, no timeouts).** A waiting value of record `s` is discarded as an **ORPHAN**
+  when a required partner input can no longer receive `s`:
+  - no value of `s` exists anywhere upstream of that input (wires, queues, jobs, backlogs,
+    FIFOs);
+  - and every source upstream of it has already emitted `s`.
+  - Orphans are counted and named in the part's hover card and Inspector.
   - The usual design is to combine first and filter after, or to zero with a Bit Switch instead of
     dropping.
+- **Context-free values** (`ctx = -1`) fit any record:
+  - Constants, Clock pulses and tie-offs;
+  - **state outputs**: Register, Register Bank reads.
+  - State is not a record, so accumulator and feedback loops (Running Sum, the CPU branch) keep
+    working.
+  - A Latch output belongs to its EN's record.
+  - A RAM read belongs to its address's record.
 
 ### 3.2 Tie-offs
 - A data input marked `tie` in its PortDef may be left unconnected. It then reads the component's

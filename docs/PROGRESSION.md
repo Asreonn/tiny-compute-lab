@@ -1,6 +1,7 @@
 # Tiny Compute Lab — Progression (the data-factory MVP)
 
-> Status: **DRAFT 2026-09-26 — for review**, with `docs/DATA_FACTORY.md`.
+> Status: **LOCKED 2026-09-26** with `docs/DATA_FACTORY.md`. The content for Q22–Q30 (correlation
+> and enrichment) is built only after the page 24 scenes are locked.
 > - Replaces the 31-level factory-growth table (the previous P13 plan, never built). Its growth
 >   principles stay: a persistent Lab, reuse, rising throughput, Data → Compute → Power → Thermal
 >   pressure, width milestones, infrastructure growth.

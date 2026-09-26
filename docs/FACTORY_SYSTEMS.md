@@ -5,7 +5,7 @@
 > summarised in `docs/STYLE_GUIDE.md §15`. Numbers marked *(cal.)* are calibration targets, tuned by
 > tests rather than by eye.
 >
-> **2026-09-26 (data-factory revision, DRAFT for review):**
+> **2026-09-26 (data-factory revision, LOCKED):**
 > - Compute and data content is redesigned in `docs/DATA_FACTORY.md` (primitive kit, records,
 >   network, TEST/LIVE) and `docs/PROGRESSION.md` (the quest tree).
 > - The capacity systems below stay in force. **Network** joins them as a fifth capacity
