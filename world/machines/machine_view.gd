@@ -55,6 +55,7 @@ var _codec_slot: CodecSlot = null  # codec token slot (D4)
 var _usb_socket: UsbSocketView = null  # USB socket face + module (D4)
 var _contract: ContractDriveView = null  # locked USB Output contract drive (D4)
 var _thermal: ThermalPartView = null  # thermal family hardware (E3)
+var _power_part: PowerPartView = null  # power family chassis (P10c)
 var _strip: ThermalStrip = null  # heat stage strip / critical frame (E3)
 var _tag_nodes: Array = []  # width tag sprites (hidden when the mapped port is raw)
 var _tag_values: Array = []  # width shown by each width tag (upright text)
@@ -176,6 +177,14 @@ func _build() -> void:
 		body.add_child(_led)
 	# 10 Ports centred on their anchors
 	_build_ports(ly)
+	# 10b Power family (P10c): the procedural chassis (lab jack / VRM / distribution board)
+	# draws over the shell and under the state overlays. Power parts are placed unrotated.
+	var pbase := Catalog.base_type(machine.type)
+	if pbase in ["power_input", "power_controller", "power_board"]:
+		_power_part = PowerPartView.new()
+		_power_part.name = "PowerPart"
+		_power_part.machine = machine
+		body.add_child(_power_part)
 	# 11 state overlays (over the shell)
 	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
 		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
@@ -216,7 +225,7 @@ func _build() -> void:
 	# contacts are board-aligned (a child of the MachineView itself) so they never rotate.
 	# Lane slices are player machines only (locked IO and ghosts show none); contacts are a
 	# placement aid for ghosts too, but never for locked machines or power/thermal parts.
-	if not machine.locked and not ghost:
+	if not machine.locked and not ghost and str(machine.def()["family"]) != "power":
 		_lane_slices = ChassisMarks.LaneSlices.new()
 		_lane_slices.name = "LaneSlices"
 		_lane_slices.machine = machine
@@ -615,6 +624,11 @@ func refresh(delta: float) -> void:
 			led_name = "overheated"
 		elif m.heat_stage == ThermalGrid.Stage.THROTTLING:
 			led_name = "throttling"
+	# Power family LED (P10c): the VRM / board report their own stage instead of the machine's.
+	if _power_part != null:
+		var pl := _power_part.led_name()
+		if pl != "":
+			led_name = pl
 	if _led != null and led_name != _led_rel:
 		_led.texture = Art.tex(Art.led_file(led_name))
 		_led_rel = led_name
@@ -665,6 +679,8 @@ func refresh(delta: float) -> void:
 		_contract.refresh()
 	if _thermal != null:
 		_thermal.refresh(delta)
+	if _power_part != null:
+		_power_part.refresh()
 	if _strip != null:
 		_strip.refresh(machine.heat_stage, delta)
 	# Upright texts: values change with ticks, edits (on_layout) and the view mode only.
@@ -775,6 +791,8 @@ func _display_value(vm: int) -> String:
 			return ViewMode.format(v, const_mode(vm))
 		"program_counter":
 			return ViewMode.format(BitVector.of(m.counter if m.primed else int(m.params.get("start", 0)), m.width), const_mode(vm))
+		"power_controller":
+			return str(PowerNetwork.TIER_CAP.get(str(m.params.get("tier", "ctrl")), 12))
 	return ""
 
 
@@ -804,6 +822,11 @@ func _silk_text(_sim: Simulation) -> String:
 			return "%d/%d" % [got, total]
 		"splitter":
 			return "DUP" if str(m.params.get("mode", "")) == "Duplicate" else "ALT"  # the live mode
+		"power_controller":
+			var tier := str(m.params.get("tier", "ctrl"))
+			return {"ctrl": "PWR CTRL", "basic": "VRM", "eff": "VRM·E", "hc": "VRM·HC"}.get(tier, "VRM")
+		"power_input":
+			return "DC IN"
 		_:
 			var ly := Art.layout(m.type)
 			var sylk: Dictionary = _entry(ly, "silk")

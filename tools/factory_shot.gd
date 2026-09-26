@@ -121,7 +121,7 @@ func _process(_d: float) -> bool:
 ## Close-up centres (tiles) per scene.
 const FOCUS := {
 	"data": [Vector2(15, 6), Vector2(15, 12)],
-	"power": [Vector2(8, 12), Vector2(16, 14)],
+	"power": [Vector2(4.5, 13), Vector2(15, 13)],
 	"thermal": [Vector2(10, 3), Vector2(14, 8)],
 }
 
@@ -144,6 +144,9 @@ func _data_scene(sim: Simulation) -> void:
 func _power_scene(sim: Simulation) -> void:
 	# the Lab builds the locked jack + controller from its power level (OpenLab.has_psu)
 	(sim.mission as LabRun)._ensure_power_fixtures(sim)
+	for c in sim.reserved.keys():
+		if c.y >= 12 and c.y <= 13:
+			sim.reserved.erase(c)  # the power bay is open now (the real Lab clears it with the PSU)
 	var ctrl := sim.machine_at(Vector2i(2, 12))
 	if ctrl != null:
 		ctrl.params["tier"] = "basic"
