@@ -34,7 +34,8 @@ var alpha := 0.0  # 0..1 progress towards the next tick, for view interpolation 
 ## Display state only: the ViewMode.Mode the HUD offers for packet/machine values.
 ## -1 = mission default (the mission's first view mode); reset on every mission load.
 var view_mode := -1
-## The board view: "" (normal) | "data" | "flow" | "thermal" | "power" (VIEWS; keys N B F T P).
+## The board view: "" (normal) | "data" | "flow" | "thermal" | "power" | "compute" | "network"
+## (VIEWS; keys N B F T P C W).
 var overlay := ""
 var _acc := 0.0
 
@@ -336,7 +337,7 @@ func set_speed(s: int) -> void:
 
 ## The board VIEWS (a main mechanic, the View dock): [overlay id, name, key]. "" is the normal
 ## view; the others draw their layer over the machines (world/overlays/systems_overlay.gd).
-const VIEWS := [["", "Normal", "N"], ["data", "Data", "B"], ["flow", "Flow", "F"], ["thermal", "Heat", "T"], ["power", "Power", "P"], ["compute", "Compute", "C"]]
+const VIEWS := [["", "Normal", "N"], ["data", "Data", "B"], ["flow", "Flow", "F"], ["thermal", "Heat", "T"], ["power", "Power", "P"], ["compute", "Compute", "C"], ["network", "Network", "W"]]
 
 
 ## Toggle a view (pressing the shown one again goes back to the normal view).

@@ -166,6 +166,8 @@ func _state_color(m: Machine) -> Color:
 
 func _rows(sim: Simulation, m: Machine) -> Array:
 	var out := []
+	if m.type == "nic":
+		return _nic_rows(sim, m)
 	out.append(["WIDTH", "%d-bit" % m.width, Palette.TEXT_PRIMARY])
 	if m.lanes() > 1:
 		out.append(["LANES", "%d / %d busy" % [m.jobs.size(), m.lanes()], Palette.TEXT_PRIMARY])
@@ -205,7 +207,56 @@ func _rows(sim: Simulation, m: Machine) -> Array:
 
 ## The number of rows the card shows for `m` (LANES appears only above one lane).
 func _row_count(m: Machine) -> int:
+	if m.type == "nic":
+		return _nic_row_count(m)
 	return 6 + (1 if m.lanes() > 1 else 0)
+
+
+## NIC rows: tier + budget, the RX/TX split of the load, then one row per open RX channel and
+## TX port (the card's readout of the Network view).
+func _nic_rows(sim: Simulation, m: Machine) -> Array:
+	var out := []
+	var t := NicLogic.tier(m)
+	var cap := NicLogic.capacity(m)
+	var total := NicLogic.load_per_sec(m)
+	var rx := NicLogic.load_rx(m)
+	var tx := NicLogic.load_tx(m)
+	out.append(["Tier", "Mk%d · %d frames/s" % [t, cap], Palette.TEXT_PRIMARY])
+	out.append(["Load", "%d / %d (RX %d · TX %d)" % [total, cap, rx, tx], Palette.STATE_BLOCKED if total * 4 >= cap * 3 else Palette.TEXT_PRIMARY])
+	var open := NicLogic.open_ports(t)
+	for ch in NicLogic.RX:
+		if not ("rx_" + ch) in open:
+			continue
+		var src := SourceStream.source(str(m.params.get("rx_" + ch, "")))
+		var name := "— none —"
+		if src != null:
+			name = src.display_name
+		var mode := sim.source_mode(m.id, ch)
+		out.append(["RX " + ch.to_upper(), "%s · %s" % [name, mode.to_upper()], Palette.DATA_NUMBER if mode == "live" else Palette.STATE_BLOCKED])
+	for ch in NicLogic.TX:
+		if not ("tx_" + ch) in open:
+			continue
+		var buyer := str(m.params.get("tx_" + ch, ""))
+		var q := Devices.quest_of(buyer)
+		var label := "unsold"
+		var col := Palette.TEXT_MUTED
+		if q >= 0:
+			var lr: LabRun = get_node("/root/SimulationManager").lab_run
+			if lr != null:
+				label = lr.quest_title(q)
+				col = Palette.FAMILY_IO
+		out.append(["TX " + ch.to_upper(), label, col])
+	return out
+
+
+## NIC card rows: tier + load, then one per open RX channel and TX port.
+func _nic_row_count(m: Machine) -> int:
+	var open := NicLogic.open_ports(NicLogic.tier(m))
+	var n := 2
+	for p in open:
+		if str(p).begins_with("rx_") or str(p).begins_with("tx_"):
+			n += 1
+	return n
 
 
 ## Display name of a power-node id ("source" → "PSU", chains "c…" → "Copper", …).

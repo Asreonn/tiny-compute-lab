@@ -52,6 +52,7 @@ func _draw() -> void:
 		"data": _data(sim)
 		"flow": _flow(sim)
 		"compute": _compute(sim)
+		"network": _network(sim)
 
 
 func _text(pos: Vector2, s: String, px: int, weight: String, c: Color) -> void:
@@ -131,3 +132,32 @@ func _compute(sim: Simulation) -> void:
 	_swatch(12, Palette.FAMILY_COMPUTE, "LANES busy")
 	_swatch(132, Palette.STATE_BLOCKED, "COMPUTE-BOUND")
 	_text(Vector2(12, 58), "all lanes busy and inputs full ≥ 50 %", 8, "Medium", Palette.TEXT_MUTED)
+
+
+func _network(sim: Simulation) -> void:
+	_text(Vector2(12, 18), "NETWORK", 10, "ExtraBold", Palette.TEXT_PRIMARY)
+	_text(Vector2(W - 24, 18), "W", 10, "ExtraBold", Palette.TEXT_MUTED)
+	var best := _busiest_nic(sim)
+	if best == null:
+		_text(Vector2(64, 18), "no network card", 10, "Medium", Palette.TEXT_MUTED)
+	else:
+		_text(Vector2(64, 18), "%d/%d frames/s" % [NicLogic.load_per_sec(best), NicLogic.capacity(best)], 10, "ExtraBold", Palette.TEXT_PRIMARY)
+	_swatch(12, Palette.DATA_NUMBER, "RX live")
+	_swatch(100, Palette.STATE_BLOCKED, "TEST")
+	_swatch(196, Palette.FAMILY_IO, "TX / sale", 7)
+	_text(Vector2(12, 58), "channels that waited for credit turn red", 8, "Medium", Palette.TEXT_MUTED)
+
+
+## The NIC with the highest load this second, null when the board has none.
+func _busiest_nic(sim: Simulation) -> Machine:
+	var best: Machine = null
+	var best_load := -1
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.type != "nic":
+			continue
+		var load := NicLogic.load_per_sec(m)
+		if load > best_load:
+			best_load = load
+			best = m
+	return best

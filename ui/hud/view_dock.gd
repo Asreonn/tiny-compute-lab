@@ -1,9 +1,10 @@
 extends Control
 ## View dock (bottom centre): the board VIEWS as a main mechanic. Normal · Data · Flow · Heat ·
-## Power (SimulationManager.VIEWS, keys N B F T P). Each view redraws the board around one question
-## (what kind of data flows where · who is busy or blocked · what is hot · what draws power); the
-## legend sits right above the dock. While a view is on, a thin frame in its colour rims the
-## screen so the mode is never mistaken for the normal board.
+## Power · Compute · Network (SimulationManager.VIEWS, keys N B F T P C W). Each view redraws the
+## board around one question (what kind of data flows where · who is busy or blocked · what is hot ·
+## what draws power · what computes · what the NICs carry); the legend sits right above the dock.
+## While a view is on, a thin frame in its colour rims the screen so the mode is never mistaken
+## for the normal board.
 
 const SEG := Vector2(76, 44)
 const GAP := 4.0
@@ -49,6 +50,7 @@ static func view_color(kind: String) -> Color:
 		"thermal": return Palette.STATE_BLOCKED
 		"power": return Palette.MATERIAL_GOLD
 		"compute": return Palette.FAMILY_COMPUTE
+		"network": return Palette.DATA_NUMBER
 	return Palette.TEXT_SECONDARY
 
 
@@ -126,6 +128,7 @@ func _icon(ci: CanvasItem, kind: String, pos: Vector2, c: Color) -> void:
 		"": name = "tool_select"
 		"data": name = "icon_packet"
 		"flow": name = "icon_throughput"
+		"network": name = "icon_throughput"
 		"power": name = "icon_power"
 	if kind == "thermal":
 		for k in 4:

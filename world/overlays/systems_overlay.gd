@@ -48,6 +48,7 @@ func _draw() -> void:
 		"data": _draw_data(sim)
 		"flow": _draw_flow(sim)
 		"compute": _draw_compute(sim)
+		"network": _draw_network(sim)
 
 
 func _route_pts(c: Connection) -> PackedVector2Array:
@@ -357,3 +358,70 @@ func _bracket(r: Rect2) -> void:
 	draw_line(bl, bl - Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)
 	draw_line(br, br - Vector2(5, 0), Palette.STATE_BLOCKED, 1.0)
 	draw_line(br, br - Vector2(0, 5), Palette.STATE_BLOCKED, 1.0)
+
+
+# ------------------------------------------------------------------ network
+
+## The Network view (W): every NIC's load chip (RX + TX against its budget), the RX bands out to
+## their sources and TX bands in from the quest buyers, and a TEST mark under every lab socket in
+## test mode. Read-only; everything else on the board stays untouched.
+func _draw_network(sim: Simulation) -> void:
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		var fp := Rect2(Vector2(m.cell) * T, Vector2(Catalog.size_of(m.type, m.rot)) * T)
+		if m.type == "usb_input" and m.socket and sim.source_mode(m.id) == "test":
+			_chip(Vector2(fp.get_center().x, fp.end.y + 10.0), "TEST", Palette.STATE_BLOCKED)
+		if m.type != "nic":
+			continue
+		var rx := NicLogic.load_rx(m)
+		var tx := NicLogic.load_tx(m)
+		var total := rx + tx
+		var cap := NicLogic.capacity(m)
+		var col := Palette.DATA_NUMBER
+		if total * 4 >= cap * 3:
+			col = Palette.STATE_BLOCKED
+		if _nic_waited(m):
+			col = Palette.STATE_ERROR
+		_chip(Vector2(fp.get_center().x, fp.end.y + 14.0), "RX %d + TX %d = %d/%d" % [rx, tx, total, cap], col)
+	for cid in sim.sorted_connection_ids():
+		var c: Connection = sim.connections[cid]
+		if c.cells.is_empty():
+			continue
+		var pts := _route_pts(c)
+		var from: Machine = sim.machines.get(c.from_id)
+		if from != null and from.type == "nic" and str(c.from_port).begins_with("rx_"):
+			var ch := str(c.from_port).substr(3)
+			var live := sim.source_mode(from.id, ch) == "live"
+			var col := Palette.DATA_NUMBER if live else Palette.STATE_BLOCKED
+			if pts.size() >= 2:
+				draw_polyline(pts, Color(col, 0.3 if live else 0.25), SignalGeom.trench_for(c.width, c.lanes) + 4.0, true)
+			var src := SourceStream.source(str(from.params.get("rx_" + ch, "")))
+			var label := "%s · %s" % [src.display_name if src != null else "—", "LIVE" if live else "TEST"]
+			# neighbouring RX ports: stagger their chips down the wires so they never overlap
+			_chip(pts[0] + Vector2(0.0, 22.0 * float(["a", "b", "c"].find(ch))), label, col)
+			continue
+		var to: Machine = sim.machines.get(c.to_id)
+		if to != null and to.type == "nic" and str(c.to_port).begins_with("tx_"):
+			var ch := str(c.to_port).substr(3)
+			if pts.size() >= 2:
+				draw_polyline(pts, Color(Palette.FAMILY_IO, 0.3), SignalGeom.trench_for(c.width, c.lanes) + 4.0, true)
+			var buyer := str(to.params.get("tx_" + ch, ""))
+			var q := Devices.quest_of(buyer)
+			var label := "→ unsold"
+			var col := Palette.TEXT_MUTED
+			if q >= 0 and SimulationManager.lab_run != null:
+				label = "→ %s" % SimulationManager.lab_run.quest_title(q)
+				col = Palette.FAMILY_IO
+			_chip(pts[pts.size() - 1], label, col)
+
+
+## True when any channel waited for credit during the last second (TX `waited` or any RX channel).
+func _nic_waited(m: Machine) -> bool:
+	if bool(m.net.get("waited", false)):
+		return true
+	var rx: Dictionary = m.net.get("rx", {})
+	for ch in NicLogic.RX:
+		var ch_state: Dictionary = rx.get(ch, {})
+		if bool(ch_state.get("waited", false)):
+			return true
+	return false

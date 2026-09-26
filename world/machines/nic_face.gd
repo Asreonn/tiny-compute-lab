@@ -21,9 +21,9 @@ func sync(m: Machine, _sim: Simulation, hovered: bool, selected: bool) -> void:
 	_selected = selected
 	var tier := NicLogic.tier(m)
 	var open := NicLogic.open_ports(tier)
-	var key := "%s|%d|%d|%d|%d|%s|%d|%d" % [
-		MachineView.nic_area_state(m), NicLogic.load_per_sec(m), NicLogic.capacity(m),
-		int(hovered), int(selected), ",".join(open), m.state, tier,
+	var key := "%s|%d|%d|%d|%d|%d|%s|%d|%d" % [
+		MachineView.nic_area_state(m), NicLogic.load_rx(m), NicLogic.load_tx(m),
+		NicLogic.capacity(m), int(hovered), int(selected), ",".join(open), m.state, tier,
 	]
 	if key != _key:
 		_key = key
@@ -65,15 +65,21 @@ func _draw_caps(open: PackedStringArray) -> void:
 		SystemsDraw.rrect_outline(self, cap, 3.0, Palette.MATERIAL_FRAME, 1.0)
 
 
-## Load well: the last second's frames against the tier's budget (one DATA_NUMBER segment —
-## NicLogic keeps RX and TX in one frames window). 1 px blocked outline at ≥ 75 % load.
+## Load well: the last second's frames against the tier's budget as RX then TX segments
+## (NicLogic keeps the two directions in separate windows). 1 px blocked outline at ≥ 75 % load.
 func _draw_load(m: Machine) -> void:
 	var cap := NicLogic.capacity(m)
-	var frames := NicLogic.load_per_sec(m)
+	var rx := NicLogic.load_rx(m)
+	var tx := NicLogic.load_tx(m)
+	var frames := rx + tx
 	var well := Rect2(116, 31, 86, 8)
-	var fill_w := well.size.x * minf(1.0, float(frames) / float(maxf(cap, 1)))
-	if fill_w > 0.0:
-		draw_rect(Rect2(well.position, Vector2(fill_w, well.size.y)), Color(Palette.DATA_NUMBER, 0.8))
+	var scale := minf(1.0, float(frames) / float(maxf(cap, 1)))
+	var rx_w := well.size.x * scale * (float(rx) / float(maxf(frames, 1)))
+	var tx_w := well.size.x * scale * (float(tx) / float(maxf(frames, 1)))
+	if rx_w > 0.0:
+		draw_rect(Rect2(well.position, Vector2(rx_w, well.size.y)), Color(Palette.DATA_NUMBER, 0.8))
+	if tx_w > 0.0:
+		draw_rect(Rect2(well.position + Vector2(rx_w, 0), Vector2(tx_w, well.size.y)), Color(Palette.FAMILY_IO, 0.8))
 	if float(frames) >= float(cap) * 0.75:
 		SystemsDraw.rrect_outline(self, well, 2.0, Palette.STATE_BLOCKED, 1.0)
 

@@ -38,6 +38,22 @@ static func load_per_sec(m) -> int:
 	return sum
 
 
+## Frames used for RX in the last Lab second (the frames_rx window, same length rule as frames).
+static func load_rx(m) -> int:
+	var sum := 0
+	for f in m.net.get("frames_rx", []):
+		sum += int(f)
+	return sum
+
+
+## Frames used for TX in the last Lab second (the frames_tx window, same length rule as frames).
+static func load_tx(m) -> int:
+	var sum := 0
+	for f in m.net.get("frames_tx", []):
+		sum += int(f)
+	return sum
+
+
 ## The tier's frame budget per second.
 static func capacity(m) -> int:
 	return CAP[tier(m)]
@@ -58,6 +74,8 @@ func start(m, sim) -> void:
 			"rx": {"a": _ch(), "b": _ch(), "c": _ch()},
 			"tx": {"a": {"sent": 0}, "b": {"sent": 0}},
 			"frames": [],
+			"frames_rx": [],
+			"frames_tx": [],
 			"waited": false,
 		}
 	var net: Dictionary = m.net
@@ -95,6 +113,8 @@ func start(m, sim) -> void:
 				break
 	# 3. TX first, so the factory always drains: empty every open TX queue the credit allows.
 	var frames_this_tick := 0
+	var frames_rx_this_tick := 0
+	var frames_tx_this_tick := 0
 	for ch in TX:
 		if not "tx_" + ch in open:
 			continue
@@ -111,6 +131,7 @@ func start(m, sim) -> void:
 			sim.note_output(m, p)
 			net["credit"] = float(net["credit"]) - f
 			frames_this_tick += f
+			frames_tx_this_tick += f
 			tx_state["sent"] = int(tx_state["sent"]) + 1
 			m.processed += 1
 			m.received.append(p)
@@ -152,15 +173,25 @@ func start(m, sim) -> void:
 				ch_state["sent"] = int(ch_state["sent"]) + 1
 				net["credit"] = float(net["credit"]) - f
 				frames_this_tick += f
+				frames_rx_this_tick += f
 				m.processed += 1
 				moved = true
-	# 5. frames window: the last second's frame counts; every second boundary clears the
-	# "waited during this second" flags first.
+	# 5. frames windows: the last second's frame counts, RX and TX kept separate (the NIC face
+	# and the Network view split the load bar); every second boundary clears the "waited during
+	# this second" flags first.
 	var frames_arr: Array = net["frames"]
+	var frames_rx_arr: Array = net["frames_rx"]
+	var frames_tx_arr: Array = net["frames_tx"]
 	if sim.tick % Simulation.TICKS_PER_SEC == 0:
 		net["waited"] = false
 		for ch in RX:
 			(net["rx"][ch] as Dictionary)["waited"] = false
 	frames_arr.append(frames_this_tick)
+	frames_rx_arr.append(frames_rx_this_tick)
+	frames_tx_arr.append(frames_tx_this_tick)
 	while frames_arr.size() > Simulation.TICKS_PER_SEC:
 		frames_arr.pop_front()
+	while frames_rx_arr.size() > Simulation.TICKS_PER_SEC:
+		frames_rx_arr.pop_front()
+	while frames_tx_arr.size() > Simulation.TICKS_PER_SEC:
+		frames_tx_arr.pop_front()
