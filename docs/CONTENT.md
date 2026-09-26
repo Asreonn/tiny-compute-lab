@@ -101,7 +101,8 @@ An id may not contain `@`: the quest-stick separator (`text@11`).
 ## 4. Add or change a level
 
 Create `content/lab/levels/NN_<slug>.tres` (a `LevelDef`) and add it to `content/lab/lab.tres` →
-`levels` in play order. Its fields:
+`levels`. From the data-factory revision on, quests are addressed by **id** and ordered by the tree
+(`requires`); the list order only breaks ties. Its fields:
 
 | Field | Meaning |
 |---|---|
@@ -113,6 +114,11 @@ Create `content/lab/levels/NN_<slug>.tres` (a `LevelDef`) and add it to `content
 | `grow` | the new board size (`Vector2i.ZERO` = unchanged) |
 | `view` | the default readout mode |
 | `reward` | `{psu_tier: N}` |
+| `requires` *(C10)* | quest ids that must be filed first: the quest tree (`docs/PROGRESSION.md §2`) |
+| `side` *(C10)* | a side contract (the CONTRACTS list, at most 2 active; never blocks the tree) |
+| `access` *(C10)* | remote source ids that become **accessible** when the quest starts |
+| `tests` *(C7)* | `[{seq | value, note}]`: the quest's TEST set (`docs/DATA_FACTORY.md §8`) |
+| `outputs` *(C9)* | per-channel ops for `route` contracts (`{A: ops, B: ops}`) |
 
 Every level needs a reference solution in `tests/solutions.gd`: a test proves it is solvable with
 only its unlocks. The design rules for levels are in `docs/PROGRESSION.md`.
@@ -127,6 +133,24 @@ only its unlocks. The design rules for levels are in `docs/PROGRESSION.md`.
 | `quest_window` | how many quests run at once |
 | `power_level`, `heat_level`, `monitor_level` | when power, heat and the Monitor switch on |
 | `psu_capacity`, `psu_names` | the adapter/PSU tiers |
+
+New from the data-factory revision *(C6/C10)*: `nic_tiers` (the quest id per NIC tier),
+`nic_col` (the top-edge column of the Network Module), and quest-id keyed schedules replacing the
+index arrays (`lanes`, `bus_lanes`, `efficiency`, `power`, `heat`, VRM tiers).
+
+## 6. Remote sources (`content/network/`, `docs/DATA_FACTORY.md §5`) *(C5)*
+
+- `sources/<id>.tres` is a `RemoteSourceDef`:
+  - `id`, `display_name`, `glyph`, `width`;
+  - `fields` (MSB first: `{name, width, desc, kind, labels?}`);
+  - `rate`, `realtime`, `remote_buffer`;
+  - `seed`, `p_same`, `noise`;
+  - `test_vectors`, `value`.
+- `population.tres` holds the shared fictional identities, so USER_TAGs correlate across sources.
+- A Database Dump stick is an ordinary DeviceDef whose level stream says `{source: "<id>", count}`.
+  Records come from the same pure generator (`core/network/source_stream.gd`), so a USB dump and
+  the live source share one schema.
+- A new source is one `.tres` file. No UI code names a source.
 
 `LabDef.use_config(cfg)` swaps the whole campaign (tests use it). `LabRun` reads the rules through
 `LabDef.CONFIG`, so a mod or a test campaign changes them in one file.

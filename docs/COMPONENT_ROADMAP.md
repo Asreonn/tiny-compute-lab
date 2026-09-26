@@ -156,3 +156,16 @@ Pass-through probes that re-interpret the bits flowing through them.
 | Liquid cooling | Pump, Coolant Pipe, Cold Plate, Reservoir, Large Radiator | S / S chain / L | designed (22/04); phase 9 |
 | Upgrades | lanes 1/2/4/8 (lane slices), efficiency, bus lanes | — | simulation done (phase 1); visuals phase 10 |
 | Compute gaps | Subtract, Increment, Decrement, Queue, Signed Decimal Viewer, Width Converter | M | kit exists (page 14); phase 14 |
+
+## 7. Data-factory revision (2026-09-26, `docs/DATA_FACTORY.md`, Penpot `14` Compute Kit)
+
+- **The primitive kit:**
+  - **new:** Bit Switch, Fork, Distributor, Join, Latch, Constant, Probe, Clock, Field Splitter,
+    Field Joiner;
+  - **evolved:** Inverter (= NOT), Delay, Selector (= Mux with `take` + tie-offs).
+- **Standard cells** are documented as derived circuits (DATA_FACTORY §3.3–§4).
+- **Moved later:** the CPU parts (Architecture branch).
+- **Legacy:** Bit Splitter, Bus Combiner, Splitter and Merger.
+- **Not built for the MVP:** Subtract, Increment, Decrement, TypeSwitch and the Viewers. The
+  Probe replaces the Viewers; Add covers ±k.
+- The full audit table is DATA_FACTORY §1.

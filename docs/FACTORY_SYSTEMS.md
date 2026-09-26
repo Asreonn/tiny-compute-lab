@@ -5,6 +5,15 @@
 > summarised in `docs/STYLE_GUIDE.md §15`. Numbers marked *(cal.)* are calibration targets, tuned by
 > tests rather than by eye.
 >
+> **2026-09-26 (data-factory revision, DRAFT for review):**
+> - Compute and data content is redesigned in `docs/DATA_FACTORY.md` (primitive kit, records,
+>   network, TEST/LIVE) and `docs/PROGRESSION.md` (the quest tree).
+> - The capacity systems below stay in force. **Network** joins them as a fifth capacity
+>   (DATA_FACTORY §6).
+> - The level numbers quoted below (L4, L6, L16, L18, L22, …) belong to the superseded 31-level
+>   plan. PROGRESSION §6 gives the new schedule.
+> - §12's phases 13–16 are replaced by DATA_FACTORY §17 (C-phases).
+>
 > This document **extends** `docs/SYSTEMS_EXPANSION.md`. Everything there stays in force unless a
 > section here replaces it.
 
@@ -41,6 +50,7 @@ and expand what is already on the board.
 | Compute | lanes × work rate | machines (`lanes`, `clock`, `efficiency` params) | lanes 1/2/4/8, clock, efficiency |
 | Power | source → conversion → distribution → pads | desk PSU + Lab Power Jack, Power Controller/VRM, planes, Distribution Boards, rails, chassis pads | adapter tier, VRM tier, plane/rail class, more boards/outputs, more pads |
 | Thermal | capture → collection → transport → dissipation → airflow | chassis contacts, spreaders, manifolds, heat pipes/trunks, fin stacks/radiators, blowers, liquid loop | contact upgrade, wider pipe/trunk, more branches, bigger radiator, blowers up to need, exhaust placement, liquid |
+| Network *(DATA_FACTORY §6)* | frames/s (16 bits per frame), shared by RX and TX | the Network Module on the laptop top edge | NIC Mk1 → Mk2 → Mk3 (more channels, more frames) |
 
 **There are no hard component limits.** A player may place 40 Adds. What limits them is:
 - board space;
