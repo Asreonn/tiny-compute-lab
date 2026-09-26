@@ -112,6 +112,13 @@ func _build() -> void:
 		_build_thermal()
 		return
 
+	# Copper family (P10c): board-level power copper, no chassis / ports / LED / silk. The runs
+	# are drawn by the World's CopperView; this view carries only the state overlays (+ a ghost
+	# painter preview).
+	if machine.type in PowerNetwork.COPPER:
+		_build_copper()
+		return
+
 	# 1 InstallPad · 2 Shell (ghosts skip the pad; the tools draw the placement pad under them)
 	if not ghost:
 		body.add_child(Art.sprite(Art.pad_file("default", _size_key), Vector2.ZERO))
@@ -254,6 +261,25 @@ func _build_thermal() -> void:
 	text_layer = UprightText.new()
 	text_layer.name = "UprightText"
 	add_child(text_layer)
+
+
+## Copper family (P10c): no chassis / ports / LED / silk — only the state overlays and the text
+## layer (same as _build_thermal minus the ThermalPartView). A ghost gets a small Node2D painter
+## that draws the isolated-tile preview via CopperView.draw_ghost.
+func _build_copper() -> void:
+	for overlay in ["processing", "outputready", "blocked", "error", "hover", "selected"]:
+		var s := Art.sprite(Art.state_file(overlay, _size_key), Vector2.ZERO)
+		s.modulate.a = 0.0
+		_overlays[overlay] = s
+		body.add_child(s)
+	text_layer = UprightText.new()
+	text_layer.name = "UprightText"
+	add_child(text_layer)
+	if ghost:
+		var painter := Node2D.new()
+		painter.name = "CopperGhost"
+		add_child(painter)
+		painter.draw.connect(CopperView.draw_ghost.bind(painter, machine.type))
 
 
 func _build_width_tags(ly: Dictionary) -> void:

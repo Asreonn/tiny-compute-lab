@@ -10,6 +10,9 @@ extends Node2D
 @onready var packet_layer: PacketLayer = $PacketLayer
 @onready var overlay_layer: Node2D = $OverlayLayer
 @onready var camera_rig: CameraRig = $CameraRig
+## The copper power layer (P10c): ONE view draws every copper run, embedded directly under the
+## wires (above the BoardView) so rails/planes sit on the board and wires cross over them.
+var copper_view: CopperView
 
 ## The tool layer (Slice A5a): added as the last child so it receives unhandled input
 ## before the CameraRig (RMB never pans while a tool drag is active).
@@ -51,6 +54,11 @@ func _ready() -> void:
 	systems_overlay.name = "SystemsOverlay"
 	overlay_layer.add_child(systems_overlay)
 	overlay_layer.move_child(systems_overlay, 0)  # under the tool previews
+	copper_view = CopperView.new()
+	copper_view.name = "CopperView"
+	add_child(copper_view)
+	# directly below the WireLayer (its index): above the BoardView, under the wires
+	move_child(copper_view, wire_layer.get_index())
 	SimulationManager.mission_loaded.connect(_rebuild)
 	SimulationManager.layout_changed.connect(_on_layout_changed)
 	_rebuild()
@@ -78,6 +86,8 @@ func _sync_layout() -> void:
 			c.queue_free()
 		_views.clear()
 		_wire_views.clear()
+		if copper_view != null:
+			copper_view.on_layout()
 		return
 	var ids: Array = sim.sorted_machine_ids()
 	var grew := _initialized and (sim.size.x > _prev_size.x or sim.size.y > _prev_size.y)
@@ -160,6 +170,8 @@ func _sync_layout() -> void:
 		var board := Rect2(Vector2.ZERO, Vector2(sim.size) * MachineView.T)
 		var side := LAB_OVERHANG if SimulationManager.in_lab else IO_OVERHANG
 		camera_rig.fit_board(board.grow_individual(side, 0.0, side, 0.0))
+	if copper_view != null:
+		copper_view.on_layout()
 
 
 func _on_layout_changed() -> void:
@@ -189,3 +201,5 @@ func _process(delta: float) -> void:
 		var cv := c as ConnectionView
 		if cv != null:
 			cv.refresh(delta)
+	if copper_view != null:
+		copper_view.refresh()
