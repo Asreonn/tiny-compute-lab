@@ -138,6 +138,12 @@ func _ui_frames(sm: Node) -> bool:
 			tools._set_selection(-1, int(_picks[1][1]))
 	if _frame == 60:
 		_shot("wire")
+		if tools != null and _picks.size() > 2:
+			tools._set_selection(-1, -1)
+			root.get_viewport().warp_mouse(Vector2(700, 300))
+			tools.hover_changed.emit({"kind": "machine", "id": int(_picks[2][0])})
+	if _frame == 90:
+		_shot("hover")
 		sm.running = false
 		SaveStore.clear()
 		quit(0)

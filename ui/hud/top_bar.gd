@@ -27,6 +27,10 @@ var _state_c := Palette.STATE_BUILD
 var _last_state := ""
 var _breathe_tw: Tween
 var _state_tw: Tween
+var _power_chip: Panel
+var _power_chip_label: Label
+var _power_chip_text := ""
+var _power_chip_last_vw := -1.0
 
 
 func _ready() -> void:
@@ -99,6 +103,11 @@ func _ready() -> void:
 	_metric["throughput"]["display"] = func(vf: float): _metric["throughput"]["value"].text = ("%.1f" % vf) if vf >= 0.0 else "—"
 	_metric["power"]["display"] = func(vf: float): _metric["power"]["value"].text = _power_text(roundi(vf))
 	_metric["latency"]["display"] = func(vf: float): _metric["latency"]["value"].text = ("%d" % roundi(vf)) if vf >= 0.0 else "—"
+	# overload chip: the worst overloaded power node, 8 px right of the power value (hidden
+	# until a node is over; only its text and glue position change in _process)
+	_power_chip = HudKit.box(right, Vector2.ZERO, Vector2(0, 18), Palette.SURFACE_SUNKEN, Color(Palette.STATE_ERROR, 0.6), 1, 9)
+	_power_chip_label = HudKit.label(_power_chip, "", Vector2(8, 3), 9, HudKit.W_XBOLD, Palette.STATE_ERROR)
+	_power_chip.visible = false
 	HudKit.icon_button(right, Vector2(364, 8), Vector2(36, 36), "icon_menu", Vector2(6, 6), 24, func(): menu_pressed.emit(), "Menu", 4)
 
 
@@ -227,6 +236,24 @@ func _process(_delta: float) -> void:
 	HudKit.set_color(pm["value"], pc if pc.a > 0.0 else Palette.TEXT_PRIMARY)
 	pm["icon"].modulate = pc if pc.a > 0.0 else Palette.TEXT_SECONDARY
 	HudKit.restyle(pm["box"], Palette.SURFACE_SUNKEN, pc, 1 if pc.a > 0.0 else 0, 18)
+	# overload chip: the worst overloaded power node, 8 px right of the power value (hidden
+	# when nothing is over). Built once in _ready; updated only when its text changes.
+	var chip_txt := ""
+	if sm.sim.power_net != null:
+		var worst := _worst_power_node(sm.sim)
+		if not worst.is_empty():
+			chip_txt = "%s %d/%d" % [_node_name(str(worst["id"])), int(worst["load"]), int(worst["cap"])]
+	var vw := TclTheme.font(HudKit.W_XBOLD).get_string_size(pm["value"].text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	if chip_txt != _power_chip_text or vw != _power_chip_last_vw:
+		_power_chip_text = chip_txt
+		_power_chip_last_vw = vw
+		if chip_txt == "":
+			_power_chip.visible = false
+		else:
+			_power_chip.visible = true
+			_power_chip_label.text = chip_txt
+			_power_chip.size.x = TclTheme.font(HudKit.W_XBOLD).get_string_size(chip_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 16.0
+			_power_chip.position = Vector2(pm["box"].position.x + pm["value"].position.x + vw + 8.0, pm["box"].position.y + (pm["box"].size.y - 18.0) / 2.0)
 	var lat: float = sm.sim.avg_latency()
 	_roll_metric("latency", lat if lat > 0.0 else -1.0)
 
@@ -235,6 +262,41 @@ func _power_text(v: int) -> String:
 	if _power_cap <= 0:
 		return str(v)
 	return "%d/%d" % [v, _power_cap]
+
+
+## The worst overloaded power node: the highest load / cap among the nodes with cap > 0 and
+## load > cap (ties go to the first in ascending id order). {} when nothing is over.
+func _worst_power_node(sim: Simulation) -> Dictionary:
+	var best := {}
+	var best_ratio := -1.0
+	var best_id := ""
+	for nid in sim.power_net.nodes:
+		var n: Dictionary = sim.power_net.nodes[nid]
+		var cap := int(n["cap"])
+		var load := int(n["load"])
+		if cap <= 0 or load <= cap:
+			continue
+		var ratio := float(load) / float(cap)
+		if ratio > best_ratio or (is_equal_approx(ratio, best_ratio) and nid < best_id):
+			best_ratio = ratio
+			best_id = nid
+			best = {"id": nid, "load": load, "cap": cap}
+	return best
+
+
+## Display name of a power-node id ("source" → "PSU", chains "c…" → "Copper", …).
+static func _node_name(nid: String) -> String:
+	match nid:
+		"source": return "PSU"
+		"ctrl": return "VRM"
+		"onboard": return "Onboard"
+	if nid.begins_with("c"):
+		return "Copper"
+	if nid.begins_with("b"):
+		return "Board"
+	if nid.begins_with("p"):
+		return "Contacts"
+	return nid
 
 
 func _roll_metric(kind: String, target: float) -> void:

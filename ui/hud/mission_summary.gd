@@ -278,7 +278,12 @@ func _lab_refresh(sm: Node) -> void:
 	elif w != "":
 		HudKit.set_text(_last, "⚠ " + w, Palette.STATE_BLOCKED)
 	else:
-		HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
+		# no warning: show the first bound on the quest's line (the drive's job stick)
+		var b := lr.quest_bound(sm.sim, _focus)
+		if not b.is_empty():
+			HudKit.set_text(_last, "▲ " + str(b["text"]), Palette.STATE_BLOCKED)
+		else:
+			HudKit.set_text(_last, "", Palette.STATE_BLOCKED)
 
 
 ## NEEDS / OUTPUT / RATE / LOST rows of the focused quest, in plain words. A filled quest says how
@@ -313,7 +318,13 @@ func _refresh_rows(sm: Node, lr: LabRun) -> void:
 					HudKit.set_text(l, "Plug the Q%d Job stick into an output port" % (q + 1), Palette.STATE_BLOCKED)
 			"rate":
 				var rt := lr.quest_rate(q)
-				HudKit.set_text(l, "%.1f / %.1f values/s" % [rt, c.min_rate], Palette.STATE_VALID if rt >= c.min_rate else Palette.TEXT_SECONDARY)
+				var held := 0
+				if qp.rate_since >= 0:
+					held = (sm.sim.tick - qp.rate_since) / 10
+				var txt := "%.1f / %.1f values/s" % [rt, c.min_rate]
+				if c.sustain > 0.0:
+					txt += " · held %d s / %d s" % [held, int(c.sustain)]
+				HudKit.set_text(l, txt, Palette.STATE_VALID if rt >= c.min_rate else Palette.TEXT_SECONDARY)
 			"lost":
 				var bad := qp.window_lost > c.max_lost
 				HudKit.set_text(l, "%d / %d lost" % [qp.window_lost, c.max_lost], Palette.STATE_BLOCKED if bad else Palette.TEXT_SECONDARY)
