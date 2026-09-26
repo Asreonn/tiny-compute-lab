@@ -1017,6 +1017,326 @@
     6
    ],
    "ports": []
+  },
+  "bit_switch": {
+   "form": "Module-S",
+   "family": "logic",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    8,
+    50
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "fork": {
+   "form": "Module-S",
+   "family": "routing",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    8,
+    50
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    }
+   ]
+  },
+  "distributor": {
+   "form": "Module-S",
+   "family": "routing",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    8,
+    50
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    }
+   ]
+  },
+  "join": {
+   "form": "Module-S",
+   "family": "routing",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    8,
+    50
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      32,
+      64
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "latch": {
+   "form": "Module-S",
+   "family": "memory",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    8,
+    52
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Control",
+     "type": "Boolean",
+     "anchor": [
+      32,
+      0
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "constant": {
+   "form": "Module-S",
+   "family": "memory",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "clock": {
+   "form": "Module-S",
+   "family": "control",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Output",
+     "type": "Boolean",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
+  },
+  "probe": {
+   "form": "Module-S",
+   "family": "io",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": null,
+   "led": null,
+   "tab": [
+    14,
+    7
+   ],
+   "ports": [
+    {
+     "dir": "Input",
+     "type": "Number",
+     "anchor": [
+      0,
+      32
+     ]
+    },
+    {
+     "dir": "Output",
+     "type": "Number",
+     "anchor": [
+      64,
+      32
+     ]
+    }
+   ]
   }
  },
  "areas": {
