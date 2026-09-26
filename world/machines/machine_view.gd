@@ -69,7 +69,8 @@ const REVEAL_PULSES := 2.0
 var _text_specs: Array = []  # {key, pos, width, size, align, color, text}
 var _bin_color := Palette.DATA_NUMBER
 var _progress: ProcessProgress
-var _ri: ResourceIndicators
+var _lane_slices: ChassisMarks.LaneSlices
+var _contacts: ChassisMarks.MachineContacts
 # per-frame change detection (refresh() only touches what changed)
 var _seen_tick := -2
 var _area_rel := ""
@@ -203,24 +204,26 @@ func _build() -> void:
 	if machine.type in CODEC_TYPES:
 		_progress.chassis = Rect2(0, 0, 2 * T, T)  # the chassis is the top row (the screen below)
 	body.add_child(_progress)
-	# 12b resource indicators (STYLE_GUIDE §3): a child of the rotating Body so it rotates
-	# with the chassis like other silk (tiny geometry, no text -> no upright problem).
-	# Player machines only: mission IO / lab infrastructure (locked) and ghosts show none.
+	_progress.visible = machine.lanes() <= 1  # lane machines show the slices instead (12b)
+	# 12b chassis marks (P10b): lane slices ride the rotating Body like other silk; the
+	# contacts are board-aligned (a child of the MachineView itself) so they never rotate.
+	# Lane slices are player machines only (locked IO and ghosts show none); contacts are a
+	# placement aid for ghosts too, but never for locked machines or power/thermal parts.
 	if not machine.locked and not ghost:
-		var base := Vector2(Catalog.SIZES[machine.def()["size"]]) * T
-		if machine.type in CODEC_TYPES:
-			base = Vector2(2 * T, T)  # on the chassis row, above the conversion screen
-		_ri = ResourceIndicators.new()
-		_ri.name = "ResourceIndicators"
-		if _size_key == "s":
-			_ri.compact = true
-			_ri.xr = 58.0
-			_ri.y = 4.0
-		else:
-			_ri.compact = false
-			_ri.xr = base.x - 20.0
-			_ri.y = base.y - 15.0
-		body.add_child(_ri)
+		_lane_slices = ChassisMarks.LaneSlices.new()
+		_lane_slices.name = "LaneSlices"
+		_lane_slices.machine = machine
+		_lane_slices.rot = machine.rot % 4
+		_lane_slices.lanes = machine.lanes()
+		_lane_slices.show_behind_parent = false
+		_lane_slices.visible = machine.lanes() > 1
+		body.add_child(_lane_slices)
+	if not machine.locked and not str(machine.def()["family"]) in ["power", "thermal"]:
+		_contacts = ChassisMarks.MachineContacts.new()
+		_contacts.name = "MachineContacts"
+		_contacts.machine = machine
+		_contacts.show_behind_parent = false
+		add_child(_contacts)
 	# 12c heat stage strip + CRITICAL frame/badge (player machines; the body is never tinted)
 	if not machine.locked and not ghost:
 		_strip = ThermalStrip.new()
@@ -554,6 +557,12 @@ func on_layout() -> void:
 		var raw_tag: bool = tpid != "" and machine.port_role(tpid) == Catalog.ROLE_RAW
 		_tag_raw.append(raw_tag)
 		_tag_nodes[i].visible = not raw_tag
+	# Chassis marks: lane slices and contacts recompute their keys (contacts: tapped mask +
+	# heat stage; lane slices: lanes + progress) — the layout may have changed either.
+	if _lane_slices != null:
+		_lane_slices.refresh(true)
+	if _contacts != null:
+		_contacts.refresh(true)
 	_texts_key = ""  # re-evaluate the texts next frame
 
 
@@ -638,15 +647,15 @@ func refresh(delta: float) -> void:
 		_texts_key = tkey
 		if _update_texts(sim, running):
 			text_layer.queue_redraw()
-	# Resource indicators: same visibility rule as the old stats silk (normal + close zoom,
-	# never at far zoom). Ghosts/locked machines have no _ri (they are not built).
-	if _ri != null:
-		var cam := get_viewport().get_camera_2d()
-		var far := cam != null and cam.zoom.x < Palette.ZOOM_FAR_BELOW
-		if _ri.visible == far:
-			_ri.visible = not far
-		if not far:
-			_ri.set_data(machine.processing_ticks(), machine.power(), str(machine.params.get("clock", "normal")))
+	# Chassis marks: lane slices (rotating body) + board contacts (P10b). The progress ring
+	# shows only for 1-lane machines; lane machines show the slices instead.
+	if _lane_slices != null:
+		var lanes := m.lanes()
+		if lanes != _lane_slices.lanes:
+			_progress.visible = lanes <= 1
+		_lane_slices.refresh(new_tick)
+	if _contacts != null:
+		_contacts.refresh(new_tick)
 
 
 func _fade_overlay(key: String, want: float, step: float) -> void:
@@ -1365,79 +1374,6 @@ class UprightText extends Node2D:
 				var h: float = f.get_ascent(t["size"]) + f.get_descent(t["size"])
 				base.y = t["pos"].y + (float(t["height"]) - h) / 2.0 + f.get_ascent(t["size"])
 			draw_string(f, base, txt, t["align"], t["width"], t["size"], t["color"])
-
-
-# ------------------------------------------------------------------ resource indicators
-
-## Tiny geometry on the chassis (STYLE_GUIDE §3 / design/reference/systems_v1.js `RI`, `RIs`
-## — ported 1:1): clock dots (one per tick of job cost, up to 6, then a '+'), gold power pips
-## (up to 4), a divider, and clock-mode chevrons. A child of the rotating Body so it rotates
-## with the chassis; it is all vector geometry so it needs no upright layer. Hidden at far zoom
-## by the parent (same visibility rule the old stats silk had).
-class ResourceIndicators extends Node2D:
-	var ticks := 0
-	var power := 0
-	var mode := "normal"  # "normal" / "fast" / "overclocked"
-	var compact := false  # S-size machines use the compact form
-	var xr := 0.0  # right anchor x in body-local px
-	var y := 0.0  # top y in body-local px
-
-	func set_data(t: int, p: int, m: String) -> void:
-		if t == ticks and p == power and m == mode:
-			return
-		ticks = t
-		power = p
-		mode = m
-		queue_redraw()
-
-	func _draw() -> void:
-		var silk := Color(Palette.MATERIAL_SILK, 0.7)
-		var divider := Color(Palette.MATERIAL_SILK, 0.25)
-		var gold := Color(Palette.MATERIAL_GOLD, 0.9)
-		var dots := mini(ticks, 6)
-		var plus := ticks > 6
-		var pips := mini(power, 4)
-		if compact:
-			_draw_compact(silk, divider, gold, dots, plus, pips)
-		else:
-			_draw_full(silk, divider, gold, dots, plus, pips)
-
-	func _draw_full(silk: Color, divider: Color, gold: Color, dots: int, plus: bool, pips: int) -> void:
-		var chev := 1 if mode == "fast" else (2 if mode == "overclocked" else 0)
-		var w := chev * 6 + (2 if chev > 0 else 0) + dots * 6 + (4 if plus else 0) + 6 + (pips * 5 if power > 0 else 5)
-		var x := xr - w
-		for i in chev:
-			draw_polyline(PackedVector2Array([Vector2(x + 1, y + 1), Vector2(x + 4, y + 4), Vector2(x + 1, y + 7)]), Color(Palette.STATE_BLOCKED, 1.0), 1.5, true)
-			x += 6
-		if chev > 0:
-			x += 2
-		for i in dots:
-			draw_circle(Vector2(x + 2.5, y + 4.0), 2.5, silk)
-			x += 6
-		if plus:
-			draw_rect(Rect2(x, y + 3.5, 3, 1), silk)
-			draw_rect(Rect2(x + 1, y + 2.5, 1, 3), silk)
-			x += 4
-		x += 3
-		draw_rect(Rect2(x, y + 1, 1, 6), divider)
-		x += 3
-		if power == 0:
-			draw_rect(Rect2(x, y + 1, 3, 6), Color(Palette.MATERIAL_SILK, 0.35), false, 0.75)
-		for i in pips:
-			draw_rect(Rect2(x, y, 3, 8), gold)
-			x += 5
-
-	func _draw_compact(silk: Color, divider: Color, gold: Color, dots: int, plus: bool, pips: int) -> void:
-		var x := xr - (dots * 4 + 5 + pips * 3.5)
-		for i in dots:
-			draw_circle(Vector2(x + 1.5, y + 3.0), 1.5, silk)
-			x += 4
-		x += 2
-		draw_rect(Rect2(x, y + 1, 1, 4), divider)
-		x += 3
-		for i in pips:
-			draw_rect(Rect2(x, y, 2, 6), gold)
-			x += 3.5
 
 
 ## Processing progress, continuous between ticks: (total − ticks_left + tick fraction) / total
