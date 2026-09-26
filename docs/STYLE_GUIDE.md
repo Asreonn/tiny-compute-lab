@@ -518,10 +518,11 @@ Lane slices are real die slices, one per lane. They are drawn only when lanes > 
 
 ### 15.6 Scenes (pages `24` and `25`)
 
-**Data scenes, page `24`:**
-- A: USB → Add → Drive.
-- B: the same line with lanes and a twin Add.
-- C: an 8-bit Byte Bus trunk.
+**Data scenes, page `24` (revised 2026-09-26):**
+- ① → ③: the same validator on the Forum Dump USB, on RX A in TEST, then LIVE. Only one input wire
+  moves; the rail and the spreader stay where they were.
+- Q30: three sources, one factory. Data, control, power (rails + taps) and heat (spreaders → two
+  collectors → manifold → radiator + blowers) are all drawn in one grid, in the Scene G vocabulary.
 
 **Hardware scenes, page `25`:**
 - A: a small system with one path of each kind.
@@ -537,3 +538,24 @@ without an overlay.
 
 Explanatory text lives only in these mockups and in the docs. In-game, topology is communicated by
 form; numbers appear in hover, overlays and stage panels.
+
+### 15.7 Primitive silhouettes (page `14` Compute Kit, 2026-09-26)
+
+Every primitive and new cell has its own outline, drawn in the MachineShell layering (plate-lo lip
+shifted 3 px, plate with a 1.5 px `material.frame`, a 1 px `material.plate-hi` bevel). No new
+material or colour; family tabs never sit under a trace.
+
+| Part | Silhouette | Mechanism |
+|---|---|---|
+| Bit Switch | box with a top actuator tab and a ground foot | knife blade on D, EN stem, ⏚ in the foot |
+| Fork | hub block with three arms (N · E · S) | copper routes into one junction ring |
+| Distributor | octagon | rotor window, wiper on the live output |
+| Join | D shape (flat W, round E) | three inputs into a collector ring with a turn pointer |
+| Latch | mini cartridge, bottom notch, gold fingers | hold bar under EN, 3 state cells |
+| Constant | keyed IC block, notch on the W edge (nothing enters) | DIP switches showing the value |
+| Probe | round lens | bit cells, pass-through trace, pass tick |
+| Clock | crystal can with two gold leads | square wave (control) |
+| Field Splitter / Joiner | comb: a slot between two tines | vertical bit ruler (MSB on top), one fan per field |
+| Adder | ALU trapezoid, notched between a and b | + dial, a+b display, FA → FA → FA carry chain |
+
+C4 exports these as the in-game art; the old square Module placeholders are replaced.

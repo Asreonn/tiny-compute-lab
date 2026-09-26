@@ -95,10 +95,10 @@ the Viewers and Adapter4to8. They are **not** added for the MVP:
 
 ## 2. The primitive kit (new parts)
 
-All primitives are the smallest siblings of the canonical family:
-- the same MachineShell, border, chamfer and FamilyTab;
-- one recessed functional window;
-- one physical LED.
+All primitives belong to the canonical family and share its materials: the MachineShell layering
+(plate-lo lip, plate with a 1.5 px frame, bevel), the FamilyTab, recessed windows and the port set.
+**Each one has its own silhouette, mechanism and port layout** (redrawn 2026-09-26, Penpot `14`
+Compute Kit; STYLE_GUIDE §15.7), so it is recognised by shape, not by a label.
 
 Size follows the port count:
 - one data input → **S**;
@@ -613,7 +613,7 @@ saved `seq`.
 | Network Module on the laptop top edge; tiers, TEST/LIVE lamp, load | `15 Systems · Infrastructure` · 02c Laptop Port Racks (extended) |
 | Network Inspector in TEST, probe-driven debugging, TEST → LIVE | `23 Factory · Information UX` · 06 |
 | Full MVP lab: NIC → validation tree → ×3 slow stage → TX, on the locked power chain and the shared cooling path, all traceable without overlays | `25 Factory · Hardware Scenes` · **Scene G** (rebuilt in place) |
-| *Pending after review:* one source live / three sources (enrichment + scoring) | `24 Factory · Data Scenes` (to be revised in place) |
+| One source live (① Q14 USB → ② Q16 TEST → ③ Q17 LIVE) and the Q30 three-source factory: a frontend per source, the validator placed per 16-bit source, Archive integrity, match tree, enrichment, a scorer built from parts (4 Compares → 4 Selectors → 3 Adders), Field Joiner + 2 Cond Routers, on rails, spreaders and one cooling path — **LOCKED 2026-09-26** | `24 Factory · Data Scenes` · 06 (revised in place) |
 
 ## 15. Guardrail: before adding a part
 
