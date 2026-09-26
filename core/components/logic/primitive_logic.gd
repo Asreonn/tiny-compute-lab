@@ -38,6 +38,7 @@ func _start_bit_switch(m, sim) -> void:
 	var value: BitVector = d.data if en.data.as_bool() else BitVector.of(0, d.data.width)
 	var out: Packet = d.derive(sim.new_packet_id(), value)
 	out.merge_origins(en)
+	m.last_mem_op = "pass" if en.data.as_bool() else "zero"  # the view's blade state
 	m.begin_job({"out": out}, d)
 
 

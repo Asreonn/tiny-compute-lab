@@ -48,6 +48,14 @@ func _build() -> void:
 	var dm := sim.place("demux", Vector2i(5, 1), 0)
 	_expect(bs != null and bs.type == "bit_splitter", "bit_splitter placed")
 	_expect(dm != null and dm.type == "demux", "demux placed")
+	# JOB C4: the primitive kit's views — every type must place (width 3) and its layout
+	# must carry a silhouette form.
+	var kit := ["bit_switch", "fork", "distributor", "join", "latch", "constant", "clock", "probe", "field_splitter", "field_joiner", "adder", "compare", "mux"]
+	for t in kit:
+		var params := {"fields": "2 1"} if t in ["field_splitter", "field_joiner"] else {}
+		var km: Machine = _place_on_free(sim, t, params)
+		_expect(km != null and km.type == t, "%s placed" % t)
+		_expect(not (Art.layout(t).get("form", "") as String).is_empty(), "%s has a form" % t)
 	# Point the autoload at this throwaway sim so MachineView.refresh can read it.
 	_mgr.sim = sim
 	_mgr.run = null
@@ -67,6 +75,14 @@ func _build() -> void:
 
 func _check() -> void:
 	var sim: Simulation = _mgr.sim
+	# JOB C4: every primitive kit machine got a MachineView.
+	var found := {}
+	for c in root.get_children():
+		var mv := c as Node2D
+		if mv != null and mv.has_method("setup") and mv.machine != null:
+			found[mv.machine.type] = true
+	for t in ["bit_switch", "fork", "distributor", "join", "latch", "constant", "clock", "probe", "field_splitter", "field_joiner", "adder", "compare", "mux"]:
+		_expect(found.has(t), "%s MachineView built" % t)
 	var bs_id := -1
 	for id in sim.sorted_machine_ids():
 		if sim.machines[id].type == "bit_splitter":
@@ -90,3 +106,13 @@ func _check() -> void:
 func _expect(cond: bool, what: String) -> void:
 	if not cond and _fail == "":
 		_fail = what
+
+
+## First board cell a machine fits on (the smoke places the kit on free spots).
+func _place_on_free(sim: Simulation, type: String, params: Dictionary) -> Machine:
+	for y in sim.size.y:
+		for x in sim.size.x:
+			var c := Vector2i(x, y)
+			if sim.placement_error(type, c, 0) == "":
+				return sim.place(type, c, 0, params, 3)
+	return null

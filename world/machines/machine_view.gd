@@ -44,6 +44,11 @@ var _size_key := "m"
 var _area: Sprite2D
 var _area_kind := ""
 var _area_idle := "Idle"
+var _bitface: BitFace = null  # live value face (cells / dip / ruler)
+var _tie_caps := {}  # port id -> TieCap (unwired tie-able input)
+var _tie_params_key := ""  # last str(machine.params) seen (tie caps refresh on a change)
+var _flash_count := -1
+var _flash_until := -1
 var _opwin: Sprite2D = null  # roadmap OpWindow area (idle / active)
 var _led: Sprite2D
 var _led_rel := ""
@@ -147,6 +152,16 @@ func _build() -> void:
 		_area = Art.sprite(Art.area_file(_area_kind, _area_idle), _v(area.get("pos", [0, 0])))
 		_area.name = "ActivityArea"
 		body.add_child(_area)
+	# 4a Live value face: layouts carrying a `cells` / `ruler` rectangle draw the machine's
+	# current value there (machine-local px, unrotated with the body).
+	var cells: Dictionary = _entry(ly, "cells")
+	var ruler: Dictionary = _entry(ly, "ruler")
+	if not cells.is_empty() or not ruler.is_empty():
+		var r: Dictionary = cells if not cells.is_empty() else ruler
+		_bitface = BitFace.new()
+		_bitface.mode = "ruler" if not ruler.is_empty() else ("dip" if machine.type == "constant" else "cells")
+		_bitface.rect = Rect2(float(r["x"]), float(r["y"]), float(r["w"]), float(r["h"]))
+		body.add_child(_bitface)   # same parent as the area sprite, so it rotates with the machine
 	# 4b OpWindow (roadmap kits): the exported operator window, lit while processing; its
 	# glyph is upright text
 	if ly.get("areas", null) is Array:
@@ -408,6 +423,15 @@ func _build_ports(ly: Dictionary) -> void:
 		_port_bus[pid] = bus
 		_port_dir[pid] = dir
 		_port_w[pid] = w
+		# Tie cap: a tie-able input (PortDef `tie` != "") shows the value its param supplies
+		# while nothing is wired to it — a small chip pushed outward from the port anchor.
+		if str(pd.get("tie", "")) != "":
+			var cap := TieCap.new()
+			cap.name = "TieCap%s" % pid.capitalize()
+			var cap_side: int = int(pd.get("side", 0))
+			cap.position = _v(lp.get("anchor", [0, 0])) + Vector2(Catalog.side_vec(cap_side)) * 22.0
+			body.add_child(cap)
+			_tie_caps[pid] = cap
 		# L1 port contact ring: follows the sprite (child of the rotating Body, inherits ghost alpha).
 		var ring := PortContact.new()
 		ring.bus = bus
@@ -616,6 +640,8 @@ func on_layout() -> void:
 		_lane_slices.refresh(true)
 	if _contacts != null:
 		_contacts.refresh(true)
+	# Tie caps: wiring changes decide their visibility (and nothing else does).
+	_update_tie_caps()
 	_texts_key = ""  # re-evaluate the texts next frame
 
 
@@ -661,6 +687,15 @@ func refresh(delta: float) -> void:
 		if ast != _area_rel:
 			_area_rel = ast
 			_area.texture = Art.tex(Art.area_file(_area_kind, ast))
+	# Live value face (cells / dip / ruler): redraws only when the shown value changed.
+	if _bitface != null:
+		_update_bitface()
+	# Tie caps: the bits follow the tie params (visibility is on_layout's job).
+	if not _tie_caps.is_empty():
+		var pkey := str(m.params)
+		if pkey != _tie_params_key:
+			_tie_params_key = pkey
+			_update_tie_caps()
 	if _opwin != null:
 		var busy := running and (m.state == Machine.State.PROCESSING or m.state == Machine.State.RECEIVING)
 		if busy != _opwin_busy:
@@ -875,6 +910,41 @@ func _bin_value(_sim: Simulation) -> String:
 	return last.label(resolve_view_mode())
 
 
+## Push the current value into the bit face (it redraws only when the value changed).
+func _update_bitface() -> void:
+	var m := machine
+	if _bitface.mode == "ruler":
+		_bitface.show_ruler(m.port_width("in") if m.type == "field_splitter" else m.port_width("out"), m.field_widths())
+		return
+	var v: BitVector
+	match m.type:
+		"constant":
+			v = BitVector.of(int(m.params.get("value", 1)), m.width)
+		_:
+			v = m.memory[0] if not m.memory.is_empty() and m.memory[0] is BitVector else BitVector.zero(m.width)
+	_bitface.show_bits(v)
+
+
+## Tie caps: visible while the sim is live and the port is unwired (ghosts may show them);
+## the bits are the tie param at the port's width, MSB-first, at most 8.
+func _update_tie_caps() -> void:
+	var sim := SimulationManager.sim
+	for pid in _tie_caps:
+		var cap: TieCap = _tie_caps[pid]
+		var show := sim == null or not sim.input_connected(machine, pid)
+		if show != cap.visible:
+			cap.visible = show
+		if not show:
+			continue
+		var tp := machine.tie_param(pid)
+		var w := machine.port_width(pid)
+		var b := BitVector.of(int(machine.params.get(tp, 0)), w)
+		var s := ""
+		for i in range(mini(w, 8) - 1, -1, -1):
+			s += "1" if b.bit(i) == 1 else "0"
+		cap.set_bits(s)
+
+
 func _area_state(running: bool) -> String:
 	var m := machine
 	var st: int = m.state
@@ -924,6 +994,21 @@ func _area_state(running: bool) -> String:
 				return _area_idle
 			var res: Packet = (m.job.get("results", {}) as Dictionary).get("out")
 			return "true" if res != null and not res.is_raw() and res.data.as_bool() else "false"
+		"Blade":
+			# bit_switch: the blade closes while a PASS runs, opens on a zero
+			return "closed" if busy and m.last_mem_op == "pass" else "open"
+		"Rotor":
+			# distributor: the wiper points at the output dealt last (m.rr is the NEXT index)
+			return _area_idle if m.processed == 0 else ["a", "b", "c"][posmod(m.rr - 1, 3)]
+		"Collector":
+			# join: the pointer shows the input taken next
+			return ["a", "b", "c"][posmod(m.rr, 3)]
+		"Crystal", "Lens":
+			# clock pulses / probe passes flash their area for 3 ticks
+			return ("pulse" if _area_kind == "Crystal" else "pass") if _flashing() else _area_idle
+		"Hub", "Hold", "Dip", "RulerSplit", "RulerJoin":
+			# single-state kinds: only an Idle file exists
+			return _area_idle
 		_:
 			if not busy:
 				return _area_idle
@@ -934,6 +1019,19 @@ func _area_state(running: bool) -> String:
 				"Merge": return "lanea"
 				_:
 					return "active"
+
+
+## Clock pulses and probe passes flash their area for 3 ticks (VFX ladder L1).
+func _flashing() -> bool:
+	var sim := SimulationManager.sim
+	if sim == null:
+		return false
+	var c: int = machine.processed if machine.type == "clock" else machine.counter
+	if c != _flash_count:
+		if _flash_count >= 0:
+			_flash_until = sim.tick + 3
+		_flash_count = c
+	return sim.tick < _flash_until
 
 
 ## Edge-detect a port contact on a NEW simulation tick: when the port first becomes part of
