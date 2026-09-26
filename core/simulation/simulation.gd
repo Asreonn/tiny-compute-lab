@@ -852,6 +852,10 @@ func step() -> void:
 					m.sent_ports.append(port)
 					events.append({"kind": "emit", "packet": p.id, "machine": id, "port": port})
 					activity = true
+				# Saturated as well: every lane took a value this tick and more still waits upstream
+				# (the output line, or a socket's FIFO that overruns instead of blocking).
+				if c.free_entries() == 0 and (m.outq[port] != null or (m.socket and not m.fifo.is_empty())):
+					c.saturated = true
 			if c == null or m.outq[port] == null:
 				continue
 			# BLOCKED means congestion: a wire exists but its entry is full. An output with
@@ -861,6 +865,8 @@ func step() -> void:
 			# the multi-lane wire itself is the bandwidth bottleneck (FACTORY_SYSTEMS §2.2).
 			if delivered.has(c.id) and int(delivered[c.id]) > 0:
 				c.saturated = true
+	for id in cids:
+		connections[id].note_saturation(connections[id].saturated)
 	# 6. start
 	for id in mids:
 		var m: Machine = machines[id]
@@ -877,6 +883,8 @@ func step() -> void:
 		m.update_state(blocked_now.has(id) and m.type != "input")
 		if m.type == "input" and blocked_now.has(id):
 			m.state = Machine.State.BLOCKED
+		if not m.locked:
+			m.note_compute_bound(m.jobs.size() >= m.lanes() and m.queued_count() >= m.total_in_capacity())
 	if activity:
 		last_activity_tick = tick
 	# 8. validate
@@ -1003,6 +1011,59 @@ func _step_thermal(mids: Array) -> void:
 			m.thermal_num = 0
 		if m.heat_stage != prev:
 			events.append({"kind": "heat", "machine": id, "stage": m.heat_stage})
+
+
+# ============================================================ bottlenecks (FACTORY_SYSTEMS §7.4)
+
+func wire_bound(cid: int) -> bool:
+	return connections.has(cid) and connections[cid].saturation_ratio() >= 0.5
+
+
+func compute_bound(mid: int) -> bool:
+	return machines.has(mid) and machines[mid].compute_bound_ratio() >= 0.5
+
+
+## Slowed by power: a running job whose work rate is below its clock rate while the thermal
+## factor is untouched.
+func power_bound(mid: int) -> bool:
+	if not machines.has(mid):
+		return false
+	var m: Machine = machines[mid]
+	return not m.jobs.is_empty() and m.thermal_num == m.thermal_den and work_rate(m) < m.clock_rate()
+
+
+func heat_bound(mid: int) -> bool:
+	return machines.has(mid) and machines[mid].heat_stage >= ThermalGrid.Stage.THROTTLING
+
+
+## The first bound met walking UPSTREAM from machine `target_id` (the target first, then the
+## wires into it by ascending id, then their sources, …): {kind: bandwidth|compute|power|heat,
+## machine, connection, text}, or {} when nothing on the way is bound.
+func first_bound(target_id: int) -> Dictionary:
+	if not machines.has(target_id):
+		return {}
+	var seen := {target_id: true}
+	var q := [target_id]
+	while not q.is_empty():
+		var mid: int = q.pop_front()
+		var m: Machine = machines[mid]
+		if heat_bound(mid):
+			return {"kind": "heat", "machine": mid, "connection": -1, "text": "HEAT-BOUND · %s (%s)" % [m.label, ThermalGrid.STAGE_NAMES[m.heat_stage]]}
+		if power_bound(mid):
+			return {"kind": "power", "machine": mid, "connection": -1, "text": "POWER-BOUND · %s" % m.label}
+		if compute_bound(mid):
+			return {"kind": "compute", "machine": mid, "connection": -1, "text": "COMPUTE-BOUND · %s (%d/%d lanes)" % [m.label, m.jobs.size(), m.lanes()]}
+		for cid in sorted_connection_ids():
+			var c: Connection = connections[cid]
+			if c.to_id != mid:
+				continue
+			if wire_bound(cid):
+				var src: Machine = machines[c.from_id]
+				return {"kind": "bandwidth", "machine": -1, "connection": cid, "text": "BANDWIDTH-BOUND · wire %s → %s (%s ×%d)" % [src.label, m.label, Connection.class_title(c.width), c.lanes]}
+			if not seen.has(c.from_id):
+				seen[c.from_id] = true
+				q.append(c.from_id)
+	return {}
 
 
 func overloaded() -> bool:

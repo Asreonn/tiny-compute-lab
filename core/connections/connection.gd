@@ -21,6 +21,10 @@ var blocked := false  # head packet could not be delivered this tick
 var moved_this_tick := false
 var carried := 0
 var saturated := false  # a waiting packet was refused while the wire flowed (bandwidth-bound, FACTORY_SYSTEMS §2.2)
+## The last 60 ticks of `saturated` as a bit window plus its popcount (O(1) per tick; §7.4).
+var sat_hist := 0
+var sat_cnt := 0
+const BOUND_WINDOW := 60
 
 
 var slots_per_tile := 1  # campaign boards use 2: longer, readable travel (Catalog.CAMPAIGN_SLOTS_PER_TILE)
@@ -85,6 +89,20 @@ func reset() -> void:
 	moved_this_tick = false
 	carried = 0
 	saturated = false
+	sat_hist = 0
+	sat_cnt = 0
+
+
+## Record this tick's saturation into the 60-tick window.
+func note_saturation(flag: bool) -> void:
+	var leaving := (sat_hist >> (BOUND_WINDOW - 1)) & 1
+	sat_hist = ((sat_hist << 1) | int(flag)) & ((1 << BOUND_WINDOW) - 1)
+	sat_cnt += int(flag) - leaving
+
+
+## Share of the last 60 ticks this wire was saturated (0..1).
+func saturation_ratio() -> float:
+	return float(sat_cnt) / float(BOUND_WINDOW)
 
 
 func set_lanes(n: int) -> void:

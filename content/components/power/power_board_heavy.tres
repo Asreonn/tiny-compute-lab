@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ContentVariant" format=3]
+
+[ext_resource type="Resource" path="res://content/components/power/power_board.tres" id="1_8t4w5"]
+[ext_resource type="Script" path="res://core/content/content_variant.gd" id="2_6h9j2"]
+
+[resource]
+script = ExtResource("2_6h9j2")
+id = "power_board_heavy"
+base = ExtResource("1_8t4w5")
+overrides = {
+"name": "Heavy Distribution Board",
+"capacity": 144
+}

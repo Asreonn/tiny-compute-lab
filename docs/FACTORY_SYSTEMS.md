@@ -83,8 +83,11 @@ Tutorial missions and tests may set any value.
 - **Advance:** each lane shifts independently, head first, exactly like today's single lane.
 - **Deliver:** every tick, the heads of all lanes are offered to the target in ascending
   **packet id** order (oldest first) until the target refuses one.
-- A wire is **saturated** in a tick when its entry was refused to a waiting packet while its head
-  lane(s) delivered. Saturation, not length, is the bandwidth bottleneck signal (§7.4).
+- A wire is **saturated** in a tick in either case:
+  - its entry refused a waiting packet while its head lane(s) delivered;
+  - every lane took a value this tick and more still waits upstream (the output line, or a
+    socket's FIFO, which overruns instead of blocking).
+- Saturation, not length, is the bandwidth bottleneck signal (§7.4).
 
 ### 2.3 Sources
 A USB socket pushes into its wire as many values per tick as the wire accepts.

@@ -154,6 +154,16 @@ func quest_rate(q: int) -> float:
 	return float(_q(q).accepted_ticks.size()) * Simulation.TICKS_PER_SEC / 60.0
 
 
+## What bounds quest q's line: the first bound upstream of the drive holding its Job stick.
+func quest_bound(sim: Simulation, q: int) -> Dictionary:
+	var job := quest_job(q)
+	for id in sim.sorted_machine_ids():
+		var m: Machine = sim.machines[id]
+		if m.socket and m.device == job:
+			return sim.first_bound(id)
+	return {}
+
+
 ## The Job stick a quest comes with ("job@11").
 func quest_job(q: int) -> String:
 	return Devices.stick("job", q)

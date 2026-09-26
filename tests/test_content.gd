@@ -25,7 +25,7 @@ static func _components(t) -> void:
 		var d: Dictionary = Catalog.def(type)
 		if not d["family"] in ComponentDef.FAMILIES or not Catalog.SIZES.has(d["size"]):
 			bad.append("%s family/size" % type)
-		if d["family"] != "thermal" and Catalog.logic_script(type) == null:
+		if d["family"] != "thermal" and d["family"] != "power" and Catalog.logic_script(type) == null:
 			bad.append("%s has no logic" % type)
 		if Art.layout(type).is_empty() and d["family"] != "thermal":
 			bad.append("%s has no art layout" % type)

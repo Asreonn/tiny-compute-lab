@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_5f2q1"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_8h3mz"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_9t4ka"]
+
+[resource]
+script = ExtResource("3_9t4ka")
+id = "power_input"
+display_name = "Lab Power Jack"
+family = "power"
+size = "M"
+power = 0
+heat = 0
+description = "The lab's power inlet. Copper never branches without a Distribution Board."
+menu_order = 1100

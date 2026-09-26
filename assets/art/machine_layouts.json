@@ -710,6 +710,176 @@
      ]
     }
    ]
+  },
+  "power_input": {
+   "form": "Module-M",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "PWR",
+    "pos": [
+     24,
+     47
+    ]
+   },
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    24,
+    8
+   ],
+   "ports": []
+  },
+  "power_controller": {
+   "form": "Chip-L",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "CTRL",
+    "pos": [
+     44,
+     93
+    ]
+   },
+   "led": [
+    92,
+    24
+   ],
+   "tab": [
+    34,
+    26
+   ],
+   "ports": []
+  },
+  "power_rail": {
+   "form": "Module-S",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "RAIL",
+    "pos": [
+     14,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    14,
+    6
+   ],
+   "ports": []
+  },
+  "power_rail_heavy": {
+   "form": "Module-S",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "RAIL",
+    "pos": [
+     14,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    14,
+    6
+   ],
+   "ports": []
+  },
+  "power_plane": {
+   "form": "Module-S",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "PLANE",
+    "pos": [
+     14,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    14,
+    6
+   ],
+   "ports": []
+  },
+  "power_plane_heavy": {
+   "form": "Module-S",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "PLANE",
+    "pos": [
+     14,
+     47
+    ]
+   },
+   "led": null,
+   "tab": [
+    14,
+    6
+   ],
+   "ports": []
+  },
+  "power_board": {
+   "form": "Module-M",
+   "family": "power",
+   "area": null,
+   "glyph": null,
+   "display": null,
+   "digits": null,
+   "operator": null,
+   "param": null,
+   "silk": {
+    "text": "BRD",
+    "pos": [
+     24,
+     47
+    ]
+   },
+   "led": [
+    110,
+    6
+   ],
+   "tab": [
+    16,
+    9
+   ],
+   "ports": []
   }
  },
  "areas": {

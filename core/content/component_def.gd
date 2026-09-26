@@ -5,11 +5,11 @@ extends Resource
 ## script when it needs new behaviour, and a layout in assets/art/machine_layouts.json for its
 ## art). Variants of an existing machine are ContentVariant files next to it.
 
-const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal"]
+const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal", "power"]
 
 @export var id := ""
 @export var display_name := ""
-@export_enum("io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal") var family := "math"
+@export_enum("io", "math", "logic", "routing", "conversion", "storage", "memory", "control", "compute", "thermal", "power") var family := "math"
 @export_enum("S", "M", "L") var size := "M"
 ## Job length in ticks: tutorial "legacy" boards and campaign boards (readable dwell).
 @export var ticks := 1
@@ -18,6 +18,8 @@ const FAMILIES := ["io", "math", "logic", "routing", "conversion", "storage", "m
 @export var power := 0
 ## Heat per full-rate tick in tenths of °C; -1 = derived from the power (Catalog.heat_per_power).
 @export var heat := -1
+## Power capacity of a power part (rail / plane / board); 0 for everything else.
+@export var capacity := 0
 ## How many parallel jobs an upgrade may give it (FACTORY_SYSTEMS §3.2); 1 = most machines.
 @export var max_lanes := 1
 ## Operation icon (assets/art/icon/<icon>.svg) or, when empty, the glyph text.
@@ -49,4 +51,6 @@ func to_dict() -> Dictionary:
 		d["glyph_text"] = glyph_text
 	if heat >= 0:
 		d["heat"] = heat
+	if capacity > 0:
+		d["capacity"] = capacity
 	return d

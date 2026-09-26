@@ -58,6 +58,9 @@ var processed := 0
 var busy_ticks := 0
 var blocked_ticks := 0
 var starved_full_ticks := 0  # ticks the inputs were full while busy (bottleneck signal)
+## The last 60 ticks of "all lanes busy and inputs full" as a bit window + popcount (§7.4).
+var bound_hist := 0
+var bound_cnt := 0
 var received_ports: PackedStringArray = PackedStringArray()  # this tick (view flashes)
 var sent_ports: PackedStringArray = PackedStringArray()
 var rr := 0  # round-robin cursor (splitter/merger)
@@ -289,6 +292,8 @@ func port_geom(port_id: String) -> Dictionary:
 
 
 func reset() -> void:
+	bound_hist = 0
+	bound_cnt = 0
 	inq.clear()
 	outq.clear()
 	out_backlog = {}
@@ -514,6 +519,22 @@ func update_state(blocked_now: bool) -> void:
 		state = State.RECEIVING
 	else:
 		state = State.IDLE
+
+
+## Record this tick's compute-bound flag into the 60-tick window.
+func note_compute_bound(flag: bool) -> void:
+	var leaving := (bound_hist >> 59) & 1
+	bound_hist = ((bound_hist << 1) | int(flag)) & ((1 << 60) - 1)
+	bound_cnt += int(flag) - leaving
+
+
+## Share of the last 60 ticks every lane was busy with the inputs full (0..1).
+func compute_bound_ratio() -> float:
+	return float(bound_cnt) / 60.0
+
+
+func total_in_capacity() -> int:
+	return _total_in_capacity()
 
 
 func _total_in_capacity() -> int:

@@ -6,8 +6,8 @@ extends Control
 ## Machines that no level unlocks yet are not listed at all.
 
 const TABS := [["quick", "icon_star", "Favourites and recent"], ["math", "op_add", "Math"], ["logic", "op_compare", "Logic"],
-	["routing", "op_split", "Routing"], ["storage", "op_buffer", "Storage"], ["thermal", "", "Cooling"]]
-const TAB_PITCH := 36.0  # 6 tabs across the 232 px panel
+	["routing", "op_split", "Routing"], ["storage", "op_buffer", "Storage"], ["thermal", "", "Cooling"], ["power", "icon_power", "Power"]]
+const TAB_PITCH := 32.0  # 7 tabs across the 232 px panel
 const IO_TYPES := ["input", "usb_input", "output", "terminal_output", "usb_output"]
 const ITEM_H := 56.0
 const LIST_TOP := 90.0

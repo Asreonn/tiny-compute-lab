@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_2b5v6"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_9d4c7"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_1e8f3"]
+
+[resource]
+script = ExtResource("3_1e8f3")
+id = "power_rail_heavy"
+display_name = "Heavy Rail"
+family = "power"
+size = "S"
+capacity = 48
+power = 0
+heat = 0
+description = "A thick copper rail. Carries 48 units."
+menu_order = 1111

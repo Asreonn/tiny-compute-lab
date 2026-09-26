@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ComponentDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/param_def.gd" id="1_7r2db"]
+[ext_resource type="Script" path="res://core/content/port_def.gd" id="2_3vx5e"]
+[ext_resource type="Script" path="res://core/content/component_def.gd" id="3_6h8wf"]
+
+[sub_resource type="Resource" id="Resource_2n1p9"]
+script = ExtResource("1_7r2db")
+key = "tier"
+label = "Tier"
+kind = "enum"
+options = PackedStringArray("ctrl", "basic", "eff", "hc")
+default_text = "ctrl"
+
+[resource]
+script = ExtResource("3_6h8wf")
+id = "power_controller"
+display_name = "Power Controller"
+family = "power"
+size = "L"
+capacity = 12
+power = 0
+heat = 0
+description = "Feeds the copper grid from the lab supply. Its tier sets how much it can carry."
+menu_order = 1101
+params = Array[ExtResource("1_7r2db")]([SubResource("Resource_2n1p9")])
