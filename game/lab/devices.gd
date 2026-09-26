@@ -129,6 +129,8 @@ static func display_name(kind: String) -> String:
 ## - raw TEXT:  one RawValue per character of every string value ("HI" -> H, I).
 ## - raw other: one RawValue of that kind (NUMBER, KEY, SENSOR) per int value.
 static func make_stream(kind: String, spec: Dictionary) -> Array:
+	if spec.has("source"):  # a Database Dump stick: records of a remote source (DATA_FACTORY §5.3)
+		return SourceStream.stream(str(spec["source"]), int(spec.get("count", 64)))
 	var values: Array = spec.get("values", [])
 	var out: Array = []
 	var d: Dictionary = KINDS.get(base(kind), {})

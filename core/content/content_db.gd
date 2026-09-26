@@ -6,6 +6,8 @@ extends RefCounted
 
 const COMPONENTS_DIR := "res://content/components"
 const DEVICES_DIR := "res://content/devices"
+const SOURCES_DIR := "res://content/network/sources"
+const POPULATION := "res://content/network/population.tres"
 const LAB_CONFIG := "res://content/lab/lab.tres"
 
 

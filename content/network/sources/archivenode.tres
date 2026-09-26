@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="RemoteSourceDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/remote_source_def.gd" id="1_an"]
+
+[resource]
+script = ExtResource("1_an")
+id = "archivenode"
+display_name = "ArchiveNode"
+glyph = "AN"
+width = 32
+fields = Array[Dictionary]([{
+"name": "USER_TAG",
+"width": 6,
+"desc": "who (0 = anonymous)",
+"kind": "id"
+}, {
+"name": "FRESHNESS",
+"width": 4,
+"desc": "freshness",
+"kind": "range"
+}, {
+"name": "QUALITY",
+"width": 3,
+"desc": "quality",
+"kind": "range"
+}, {
+"name": "FLAGS",
+"width": 3,
+"desc": "b2 REDACTED · b1 DUP · b0 STALE",
+"kind": "flags",
+"labels": ["REDACTED", "DUP", "STALE"]
+}, {
+"name": "ARCHIVE_ID",
+"width": 12,
+"desc": "archive id",
+"kind": "id"
+}, {
+"name": "CHECK",
+"width": 4,
+"desc": "integrity check",
+"kind": "range"
+}])
+rate = 3.0
+realtime = false
+remote_buffer = 32
+seed = 303
+p_same = 0.8
+noise = {
+"REDACTED": 0.03,
+"DUP": 0.05,
+"STALE": 0.12,
+"CHECK": 0.1
+}
+value = 1

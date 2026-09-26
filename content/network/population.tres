@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PopulationDef" format=3]
+
+[ext_resource type="Script" path="res://core/content/population_def.gd" id="1_pop"]
+
+[resource]
+script = ExtResource("1_pop")
+count = 63
+seed = 7741

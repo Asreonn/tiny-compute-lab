@@ -44,7 +44,7 @@ static func _components(t) -> void:
 
 
 static func _devices(t) -> void:
-	t.check(Devices.KINDS.size() == 5 and Devices.OUTPUT_KINDS.size() == 3, "5 input sticks and 3 output devices load from content/devices")
+	t.check(Devices.KINDS.size() == 6 and Devices.OUTPUT_KINDS.size() == 3, "6 input sticks and 3 output devices load from content/devices")
 	t.check(Devices.glyph("text@4") == "Aa" and Devices.accent("bit") == "data" and Devices.accent("key") == "io", "a stick's glyph and accent come from its asset")
 	var s := Devices.make_stream("key", {"values": [5, 7]})
 	t.check(s.size() == 2 and s[0] is RawValue and s[0].kind == RawValue.Kind.KEY and s[1].value == 7, "a raw stick's stream follows its raw kind")
